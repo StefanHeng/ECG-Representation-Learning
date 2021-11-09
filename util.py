@@ -1,5 +1,15 @@
 import json
+import math
+
+import numpy as np
+from wfdb import processing
+import matplotlib.pyplot as plt
+import seaborn as sns
+from icecream import ic
+
 from data_path import *
+
+sns.set_style('darkgrid')
 
 
 def config(attr):
@@ -16,6 +26,60 @@ def config(attr):
     for part in attr.split('.'):
         node = node[part]
     return node
+
+
+def plot_single(arr, label=None):
+    """ Plot 1D signal """
+    plt.figure(figsize=(18, 6))
+    plt.plot(np.arange(arr.size), arr, label=f'Signal {label}', marker='o', ms=0.3, lw=0.25)
+    plt.legend()
+    plt.show()
+
+
+def plot_resampling(x, y, x_, y_, title=None):
+    """
+    Plots the original signal pair and it's resampled version
+    """
+    plt.figure(figsize=(16, 9))
+    plt.plot(x, y, marker='o', ms=4, lw=5, label='Original', alpha=0.5)
+    plt.plot(x_, y_, marker='x', ms=4, lw=1, label='Resampled')  # ls=(0, (2, 5)),
+    if title:
+        plt.title(title)
+    plt.legend()
+    plt.show()
+
+
+def plot_rpeak(sig, idx_rpeak, title=None):
+    x = np.arange(sig.size)
+
+    plt.figure(figsize=(16, 9))
+    plt.plot(x, sig, marker='o', ms=0.3, lw=0.25, label='Original', alpha=0.5)
+
+    for i in idx_rpeak:
+        plt.axvline(x=i, c='r', lw=0.5, label='R peak')
+
+    t = 'ECG R-peaks'
+    if title:
+        t = f'{t}, {title}'
+    plt.title(t)
+    plt.legend()
+    plt.show()
+
+
+def refine_rpeak(sig, idxs_peak, fqs, r_wd=100):
+    """
+    :param sig: 1D ECG signal
+    :param idxs_peak: Indices of tentative R peaks
+    :param fqs: Sample frequency
+    :param r_wd: Half range in ms to look for optimal R peak
+    :return: Refined R peak indices
+    """
+    return processing.correct_peaks(
+        sig, idxs_peak,
+        search_radius=math.ceil(fqs * r_wd / 1e3),
+        smooth_window_size=2,  # TODO: what's this?
+        peak_dir='up'
+    )
 
 
 if __name__ == '__main__':
