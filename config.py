@@ -1,3 +1,5 @@
+import glob
+
 import wfdb
 from icecream import ic
 
@@ -34,12 +36,33 @@ config = {
             rec_fmt='**/*.dat',
             path_label='RECORDS'
         ),
+        CSPC=dict(
+            nm='China Physiological Signal Challenge 2018',
+            dir_nm='CSPC-2018',
+            rec_fmt='*.mat',
+        ),
+        CSPC_CinC=dict(
+            nm='China Physiological Signal Challenge 2018 - from CinC',
+            dir_nm='CSPC-2018-CinC',
+            rec_fmt='*.mat'
+        ),
+        CSPC_Extra_CinC=dict(
+            nm='China Physiological Signal Challenge 2018, unused/extra - from CinC',
+            dir_nm='CSPC-2018-Extra-CinC',
+            rec_fmt='*.mat'
+        ),
         my=dict(
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined'
         )
     )
 }
+
+for dnm in ['INCART', 'PTB_XL', 'PTB_Diagnostic']:
+    d_dset = config[DIR_DSET][dnm]
+    dir_nm = d_dset['dir_nm']
+    path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
+    d_dset['n_rec'] = len(glob.glob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
 
 
 if OS == 'Windows':

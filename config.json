@@ -8,19 +8,37 @@
             "dir_nm": "St-Petersburg-INCART",
             "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
             "rec_fmt": "*.dat",
-            "fqs": 257
+            "fqs": 257,
+            "n_rec": 75
         },
         "PTB_XL": {
             "nm": "PTB-XL, a large publicly available electrocardiography dataset",
             "dir_nm": "PTB-XL",
             "rec_fmt": "records500/**/*.dat",
-            "fqs": 500
+            "fqs": 500,
+            "n_rec": 21837
         },
         "PTB_Diagnostic": {
             "nm": "PTB Diagnostic ECG Database",
             "dir_nm": "PTB-Diagnostic",
             "rec_fmt": "**/*.dat",
-            "path_label": "RECORDS"
+            "path_label": "RECORDS",
+            "n_rec": 549
+        },
+        "CSPC": {
+            "nm": "China Physiological Signal Challenge 2018",
+            "dir_nm": "CSPC-2018",
+            "rec_fmt": "*.mat"
+        },
+        "CSPC_CinC": {
+            "nm": "China Physiological Signal Challenge 2018 - from CinC",
+            "dir_nm": "CSPC-2018-CinC",
+            "rec_fmt": "*.mat"
+        },
+        "CSPC_Extra_CinC": {
+            "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
+            "dir_nm": "CSPC-2018-Extra-CinC",
+            "rec_fmt": "*.mat"
         },
         "my": {
             "nm": "Stefan-12-Lead-Combined",

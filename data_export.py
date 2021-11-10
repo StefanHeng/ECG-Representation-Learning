@@ -8,7 +8,7 @@ import wfdb
 from util import *
 
 # pd.set_option('display.width', 200)
-pd.set_option('display.max_columns', 7)
+# pd.set_option('display.max_columns', 7)
 
 
 class DataExport:
@@ -23,7 +23,7 @@ class DataExport:
         cols = ['dataset', 'patient_name', 'record_name', 'record_path']
 
         d_dsets = config('datasets')
-        dnms_selected = ['INCART', 'PTB_XL', 'PTB_Diagnostic']
+        dnms_selected = ['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC']
         dfs = []
         for dnm in dnms_selected:
             d_dset = d_dsets[dnm]
@@ -34,17 +34,7 @@ class DataExport:
                 def ptb_xl(path_r_no_dset):
                     if not hasattr(ptb_xl, 'df__'):
                         ptb_xl.df__ = pd.read_csv(f'{path}/ptbxl_database.csv', usecols=['patient_id', 'filename_hr'])
-                        # ic(ptb_xl.df__)
-                        # ptb_xl.pat_nms = ptb_xl.df__.to_numpy().astype(int).squeeze()
-                        # ptb_xl.count = 0
-
-                    # pat = ptb_xl.pat_nms[ptb_xl.count]
-                    # ptb_xl.count += 1
-                    # return pat
-                    # ic(path_r_no_dset)
                     return int(ptb_xl.df__[ptb_xl.df__.filename_hr == path_r_no_dset].iloc[0]['patient_id'])
-                    # ic(df__, type(df__))
-                    # exit(1)
 
                 def ptb_diagnostic(rec_nm):
                     if not hasattr(ptb_diagnostic, 'df__'):
@@ -54,11 +44,6 @@ class DataExport:
                                 [ln.split('/') for ln in map(str.strip, f.readlines())],
                                 columns=['patient_nm', 'rec_nm']
                             )
-                            # ic(ptb_diagnostic.df__)
-                        # df__ = pd.read_csv(f'{path}/ptbxl_database.csv', usecols=['patient_id'])
-                        # ptb_xl.pat_nms = df__.to_numpy().astype(int).squeeze()
-                        # ptb_xl.count = 0
-
                     return ptb_diagnostic.df__[ptb_diagnostic.df__.rec_nm == rec_nm].iloc[0]['patient_nm']
 
                 d_f = dict(
@@ -82,7 +67,6 @@ class DataExport:
                     PTB_XL=[f'{path_r}/{rec_nm}'[len(dnm)+1:]],
                     PTB_Diagnostic=[rec_nm]
                 )
-                # pat_nm = get_pat_num(rec)
                 pat_nm = get_pat_num(*d_args[dnm])
 
                 return [dnm, pat_nm, rec_nm, path_r]
