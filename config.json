@@ -1,5 +1,20 @@
 {
     "datasets": {
-        "MIT-BIH-MVED": "MIT-BIH Malignant Ventricular Ectopy Database"
+        "BIH_MVED": {
+            "nm": "MIT-BIH Malignant Ventricular Ectopy Database",
+            "dir_nm": "MIT-BIH-MVED"
+        },
+        "INCART": {
+            "dir_nm": "St-Petersburg-INCART",
+            "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
+            "rec_fmt": "*.dat",
+            "fqs": 257
+        },
+        "PTB_XL": {
+            "nm": "PTB-XL, a large publicly available electrocardiography dataset",
+            "dir_nm": "PTB-XL",
+            "rec_fmt": "records500/**/*.dat",
+            "fqs": 500
+        }
     }
 }
