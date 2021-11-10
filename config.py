@@ -15,8 +15,8 @@ fnm = f'../datasets/{d_incart["dir_nm"]}/{rnm}'
 d_incart['fqs'] = wfdb.rdrecord(fnm, sampto=1).fs
 
 
-config = dict(
-    datasets=dict(
+config = {
+    DIR_DSET: dict(
         BIH_MVED=dict(
             nm='MIT-BIH Malignant Ventricular Ectopy Database',
             dir_nm='MIT-BIH-MVED'
@@ -28,12 +28,18 @@ config = dict(
             rec_fmt='records500/**/*.dat',
             fqs=500
         ),
+        PTB_Diagnostic=dict(
+            nm='PTB Diagnostic ECG Database',
+            dir_nm='PTB-Diagnostic',
+            rec_fmt='**/*.dat',
+            path_label='RECORDS'
+        ),
         my=dict(
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined'
         )
     )
-)
+}
 
 
 if OS == 'Windows':

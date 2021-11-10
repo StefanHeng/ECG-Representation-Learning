@@ -16,6 +16,12 @@
             "rec_fmt": "records500/**/*.dat",
             "fqs": 500
         },
+        "PTB_Diagnostic": {
+            "nm": "PTB Diagnostic ECG Database",
+            "dir_nm": "PTB-Diagnostic",
+            "rec_fmt": "**/*.dat",
+            "path_label": "RECORDS"
+        },
         "my": {
             "nm": "Stefan-12-Lead-Combined",
             "dir_nm": "Stef-Combined"
