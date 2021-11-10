@@ -1,6 +1,7 @@
 import glob
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from icecream import ic
 import wfdb
@@ -23,7 +24,7 @@ class DataExport:
         cols = ['dataset', 'patient_name', 'record_name', 'record_path']
 
         d_dsets = config('datasets')
-        dnms_selected = ['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC']
+        dnms_selected = ['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC']
         dfs = []
         for dnm in dnms_selected:
             d_dset = d_dsets[dnm]
@@ -46,10 +47,24 @@ class DataExport:
                             )
                     return ptb_diagnostic.df__[ptb_diagnostic.df__.rec_nm == rec_nm].iloc[0]['patient_nm']
 
+                def cspc_cinc():
+                    if not hasattr(cspc_cinc, 'n'):
+                        cspc_cinc.n = 0
+                    n = cspc_cinc.n
+                    cspc_cinc.n += 1
+                    return n
+
+                def cspc_extra_cinc():
+                    if not hasattr(cspc_extra_cinc, 'nan'):
+                        cspc_cinc.nan = float('nan')
+                    return cspc_cinc.nan
+
                 d_f = dict(
                     INCART=lambda rec_: rec_.comments[1],
                     PTB_XL=ptb_xl,
-                    PTB_Diagnostic=ptb_diagnostic
+                    PTB_Diagnostic=ptb_diagnostic,
+                    CSPC_CinC=cspc_cinc,
+                    CSPC_Extra_CinC=cspc_extra_cinc
                 )
                 return d_f[dnm]
 
@@ -65,7 +80,9 @@ class DataExport:
                 d_args = dict(
                     INCART=[rec],
                     PTB_XL=[f'{path_r}/{rec_nm}'[len(dnm)+1:]],
-                    PTB_Diagnostic=[rec_nm]
+                    PTB_Diagnostic=[rec_nm],
+                    CSPC_CinC=[],
+                    CSPC_Extra_CinC=[]
                 )
                 pat_nm = get_pat_num(*d_args[dnm])
 
@@ -76,11 +93,13 @@ class DataExport:
             ic(df_)
             dfs.append(df_)
         df = pd.concat(dfs, ignore_index=True)
-
+        df = df.apply(lambda x: x.astype('category'))
         ic(df)
-        dir_my = config('datasets.my.dir_nm')
-        ic(dir_my)
-        df.to_csv(f'{PATH_BASE}/{DIR_DSET}/{dir_my}/records.csv', sep='\t')
+
+        d_my = config('datasets.my')
+        fnm = f'{PATH_BASE}/{DIR_DSET}/{d_my["dir_nm"]}/{d_my["rec_labels"]}'
+        df.to_csv(fnm)
+        print(f'Exported to {fnm}')
 
 
 if __name__ == '__main__':

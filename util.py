@@ -3,6 +3,7 @@ import math
 from functools import reduce
 
 import numpy as np
+import pandas as pd
 from wfdb import processing
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -113,6 +114,13 @@ def refine_rpeak(sig, idxs_peak, fqs, r_wd=100):
         smooth_window_size=2,  # TODO: what's this?
         peak_dir='up'
     )
+
+
+def get_my_rec_labels():
+    d_my = config(f'{DIR_DSET}.my')
+    recs_csv_fnm = f'{PATH_BASE}/{DIR_DSET}/{d_my["dir_nm"]}/{d_my["rec_labels"]}'
+    df = pd.read_csv(recs_csv_fnm)
+    return df.apply(lambda x: x.astype('category'))
 
 
 if __name__ == '__main__':
