@@ -62,7 +62,9 @@ def plot_rpeak(sig, idx_rpeak, title=None):
     if title:
         t = f'{t}, {title}'
     plt.title(t)
-    plt.legend()
+    handles, labels = plt.gca().get_legend_handles_labels()  # Distinct labels
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
     plt.show()
 
 
