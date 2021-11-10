@@ -43,7 +43,7 @@ def config(attr):
     Loads the config file on first call.
     """
     if not hasattr(config, 'config'):
-        with open(f'{PATH_BASE}/config.json') as f:
+        with open(f'{PATH_BASE}/{DIR_PROJ}/config.json') as f:
             config.config = json.load(f)
 
     # node = config.config
