@@ -1,6 +1,9 @@
 import wfdb
 from icecream import ic
 
+from util import *
+from data_path import *
+
 
 d_incart = dict(
     dir_nm='St-Petersburg-INCART',
@@ -24,13 +27,24 @@ config = dict(
             dir_nm='PTB-XL',
             rec_fmt='records500/**/*.dat',
             fqs=500
+        ),
+        my=dict(
+            nm='Stefan-12-Lead-Combined',
+            dir_nm='Stef-Combined'
         )
     )
 )
 
+
+if OS == 'Windows':
+    for k in keys(config):
+        val = get(config, k)
+        if type(val) is str:
+            set_(config, k, val.replace('/', '\\'))
+
+
 if __name__ == '__main__':
     import json
-    from data_path import *
 
     fl_nm = 'config.json'
     ic(config)

@@ -22,6 +22,12 @@ def get(dic, ks):
     return reduce(lambda acc, elm: acc[elm], ks, dic)
 
 
+def set_(dic, ks, val):
+    ks = ks.split('.')
+    node = reduce(lambda acc, elm: acc[elm], ks[:-1], dic)
+    node[ks[-1]] = val
+
+
 def keys(dic, prefix=''):
     """
     :return: Generator for all potentially-nested keys

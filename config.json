@@ -15,6 +15,10 @@
             "dir_nm": "PTB-XL",
             "rec_fmt": "records500/**/*.dat",
             "fqs": 500
+        },
+        "my": {
+            "nm": "Stefan-12-Lead-Combined",
+            "dir_nm": "Stef-Combined"
         }
     }
 }
