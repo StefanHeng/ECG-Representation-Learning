@@ -1,9 +1,11 @@
 import json
 import math
+import glob
 from functools import reduce
 
 import numpy as np
 import pandas as pd
+import wfdb
 from wfdb import processing
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -58,6 +60,20 @@ def config(attr):
     #     node = node[part]
     # return node
     return get(config.config, attr)
+
+
+def get_record_eg(dnm, n=1):
+    """
+    Get an arbitrary record
+
+    :param dnm: Dataset name
+    :param n: Number of samples in the record
+    """
+    d_dset = config(f'{DIR_DSET}.{dnm}')
+    dir_nm = d_dset['dir_nm']
+    path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
+    rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+    return wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=n)
 
 
 def plot_single(arr, label=None):

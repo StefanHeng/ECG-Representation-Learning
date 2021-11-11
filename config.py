@@ -1,19 +1,11 @@
 import glob
 from math import isnan
 
-import numpy as np
-import pandas as pd
 import wfdb
 from icecream import ic
 
 from util import *
 from data_path import *
-
-
-# d_incart =
-# rnm = 'I01'
-# fnm = f'../datasets/{d_incart["dir_nm"]}/{rnm}'
-# d_incart['fqs'] = wfdb.rdrecord(fnm, sampto=1).fs
 
 
 config = {
@@ -31,7 +23,6 @@ config = {
             nm='PTB-XL, a large publicly available electrocardiography dataset',
             dir_nm='PTB-XL',
             rec_fmt='records500/**/*.dat',
-            # fqs=500
         ),
         PTB_Diagnostic=dict(
             nm='PTB Diagnostic ECG Database',
@@ -71,36 +62,16 @@ config = {
 df = get_my_rec_labels()
 for dnm in df['dataset'].unique():
     df_ = df[df['dataset'] == dnm]
-    # uniqs =
-    # ic(uniqs, type(uniqs), len(uniqs))
-    # n_rec = df_.shape[0]
-
     d_dset = config[DIR_DSET][dnm]
 
     d_dset['n_rec'] = df_.shape[0]
 
     uniqs = df_['patient_name'].unique()
-    # n_pat =
-    # if dnm == 'CSPC_Extra_CinC':
-    #     n = df_['patient_name'].unique()
-    #     ic(n[0], n[0] == np.NaN, type(n[0]), float('nan'), float('nan') == n[0], isnan(n[0]))
-
     d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and isnan(uniqs[0]) else len(uniqs)
 
     path = f'{PATH_BASE}/{DIR_DSET}/{d_dset["dir_nm"]}'
     rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
-    # ic(rec_path)
-    # rec = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1)
-    # ic(rec.fs)
     d_dset['fqs'] = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1).fs
-
-
-
-# for dnm in ['INCART', 'PTB_XL', 'PTB_Diagnostic']:
-#     d_dset = config[DIR_DSET][dnm]
-#     dir_nm = d_dset['dir_nm']
-#     path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
-#     d_dset['n_rec'] = len(glob.glob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
 
 
 if OS == 'Windows':
