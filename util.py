@@ -45,6 +45,11 @@ def keys(dic, prefix=''):
             yield _full(k)
 
 
+def remove_1st_occurrence(str_, str_sub):
+    idx = str_.find(str_sub)
+    return str_[:idx] + str_[idx+len(str_sub):]
+
+
 def config(attr):
     """
     Retrieves the queried attribute value from the config file.
@@ -139,6 +144,16 @@ def get_my_rec_labels():
     return df.apply(lambda x: x.astype('category'))
 
 
+def get_rec_paths(dnm):
+    d_dsets = config('datasets')
+    d_dset = d_dsets[dnm]
+    dir_nm = d_dset['dir_nm']
+    path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
+    return sorted(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+
+
 if __name__ == '__main__':
     from icecream import ic
     ic(config('datasets.BIH_MVED'))
+
+    ic(remove_1st_occurrence('E00002.mat 12 500 5000 05-May-2020 14:50:55', '.mat'))

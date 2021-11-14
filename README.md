@@ -7,7 +7,7 @@ ECG data generated, pre-train a model to understand ECG signals.
 
 
 ## The combined dataset 
-TODO 
+TODO: WIP
 
 ## To use 
 Have the datasets linked above installed. 

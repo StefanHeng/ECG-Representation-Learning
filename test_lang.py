@@ -20,6 +20,17 @@ if __name__ == '__main__':
     # plt.legend()
     # plt.show()
 
-    import pandas as pd
-    df = pd.concat([pd.DataFrame([i], columns=['A']) for i in range(5)], ignore_index=True)
-    ic(df)
+    # import pandas as pd
+    # df = pd.concat([pd.DataFrame([i], columns=['A']) for i in range(5)], ignore_index=True)
+    # ic(df)
+
+    sub = '.mat'
+    s = 'E00002.mat 12 500 5000 05-May-2020 14:50:55'
+    idx = s.find(sub)
+    # ic(idx)
+    s_ = s[:idx] + s[idx+len(sub):]
+    # ic(idx + len(sub))
+    # ic(s[:idx], s[:idx+len(sub)], s[10:])
+    ic(s[:idx], s[idx+len(sub):])
+    ic(s, s_)
+
