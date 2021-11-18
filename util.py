@@ -59,26 +59,7 @@ def config(attr):
     if not hasattr(config, 'config'):
         with open(f'{PATH_BASE}/{DIR_PROJ}/config.json') as f:
             config.config = json.load(f)
-
-    # node = config.config
-    # for part in attr.split('.'):
-    #     node = node[part]
-    # return node
     return get(config.config, attr)
-
-
-def get_record_eg(dnm, n=1):
-    """
-    Get an arbitrary record
-
-    :param dnm: Dataset name
-    :param n: Number of samples in the record
-    """
-    d_dset = config(f'{DIR_DSET}.{dnm}')
-    dir_nm = d_dset['dir_nm']
-    path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
-    rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
-    return wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=n)
 
 
 def plot_single(arr, label=None):
@@ -145,11 +126,42 @@ def get_my_rec_labels():
 
 
 def get_rec_paths(dnm):
-    d_dsets = config('datasets')
-    d_dset = d_dsets[dnm]
+    d_dset = config(f'{DIR_DSET}.{dnm}')
     dir_nm = d_dset['dir_nm']
     path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
     return sorted(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+
+
+def get_record_eg(dnm, n=1):
+    """
+    Get an arbitrary record
+
+    :param dnm: Dataset name
+    :param n: Number of samples in the record
+
+    .. note:: Works only if a wfdb record file exists
+    """
+    # d_dset = config(f'{DIR_DSET}.{dnm}')
+    # dir_nm = d_dset['dir_nm']
+    # path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
+    # rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+    rec_path = get_rec_paths(dnm)[0]
+    return wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=n)
+
+
+def get_signal_eg(dnm=None, n=None, l=None):
+    """
+    :param dnm: Dataset name, sampled at random if not given
+    :param n: Entry in the dataset, sampled at random if not given
+    :param l: Up until `l` time steps
+    :return: A 12*`l` array of raw signal samples
+    """
+    if dnm is None:
+        dsets = config('datasets_export.total')
+        idx = np.random.randint(len(dsets))
+        dnm = dsets[idx]
+        ic(idx, dnm)
+
 
 
 if __name__ == '__main__':

@@ -8,16 +8,16 @@
             "dir_nm": "St-Petersburg-INCART",
             "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
             "rec_fmt": "*.dat",
-            "n_rec": 75,
-            "n_pat": 32,
+            "n_rec": 5,
+            "n_pat": 2,
             "fqs": 257
         },
         "PTB_XL": {
             "nm": "PTB-XL, a large publicly available electrocardiography dataset",
             "dir_nm": "PTB-XL",
             "rec_fmt": "records500/**/*.dat",
-            "n_rec": 21837,
-            "n_pat": 18885,
+            "n_rec": 5,
+            "n_pat": 5,
             "fqs": 500
         },
         "PTB_Diagnostic": {
@@ -25,8 +25,8 @@
             "dir_nm": "PTB-Diagnostic",
             "rec_fmt": "**/*.dat",
             "path_label": "RECORDS",
-            "n_rec": 549,
-            "n_pat": 290,
+            "n_rec": 5,
+            "n_pat": 3,
             "fqs": 1000
         },
         "CSPC": {
@@ -38,27 +38,66 @@
             "nm": "China Physiological Signal Challenge 2018 - from CinC",
             "dir_nm": "CSPC-2018-CinC",
             "rec_fmt": "*.mat",
-            "n_rec": 6877,
-            "n_pat": 6877,
+            "n_rec": 5,
+            "n_pat": 5,
             "fqs": 500
         },
         "CSPC_Extra_CinC": {
             "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
             "dir_nm": "CSPC-2018-Extra-CinC",
             "rec_fmt": "*.mat",
-            "n_rec": 3453,
+            "n_rec": 5,
             "n_pat": "Unknown",
             "fqs": 500
         },
         "G12EC": {
             "nm": "Georgia 12-lead ECG Challenge (G12EC) Database",
             "dir_nm": "Georgia-12-Lead",
-            "rec_fmt": "*.mat"
+            "rec_fmt": "*.mat",
+            "n_rec": 5,
+            "n_pat": "Unknown",
+            "fqs": 500
+        },
+        "CHAP_SHAO": {
+            "nm": "Chapman University, Shaoxing People\u2019s Hospital 12-lead ECG Database",
+            "dir_nm": "Chapman-Shaoxing",
+            "rec_fmt": "ECGData/*.csv",
+            "fqs": 500,
+            "n_rec": 5,
+            "n_pat": 5
+        },
+        "CODE_TEST": {
+            "nm": "CODE-test: An annotated 12-lead ECG dataset",
+            "dir_nm": "CODE-test",
+            "rec_fmt": "ecg_tracings.hdf5",
+            "fqs": 400,
+            "n_rec": 0,
+            "n_pat": 0
         },
         "my": {
             "nm": "Stefan-12-Lead-Combined",
             "dir_nm": "Stef-Combined",
             "rec_labels": "records.csv"
         }
+    },
+    "datasets_export": {
+        "total": [
+            "INCART",
+            "PTB_XL",
+            "PTB_Diagnostic",
+            "CSPC_CinC",
+            "CSPC_Extra_CinC",
+            "G12EC",
+            "CHAP_SHAO",
+            "CODE_TEST"
+        ],
+        "support_wfdb": [
+            "INCART",
+            "PTB_XL",
+            "PTB_Diagnostic",
+            "CSPC_CinC",
+            "CSPC_Extra_CinC",
+            "G12EC"
+        ]
     }
 }

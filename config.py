@@ -1,3 +1,4 @@
+import os
 import glob
 from math import isnan
 
@@ -50,35 +51,56 @@ config = {
             dir_nm='Georgia-12-Lead',
             rec_fmt='*.mat'
         ),
+        CHAP_SHAO=dict(
+            nm='Chapman University, Shaoxing People’s Hospital 12-lead ECG Database',
+            dir_nm='Chapman-Shaoxing',
+            rec_fmt='ECGData/*.csv',
+            # Taken from paper
+            # *A 12-lead electrocardiogram database for arrhythmia research covering more than 10,000 patients*
+            fqs=500
+        ),
+        CODE_TEST=dict(
+            nm='CODE-test: An annotated 12-lead ECG dataset',
+            dir_nm='CODE-test',
+            rec_fmt='ecg_tracings.hdf5',
+            fqs=400
+        ),
         my=dict(
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined',
             rec_labels='records.csv'
         )
+    ),
+    'datasets_export': dict(
+        total=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC', 'CHAP_SHAO', 'CODE_TEST'],
+        support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
     )
+
 }
 
 
 df = get_my_rec_labels()
-for dnm in df['dataset'].unique():
+sup = config['datasets_export']['support_wfdb']
+for dnm in config['datasets_export']['total']:
     df_ = df[df['dataset'] == dnm]
     d_dset = config[DIR_DSET][dnm]
 
     d_dset['n_rec'] = df_.shape[0]
 
     uniqs = df_['patient_name'].unique()
+    # ic(dnm, uniqs)
     d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and isnan(uniqs[0]) else len(uniqs)
 
-    path = f'{PATH_BASE}/{DIR_DSET}/{d_dset["dir_nm"]}'
-    rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
-    d_dset['fqs'] = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1).fs
+    if dnm in sup:
+        path = f'{PATH_BASE}/{DIR_DSET}/{d_dset["dir_nm"]}'
+        rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+        d_dset['fqs'] = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1).fs
 
 
-if OS == 'Windows':
-    for k in keys(config):
-        val = get(config, k)
-        if type(val) is str:
-            set_(config, k, val.replace('/', '\\'))
+for k in keys(config):  # Accommodate other OS
+    val = get(config, k)
+    if k[k.rfind('.')+1:] == 'dir_nm':
+        set_(config, k, os.path.join(*val.split('/')))
 
 
 if __name__ == '__main__':
