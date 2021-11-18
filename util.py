@@ -3,6 +3,7 @@ import math
 import glob
 from functools import reduce
 
+import h5py
 import numpy as np
 import pandas as pd
 import wfdb
@@ -132,12 +133,14 @@ def get_rec_paths(dnm):
     return sorted(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
 
 
-def get_record_eg(dnm, n=1):
+def get_record_eg(dnm, n=0, ln=None):
     """
     Get an arbitrary record
 
     :param dnm: Dataset name
-    :param n: Number of samples in the record
+    :param n: Entry in the dataset
+    :param ln: Number of samples in the record
+        if None, full record returned
 
     .. note:: Works only if a wfdb record file exists
     """
@@ -145,27 +148,49 @@ def get_record_eg(dnm, n=1):
     # dir_nm = d_dset['dir_nm']
     # path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
     # rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
-    rec_path = get_rec_paths(dnm)[0]
-    return wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=n)
+    rec_path = get_rec_paths(dnm)[n]
+    kwargs = dict(
+        sampto=ln
+    )
+    for k, v in kwargs.items():
+        if k is None:
+            del kwargs[v]
+    return wfdb.rdrecord(rec_path[:rec_path.index('.')], **kwargs)
 
 
-def get_signal_eg(dnm=None, n=None, l=None):
+def get_signal_eg(dnm=None, n=None):
     """
     :param dnm: Dataset name, sampled at random if not given
     :param n: Entry in the dataset, sampled at random if not given
-    :param l: Up until `l` time steps
     :return: A 12*`l` array of raw signal samples
     """
     if dnm is None:
         dsets = config('datasets_export.total')
         idx = np.random.randint(len(dsets))
         dnm = dsets[idx]
-        ic(idx, dnm)
+    if n is None:
+        n = np.random.randint(config(f'{DIR_DSET}.{dnm}.n_rec'))
 
+    if dnm == 'CHAP_SHAO':
+        fnm = get_rec_paths(dnm)[n]
+        df = pd.read_csv(fnm)
+        return df.to_numpy()
+    elif dnm == 'CODE_TEST':
+        fnm = get_rec_paths(dnm)[0]  # 1 hdf5 file
+        rec = h5py.File(fnm, 'r')
+        return rec['tracings'][n]
+    else:
+        return get_record_eg(dnm, n=n).p_signal
 
 
 if __name__ == '__main__':
     from icecream import ic
-    ic(config('datasets.BIH_MVED'))
+    np.random.seed(77)
 
-    ic(remove_1st_occurrence('E00002.mat 12 500 5000 05-May-2020 14:50:55', '.mat'))
+    # ic(config('datasets.BIH_MVED'))
+
+    # ic(remove_1st_occurrence('E00002.mat 12 500 5000 05-May-2020 14:50:55', '.mat'))
+
+    ic(get_signal_eg(dnm='G12EC', n=0).shape)
+    ic(get_signal_eg(dnm='CHAP_SHAO', n=0))
+    ic(get_signal_eg(dnm='CODE_TEST', n=0).shape)

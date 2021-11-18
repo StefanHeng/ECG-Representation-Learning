@@ -74,8 +74,8 @@ config = {
     'datasets_export': dict(
         total=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC', 'CHAP_SHAO', 'CODE_TEST'],
         support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
-    )
-
+    ),
+    'random_seed': 77
 }
 
 
@@ -88,7 +88,6 @@ for dnm in config['datasets_export']['total']:
     d_dset['n_rec'] = df_.shape[0]
 
     uniqs = df_['patient_name'].unique()
-    # ic(dnm, uniqs)
     d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and isnan(uniqs[0]) else len(uniqs)
 
     if dnm in sup:
