@@ -76,7 +76,7 @@ config = {
         support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
     ),
     'random_seed': 77,
-    'pre-processing': dict(
+    'pre_processing': dict(
         zhang=dict(
             low_pass=dict(
                 passband=50,

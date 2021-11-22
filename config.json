@@ -100,5 +100,15 @@
             "G12EC"
         ]
     },
-    "random_seed": 77
+    "random_seed": 77,
+    "pre_processing": {
+        "zhang": {
+            "low_pass": {
+                "passband": 50,
+                "stopband": 60,
+                "passband_ripple": 1,
+                "stopband_attenuation": 2.5
+            }
+        }
+    }
 }

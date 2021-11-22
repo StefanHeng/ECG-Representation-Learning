@@ -3,6 +3,7 @@ import math
 import os
 import glob
 from functools import reduce
+import pathlib
 
 import h5py
 import numpy as np
@@ -47,6 +48,15 @@ def keys(dic, prefix=''):
             yield _full(k)
 
 
+def stem(path, ext=False):
+    """
+    :param path: A potentially full path to a file
+    :param ext: If True, file extensions is preserved
+    :return: The file name, without parent directories
+    """
+    return os.path.basename(path) if ext else pathlib.Path(path).stem
+
+
 def remove_1st_occurrence(str_, str_sub):
     idx = str_.find(str_sub)
     return str_[:idx] + str_[idx+len(str_sub):]
@@ -70,19 +80,22 @@ def save_fig(save, title):
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
 
 
-def plot_1d(arr, label=None, title=None, save=False, **kwargs):
+def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, **kwargs):
     """ Plot potentially multiple 1D signals """
     # kwargs = dict(
     #     label=label
     # )
 
     def _plot(a, lb):
+        a = a[s:e]
         plt.plot(np.arange(a.size), a, marker='o', ms=0.3, lw=0.25, label=lb, **kwargs)
     plt.figure(figsize=(18, 6), constrained_layout=True)
-    if isinstance(arr, list):
-        _ = [_plot(a, lb) for a, lb in zip(arr, label)]  # Execute
-    else:
-        _plot(arr, label)
+    if not isinstance(arr, list):
+        arr = [arr]
+    lbl = [None for _ in arr] if label is None else label
+    _ = [_plot(a, lb) for a, lb in zip(arr, lbl)]  # Execute
+    # else:
+    #     _plot(arr, label)
     if label:
         plt.legend()
     if title:
