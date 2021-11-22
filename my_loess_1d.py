@@ -56,7 +56,7 @@ Changelog
 
 """
 import numpy as np
-
+from util import *
 
 ################################################################################
 
@@ -139,7 +139,7 @@ def rotate_points(x, y, ang):
 ################################################################################
 
 
-def loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, sigy=None):
+def my_loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, sigy=None):
     """
     loess_1d
     ========
@@ -261,19 +261,25 @@ def loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, si
         # Use errors if those are known.
         #
         bad = None
-        for p in range(10):  # do at most 10 iterations
+        for p in range(5):  # do at most 10 iterations
 
             if sigy is None:  # Errors are unknown
                 aerr = np.abs(yfit - y[w])  # Note ABS()
+                # plot_1d(aerr)
                 mad = np.median(aerr)  # Characteristic scale
+                # Same as the MATLAB implementation in setting those beyond 6 std to 0?
                 uu = (aerr / (6 * mad)) ** 2  # For a Gaussian: sigma=1.4826*MAD
+                # plot_1d(uu)
             else:  # Errors are assumed known
                 uu = ((yfit - y[w]) / (4 * sigy[w])) ** 2  # 4*sig ~ 6*mad
 
+            # plot_1d([uu, uu.clip(0, 1)], label=['uu before clip', 'uu after clip'])
+            # plot_1d([(1 - uu) ** 2, (1 - uu.clip(0, 1)) ** 2], label=['biweights without clip', 'biweights with clip'])
             uu = uu.clip(0, 1)
             biweights = (1 - uu) ** 2
             tot_weights = dist_weights * biweights
             poly = polyfit1d(x[w], y[w], degree, tot_weights)
+            # ic(poly.yfit[0])
             yfit = poly.yfit
             badOld = bad
             bad = biweights < 0.34  # 99% confidence outliers
@@ -281,17 +287,26 @@ def loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, si
                 break
 
         if np.array_equal(x, xnew):
+            # ic('here', yfit[0])
             ynew[j] = yfit[0]
+            # ic(ynew[j], yfit[0])
+            # ic(type(ynew[j]), ynew[j])
+            # if ynew[j].is_integer():
+            #     ic(yfit[0])
             wout[j] = biweights[0]
         else:
+            ic('ever here??')
+            exit(1)
             ynew[j] = poly.eval(xj)
             wout[j] = 1
 
     if rotate:
+        ic('or here?')
         xnew, ynew = rotate_points(xnew, ynew, -angles[k])
         j = np.argsort(xnew)
         xnew, ynew = xnew[j], ynew[j]
 
+    ic(ynew[:45])
     return xnew, ynew, wout
 
 ################################################################################

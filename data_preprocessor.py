@@ -29,8 +29,13 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from loess import loess_1d
 from my_loess import loess
+from my_loess_1d import my_loess_1d
 from agramfort_lowess import lowess
 import statsmodels.api as sm
+
+
+def force_odd(x):
+    return 2 * math.floor(x/2) + 1
 
 
 class DataPreprocessor:
@@ -69,7 +74,6 @@ class DataPreprocessor:
         w_stop = 60 / nyq  # Not sure why stopband corner frequency is 60Hz
         r_pass, r_stop = 1, 2.5  # What are passband ripple and stopband attenuation for?
         # return lfilter(*r, signal)
-nlm
         ord_, wn = signal.buttord(w_pass, w_stop, r_pass, r_stop)
         b, a = signal.butter(ord_, wn, btype='low')
         # ic(ord_, wn)
@@ -77,11 +81,12 @@ nlm
 
     def rloess(self, sig):
         # _, y, _ = loess_1d.loess_1d(np.arange(sig.size), sig, degree=2, frac=0.1)
-        _, y, _ = loess_1d.loess_1d(np.arange(sig.size), sig, degree=2, npoints=601)
+        # _, y, _ = loess_1d.loess_1d(np.arange(sig.size), sig, degree=2, npoints=501)
+        _, y, _ = my_loess_1d(np.arange(sig.size).astype(np.float64), sig, degree=2, npoints=force_odd(500))
         # ic(xout, yout, wout)
-        # _, y = loess(np.arange(sig.size), sig, alpha=0.1, robustify=True, poly_degree=2)
+        # _, y = loess(np.arange(sig.size), sig, alpha=0.1, robustify=True, poly_degree=2)  # Doesn't terminate
         # y = lowess(np.arange(sig.size), sig, f=0.1, iter=5)
-        # y = sm.nonparametric.lowess(sig, np.arange(sig.size), frac=0.05, it=5, return_sorted=False)
+        # y = sm.nonparametric.lowess(sig, np.arange(sig.size), frac=0.1, it=5, return_sorted=False)
         return y
 
     @staticmethod
@@ -155,6 +160,8 @@ if __name__ == '__main__':
 
     from util import *
 
+    ic([force_odd(x) for x in range(10)])
+
     dnm = 'CHAP_SHAO'
     fnm = get_rec_paths(dnm)[77]
     df = pd.read_csv(fnm)
@@ -180,6 +187,7 @@ if __name__ == '__main__':
     # np.testing.assert_almost_equal(lowpass, truth_lowpass, decimal=0)
     rloess = dp.zheng(s)
     ic(rloess[:5], truth_rloess[:5])
-    plot_1d([s, rloess, truth_rloess], label=['raw', 'mine', 'ori'])
-    np.testing.assert_almost_equal(rloess, truth_rloess, decimal=0)
+    plot_1d([s, rloess, truth_rloess], label=['raw', 'my', 'ori'])
+    # plot_1d([s, s - rloess, s - truth_rloess], label=['raw', 'my smoothed', 'ori smoothed'], save=True)
+    np.allclose(rloess, truth_rloess, rtol=10)
 

@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import glob
 from functools import reduce
 
@@ -63,7 +64,13 @@ def config(attr):
     return get(config.config, attr)
 
 
-def plot_1d(arr, label=None, title=None, **kwargs):
+def save_fig(save, title):
+    if save:
+        fnm = f'{title}.png'
+        plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
+
+
+def plot_1d(arr, label=None, title=None, save=False, **kwargs):
     """ Plot potentially multiple 1D signals """
     # kwargs = dict(
     #     label=label
@@ -71,7 +78,7 @@ def plot_1d(arr, label=None, title=None, **kwargs):
 
     def _plot(a, lb):
         plt.plot(np.arange(a.size), a, marker='o', ms=0.3, lw=0.25, label=lb, **kwargs)
-    plt.figure(figsize=(18, 6))
+    plt.figure(figsize=(18, 6), constrained_layout=True)
     if isinstance(arr, list):
         _ = [_plot(a, lb) for a, lb in zip(arr, label)]  # Execute
     else:
@@ -80,6 +87,7 @@ def plot_1d(arr, label=None, title=None, **kwargs):
         plt.legend()
     if title:
         plt.title(title)
+    save_fig(save, title)
     plt.show()
 
 
