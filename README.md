@@ -17,14 +17,11 @@ in root level.
 
 
 In the file specify the following variables with
-your system data path, and relative repository & dataset folder names, and
-an `OS` variable
-as shown below, `/` will be replaced by `\` for 'Windows'.
+your system data path, and relative repository & dataset folder names, an example below:
 ```python
 PATH_BASE = '/Users/stefanh/Documents/UMich/Research/ECG-Classify'  # Absolute system path for root directory 
 DIR_PROJ = 'ECG-Representation-Learning'  # Repo root folder name
 DIR_DSET = 'datasets'  # Dataset root folder name
-OS = 'Mac'  # 'Windows' for Windows
 ``` 
 
 
