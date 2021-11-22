@@ -75,7 +75,17 @@ config = {
         total=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC', 'CHAP_SHAO', 'CODE_TEST'],
         support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
     ),
-    'random_seed': 77
+    'random_seed': 77,
+    'pre-processing': dict(
+        zhang=dict(
+            low_pass=dict(
+                passband=50,
+                stopband=60,
+                passband_ripple=1,
+                stopband_attenuation=2.5
+            )
+        )
+    )
 }
 
 

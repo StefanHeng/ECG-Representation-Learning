@@ -63,11 +63,23 @@ def config(attr):
     return get(config.config, attr)
 
 
-def plot_single(arr, label=None):
-    """ Plot 1D signal """
+def plot_1d(arr, label=None, title=None, **kwargs):
+    """ Plot potentially multiple 1D signals """
+    # kwargs = dict(
+    #     label=label
+    # )
+
+    def _plot(a, lb):
+        plt.plot(np.arange(a.size), a, marker='o', ms=0.3, lw=0.25, label=lb, **kwargs)
     plt.figure(figsize=(18, 6))
-    plt.plot(np.arange(arr.size), arr, label=f'Signal {label}', marker='o', ms=0.3, lw=0.25)
-    plt.legend()
+    if isinstance(arr, list):
+        _ = [_plot(a, lb) for a, lb in zip(arr, label)]  # Execute
+    else:
+        _plot(arr, label)
+    if label:
+        plt.legend()
+    if title:
+        plt.title(title)
     plt.show()
 
 
