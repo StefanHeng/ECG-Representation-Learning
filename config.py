@@ -77,12 +77,16 @@ config = {
     ),
     'random_seed': 77,
     'pre_processing': dict(
-        zhang=dict(
+        zheng=dict(
             low_pass=dict(
                 passband=50,
                 stopband=60,
                 passband_ripple=1,
                 stopband_attenuation=2.5
+            ),
+            nlm=dict(
+                smooth_factor=1.5,
+                window_size=10
             )
         )
     )

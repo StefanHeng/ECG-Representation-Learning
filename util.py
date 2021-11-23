@@ -216,6 +216,37 @@ def get_signal_eg(dnm=None, n=None):
         return get_record_eg(dnm, n=n).p_signal
 
 
+def get_nlm_denoise_truth(verbose=False):
+    dnm = 'CHAP_SHAO'
+    fnm = get_rec_paths(dnm)[77]
+    fnm_stem = stem(fnm)
+    dbg_path = os.path.join(PATH_BASE, DIR_DSET, config(f'{DIR_DSET}.{dnm}.dir_nm'), 'my_denoise_debugging')
+    if verbose:
+        ic(fnm, fnm_stem)
+        ic(dbg_path)
+
+    df = pd.read_csv(fnm)
+    df_de = pd.read_csv(fnm.replace('ECGData', 'ECGDataDenoised'), header=None)
+    if verbose:
+        ic(len(df))
+        ic(df_de.head(6))
+        ic(df_de.iloc[:6, 0])
+
+    fnm_lowpass = os.path.join(dbg_path, f'{fnm_stem}, lowpass.csv')
+    fnm_rloess = os.path.join(dbg_path, f'{fnm_stem}, rloess.csv')
+    fnm_localres = os.path.join(dbg_path, f'{fnm_stem}, localres.csv')
+    fnm_after2nd = os.path.join(dbg_path, f'{fnm_stem}, after2nd.csv')
+
+    return (
+        df.iloc[:]['I'].to_numpy(),
+        df_de.iloc[:][0].to_numpy(),
+        pd.read_csv(fnm_lowpass, header=None).iloc[:, 0].to_numpy(),
+        pd.read_csv(fnm_rloess, header=None).iloc[:, 0].to_numpy(),
+        pd.read_csv(fnm_localres, header=None).iloc[:, 0].to_numpy(),
+        pd.read_csv(fnm_after2nd, header=None).iloc[:, 0].to_numpy()
+    )
+
+
 if __name__ == '__main__':
     from icecream import ic
     np.random.seed(77)

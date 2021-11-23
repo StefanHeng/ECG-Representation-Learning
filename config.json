@@ -102,12 +102,16 @@
     },
     "random_seed": 77,
     "pre_processing": {
-        "zhang": {
+        "zheng": {
             "low_pass": {
                 "passband": 50,
                 "stopband": 60,
                 "passband_ripple": 1,
                 "stopband_attenuation": 2.5
+            },
+            "nlm": {
+                "smooth_factor": 1.5,
+                "window_size": 10
             }
         }
     }
