@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from icecream import ic
-import wfdb
+import wfdb, wfdb.processing
 
 from util import *
 
@@ -39,6 +39,8 @@ class RecDataExport:
         """
         self.d_dsets = config('datasets')
         self.dsets_exp = config('datasets_export')
+        self.d_my = config('datasets.my')
+        self.path_exp = os.path.join(PATH_BASE, DIR_DSET, self.d_my['dir_nm'])
 
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
         self.fqs = fqs
@@ -138,7 +140,7 @@ class RecDataExport:
             return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
 
         # recs = sorted(glob.iglob(os.path.join(path, d_dset['rec_fmt']), recursive=True))[:5]
-        rec_nms = self.rec_nms(dnm)
+        rec_nms = self.rec_nms(dnm)[:5]
         if dnm == 'CODE_TEST':
             rows = get_row_code_test(rec_nms)
         else:
@@ -153,23 +155,78 @@ class RecDataExport:
         df = df.apply(lambda x: x.astype('category'))
         ic(df)
 
-        d_my = config('datasets.my')
-        fnm = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'], d_my['fnm_labels'])
+        fnm = os.path.join(self.path_exp, self.d_my['fnm_labels'])
         df.to_csv(fnm)
         print(f'Exported to {fnm}')
 
-    def export_dset(self, dnm):
+    def export_dset(self, dnm, resample=True, normalize=''):
+        """
+        Normalization by mean & std across the entire dataset
+        :param dnm: Dataset name
+        :param resample: If true, resample to export `fqs`
+        :param normalize: Normalization approach
+            If `0-mean`, normalize to mean of 0 and standard deviation of 1
+            If `3std`, normalize data within 3 standard deviation to range of [-1, 1]
+        :return:
+        """
         assert dnm in self.dsets_exp['total']
         d_dset = self.d_dsets[dnm]
 
         rec_nms = self.rec_nms(dnm)
+        # nm = rec_nms[0]
         # ic(rec_nms)
-        nm = rec_nms[0]
-        ic(nm)
-        rec = wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix']))
+        # ic(nm)
+        # def get_sig(fnm):
+        #     rec = wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix']))
+        #     sig = rec.p_signal.T  # (12 channels x #samples)
+        #     assert len(sig.shape) == 2 and sig.shape[0] == 12
+        #
+        #     # rec = get_record_eg(dnm)
+        #     ic(sig.shape)
+        # sigs = np.stack([wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix'])).p_signal.T for nm in rec_nms])
+        sigs = np.stack(  # Concurrency
+            list(conc_map(lambda nm: wfdb.rdrecord(nm.removesuffix(d_dset['rec_ext'])).p_signal.T, rec_nms))
+        )
+        ic(sigs[0].shape)
+        fqs = d_dset['fqs']
+        ic(fqs)
+        # y, x = wfdb.processing.resample_sig(sigs[0, 0], fqs, 500)
+        # ic(y.shape, x[:10])
 
-        # rec = get_record_eg(dnm)
-        ic(rec.p_signal.shape)
+        def _resample(sig):  # Seems to work with 1D signal only
+            return np.stack([wfdb.processing.resample_sig(s, fqs, 500)[0] for s in sig])
+        # ic(_resample(sigs[0]).shape)
+        if resample:
+            # sigs, _ = wfdb.processing.resample_sig(sigs, d_dset['fqs'], 500)
+            sigs = np.stack(
+                list(conc_map(_resample, sigs))
+            )
+        shape = sigs.shape
+        ic(shape)
+        assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
+        assert not np.isnan(sigs).any()
+
+        mean, std = sigs.mean(), sigs.std()
+        sigs = (sigs - mean) / std
+
+        fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
+        ic(fnm)
+        exit(1)
+        open(fl_nm, 'a').close()  # Create file in OS
+        fl = h5py.File(fl_nm, 'w')
+        fl.attrs['feat_stor_idxs'] = json.dumps(self.ENC_FEAT_STOR)
+        fl.attrs['brg_nms'] = json.dumps(self.FLDR_NMS)
+        fl.attrs['nums_msr'] = json.dumps(self.NUMS_MESR)
+        fl.attrs['feat_disp_nms'] = json.dumps({idx: nm for idx, nm in enumerate(extr.D_PROP_FUNC)})
+        print(f'Metadata attributes created: {list(fl.attrs.keys())}')
+        for idx_brg, test_nm in enumerate(self.FLDR_NMS):
+            group = fl.create_group(test_nm)
+            for acc in ['hori', 'vert']:
+                arr_extr = np.stack([
+                    self.get_feature_series(idx_brg, func, acc) for k, func in extr.D_PROP_FUNC.items()
+                ])
+                group.create_dataset(acc, data=arr_extr)
+        print(f'Features extracted: {[nm for nm in fl]}')
 
 
 if __name__ == '__main__':

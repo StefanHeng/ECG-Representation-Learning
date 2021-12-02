@@ -4,6 +4,7 @@ import os
 import glob
 from functools import reduce
 import pathlib
+import concurrent.futures
 
 import h5py
 import numpy as np
@@ -46,6 +47,18 @@ def keys(dic, prefix=''):
                 yield k__
         else:
             yield _full(k)
+
+
+def conc_map(fn, it):
+    """
+    Wrapper for `concurrent.futures.map`
+
+    :param fn: A function
+    :param it: A list of elements
+    :return: Iterator of `lst` elements mapped by `fn` with concurrency
+    """
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        return executor.map(fn, it)
 
 
 def stem(path, ext=False):

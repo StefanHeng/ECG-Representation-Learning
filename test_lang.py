@@ -1,5 +1,6 @@
 from icecream import ic
 
+from util import conc_map
 
 if __name__ == '__main__':
     # import numpy as np
@@ -43,10 +44,20 @@ if __name__ == '__main__':
     # df = pd.DataFrame([1, 2])
     # ic(df)
 
-    def alternate(lst1, lst2):
-        lst = [None] * (len(lst1)+len(lst2))
-        lst[::2] = lst1
-        lst[1::2] = lst2
-        return lst
-    ic(alternate(['f', 'o', 'o'], ['hello', 'world']))
+    # def alternate(lst1, lst2):
+    #     lst = [None] * (len(lst1)+len(lst2))
+    #     lst[::2] = lst1
+    #     lst[1::2] = lst2
+    #     return lst
+    # ic(alternate(['f', 'o', 'o'], ['hello', 'world']))
 
+    # import concurrent.futures
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    #     # lst = [outcome for outcome in executor.map(lambda x: x**2, range(10))]
+    #     lst = list(executor.map(lambda x: x**2, range(10)))
+    # ic(lst, sum(lst) / 10)
+    # ic(clst_map(lambda x: x**2, range(10)))
+    # ic(list(clst_map(lambda x: x**2, range(10))))
+
+    fmt = '%s %s'
+    ic(fmt % (1, 2))

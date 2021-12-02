@@ -75,7 +75,8 @@ config = {
         my=dict(
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined',
-            fnm_labels='records.csv'
+            fnm_labels='records.csv',
+            rec_fmt='%s-processed.hdf5',
         )
     ),
     'datasets_export': dict(
@@ -126,7 +127,7 @@ for k in keys(config):  # Accommodate other OS
 for dnm, d in config[DIR_DSET].items():
     if 'rec_fmt' in d:
         fmt = d['rec_fmt']
-        d['rec_suffix'] = fmt[fmt.index('.'):]
+        d['rec_ext'] = fmt[fmt.index('.'):]
 
 
 if __name__ == '__main__':
