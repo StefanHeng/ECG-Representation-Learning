@@ -68,7 +68,7 @@ config = {
         my=dict(
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined',
-            rec_labels='records.csv'
+            fnm_labels='records.csv'
         )
     ),
     'datasets_export': dict(
