@@ -34,8 +34,19 @@ if __name__ == '__main__':
     # ic(s[:idx], s[idx+len(sub):])
     # ic(s, s_)
 
-    import numpy as np
-    arr = np.arange(5)
-    ic(arr)
-    ic(arr[1:-1])
+    # import numpy as np
+    # arr = np.arange(5)
+    # ic(arr)
+    # ic(arr[1:-1])
+
+    # import pandas as pd
+    # df = pd.DataFrame([1, 2])
+    # ic(df)
+
+    def alternate(lst1, lst2):
+        lst = [None] * (len(lst1)+len(lst2))
+        lst[::2] = lst1
+        lst[1::2] = lst2
+        return lst
+    ic(alternate(['f', 'o', 'o'], ['hello', 'world']))
 

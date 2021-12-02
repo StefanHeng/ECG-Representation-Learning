@@ -125,7 +125,7 @@ class DataExport:
                 n_pat = h5py.File(fnm, 'r')['tracings'].shape[0]
                 return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
 
-            recs = sorted(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+            recs = sorted(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))[:3]
             if dnm == 'CODE_TEST':
                 rows = get_row_code_test(recs)
             else:
