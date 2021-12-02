@@ -154,7 +154,7 @@ def refine_rpeak(sig, idxs_peak, fqs, r_wd=100):
 
 def get_my_rec_labels():
     d_my = config(f'{DIR_DSET}.my')
-    recs_csv_fnm = f'{PATH_BASE}/{DIR_DSET}/{d_my["dir_nm"]}/{d_my["rec_labels"]}'
+    recs_csv_fnm = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'], d_my['fnm_labels'])
     df = pd.read_csv(recs_csv_fnm)
     return df.apply(lambda x: x.astype('category'))
 

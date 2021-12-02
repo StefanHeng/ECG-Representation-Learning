@@ -10,7 +10,8 @@
             "rec_fmt": "*.dat",
             "n_rec": 75,
             "n_pat": 32,
-            "fqs": 257
+            "fqs": 257,
+            "rec_suffix": ".dat"
         },
         "PTB_XL": {
             "nm": "PTB-XL, a large publicly available electrocardiography dataset",
@@ -18,7 +19,8 @@
             "rec_fmt": "records500/**/*.dat",
             "n_rec": 21837,
             "n_pat": 18885,
-            "fqs": 500
+            "fqs": 500,
+            "rec_suffix": ".dat"
         },
         "PTB_Diagnostic": {
             "nm": "PTB Diagnostic ECG Database",
@@ -27,12 +29,14 @@
             "path_label": "RECORDS",
             "n_rec": 549,
             "n_pat": 290,
-            "fqs": 1000
+            "fqs": 1000,
+            "rec_suffix": ".dat"
         },
         "CSPC": {
             "nm": "China Physiological Signal Challenge 2018",
             "dir_nm": "CSPC-2018",
-            "rec_fmt": "*.mat"
+            "rec_fmt": "*.mat",
+            "rec_suffix": ".mat"
         },
         "CSPC_CinC": {
             "nm": "China Physiological Signal Challenge 2018 - from CinC",
@@ -40,7 +44,8 @@
             "rec_fmt": "*.mat",
             "n_rec": 6877,
             "n_pat": 6877,
-            "fqs": 500
+            "fqs": 500,
+            "rec_suffix": ".mat"
         },
         "CSPC_Extra_CinC": {
             "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
@@ -48,7 +53,8 @@
             "rec_fmt": "*.mat",
             "n_rec": 3453,
             "n_pat": "Unknown",
-            "fqs": 500
+            "fqs": 500,
+            "rec_suffix": ".mat"
         },
         "G12EC": {
             "nm": "Georgia 12-lead ECG Challenge (G12EC) Database",
@@ -56,7 +62,8 @@
             "rec_fmt": "*.mat",
             "n_rec": 10344,
             "n_pat": "Unknown",
-            "fqs": 500
+            "fqs": 500,
+            "rec_suffix": ".mat"
         },
         "CHAP_SHAO": {
             "nm": "Chapman University, Shaoxing People\u2019s Hospital 12-lead ECG Database",
@@ -64,7 +71,8 @@
             "rec_fmt": "ECGData/*.csv",
             "fqs": 500,
             "n_rec": 10646,
-            "n_pat": 10646
+            "n_pat": 10646,
+            "rec_suffix": ".csv"
         },
         "CODE_TEST": {
             "nm": "CODE-test: An annotated 12-lead ECG dataset",
@@ -72,7 +80,8 @@
             "rec_fmt": "ecg_tracings.hdf5",
             "fqs": 400,
             "n_rec": 827,
-            "n_pat": 827
+            "n_pat": 827,
+            "rec_suffix": ".hdf5"
         },
         "my": {
             "nm": "Stefan-12-Lead-Combined",

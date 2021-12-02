@@ -18,38 +18,45 @@ config = {
         INCART=dict(
             dir_nm='St-Petersburg-INCART',
             nm='St Petersburg INCART 12-lead Arrhythmia Database',
-            rec_fmt='*.dat'  # For glob search
+            rec_fmt='*.dat',  # For glob search
+            # rec_suffix='.dat'
         ),
         PTB_XL=dict(
             nm='PTB-XL, a large publicly available electrocardiography dataset',
             dir_nm='PTB-XL',
             rec_fmt='records500/**/*.dat',
+            # rec_suffix='.dat'
         ),
         PTB_Diagnostic=dict(
             nm='PTB Diagnostic ECG Database',
             dir_nm='PTB-Diagnostic',
             rec_fmt='**/*.dat',
+            # rec_suffix='.dat',
             path_label='RECORDS'
         ),
         CSPC=dict(
             nm='China Physiological Signal Challenge 2018',
             dir_nm='CSPC-2018',
             rec_fmt='*.mat',
+            # rec_suffix='.mat'
         ),
         CSPC_CinC=dict(
             nm='China Physiological Signal Challenge 2018 - from CinC',
             dir_nm='CSPC-2018-CinC',
-            rec_fmt='*.mat'
+            rec_fmt='*.mat',
+            # rec_suffix='.mat'
         ),
         CSPC_Extra_CinC=dict(
             nm='China Physiological Signal Challenge 2018, unused/extra - from CinC',
             dir_nm='CSPC-2018-Extra-CinC',
-            rec_fmt='*.mat'
+            rec_fmt='*.mat',
+            # rec_suffix='.mat'
         ),
         G12EC=dict(
             nm='Georgia 12-lead ECG Challenge (G12EC) Database',
             dir_nm='Georgia-12-Lead',
-            rec_fmt='*.mat'
+            rec_fmt='*.mat',
+            # rec_suffix='.mat'
         ),
         CHAP_SHAO=dict(
             nm='Chapman University, Shaoxing People’s Hospital 12-lead ECG Database',
@@ -114,6 +121,12 @@ for k in keys(config):  # Accommodate other OS
     val = get(config, k)
     if k[k.rfind('.')+1:] == 'dir_nm':
         set_(config, k, os.path.join(*val.split('/')))
+
+
+for dnm, d in config[DIR_DSET].items():
+    if 'rec_fmt' in d:
+        fmt = d['rec_fmt']
+        d['rec_suffix'] = fmt[fmt.index('.'):]
 
 
 if __name__ == '__main__':

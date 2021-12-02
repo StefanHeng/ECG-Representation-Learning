@@ -21,10 +21,8 @@ def fix_g12ec_headers():
     ic(recs[:5], len(recs))
     for r in recs:
         r = r.removesuffix('.mat') + '.hea'
-        # r += '.hea'
         with open(r, 'r') as f:
             lns = f.readlines()
-            # ic(lns)
             lns[0] = remove_1st_occurrence(lns[0], '.mat')
         with open(r, 'w') as f:
             f.write(''.join(lns))
@@ -40,12 +38,20 @@ class RecDataExport:
         :param fqs: (Potentially re-sampling) frequency
         """
         self.d_dsets = config('datasets')
-        self.exp = config('datasets_export')
+        self.dsets_exp = config('datasets_export')
 
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
+        self.fqs = fqs
 
     def __call__(self):
-        self._export_labels()
+        # self.export_labels()
+        self.export_dset('INCART')
+
+    def rec_nms(self, dnm):
+        d_dset = self.d_dsets[dnm]
+        return sorted(
+            glob.iglob(os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'], d_dset['rec_fmt']), recursive=True)
+        )
 
     def get_label_df(self, dnm):
         d_dset = self.d_dsets[dnm]
@@ -124,24 +130,26 @@ class RecDataExport:
             pat_nm = get_pat_num(*d_args[dnm])
             return [dnm, pat_nm, rec_nm, path_r]
 
-        def get_row_code_test(recs_):
-            fnm = recs_[0]  # Only 1 hdf5 file
+        def get_row_code_test(rec_nms_):
+            assert len(rec_nms_) == 1  # Only 1 hdf5 file
+            fnm = rec_nms_[0]
             path_r, rec_nm = get_relative_path_n_name(fnm)
             n_pat = h5py.File(fnm, 'r')['tracings'].shape[0]
             return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
 
-        recs = sorted(glob.iglob(os.path.join(path, d_dset['rec_fmt']), recursive=True))[:5]
+        # recs = sorted(glob.iglob(os.path.join(path, d_dset['rec_fmt']), recursive=True))[:5]
+        rec_nms = self.rec_nms(dnm)
         if dnm == 'CODE_TEST':
-            rows = get_row_code_test(recs)
+            rows = get_row_code_test(rec_nms)
         else:
-            rows = [get_row(fnm) for fnm in recs]
+            rows = [get_row(fnm) for fnm in rec_nms]
         df = pd.concat([pd.DataFrame([r], columns=self.lbl_cols) for r in rows], ignore_index=True)
         ic(df)
         # dfs.append(df_)
         return df
 
-    def _export_labels(self):
-        df = pd.concat([self.get_label_df(dnm) for dnm in self.exp['total']], ignore_index=True)
+    def export_labels(self):
+        df = pd.concat([self.get_label_df(dnm) for dnm in self.dsets_exp['total']], ignore_index=True)
         df = df.apply(lambda x: x.astype('category'))
         ic(df)
 
@@ -149,6 +157,19 @@ class RecDataExport:
         fnm = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'], d_my['fnm_labels'])
         df.to_csv(fnm)
         print(f'Exported to {fnm}')
+
+    def export_dset(self, dnm):
+        assert dnm in self.dsets_exp['total']
+        d_dset = self.d_dsets[dnm]
+
+        rec_nms = self.rec_nms(dnm)
+        # ic(rec_nms)
+        nm = rec_nms[0]
+        ic(nm)
+        rec = wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix']))
+
+        # rec = get_record_eg(dnm)
+        ic(rec.p_signal.shape)
 
 
 if __name__ == '__main__':
