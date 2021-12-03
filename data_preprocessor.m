@@ -69,8 +69,9 @@ classdef data_preprocessor
                 sig (1, :) {mustBeNumeric}
                 fqs {mustBeNumeric}
             end
-            ret = data_preprocessor.butterworth_low_pass(sig)
-            ret = ret - data_preprocessor.rloess(ret, fqs)
+            ret = data_preprocessor.butterworth_low_pass(sig);
+            ret = ret - data_preprocessor.rloess(ret, fqs);
+            ret = data_preprocessor.nlm(ret);
         end
 
         function ret = butterworth_low_pass(sig, opn)
@@ -82,7 +83,6 @@ classdef data_preprocessor
                 opn.r_pass {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.passband_ripple
                 opn.r_stop {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.stopband_attenuation
             end
-            opn
             nyq = 0.5 * opn.fqs;
             [n, wn] = buttord(opn.w_pass / nyq, opn.w_stop / nyq, opn.r_pass, opn.r_stop);
             [bz, az] = butter(n, wn);
@@ -95,8 +95,6 @@ classdef data_preprocessor
                 n {mustBeNumeric}
             end
             ret = smooth(1:length(sig), sig, n, 'rloess').';  % For shape 1 x numel(sig)
-            'what the size'
-            size(ret)
         end
 
         function ret = est_noise_std(sig)
@@ -108,7 +106,7 @@ classdef data_preprocessor
             for i = 2:length(res)-1
                 res(i) = (2*res(i) - res(i-1) - res(i+1)) / sq;
             end
-            ret = 1.4826 * median(abs(res - median(res)))
+            ret = 1.4826 * median(abs(res - median(res)));
         end
 
         function ret = nlm(sig, opn)
@@ -118,9 +116,7 @@ classdef data_preprocessor
                 opn.sch_wd {mustBeNumeric} = NaN
                 opn.patch_wd {mustBeNumeric} = data_preprocessor.C_ZHENG.nlm.window_size
             end
-            size(sig)
-            NaN
-            sch_wd = opn.sch_wd || numel(sig)
+            if ~isnan(opn.sch_wd) sch_wd = opn.sch_wd; else sch_wd = numel(sig); end
             ret = nlm(sig, opn.scale * data_preprocessor.est_noise_std(sig), sch_wd, opn.patch_wd);
         end
     end

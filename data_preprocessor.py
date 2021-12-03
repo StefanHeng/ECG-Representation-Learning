@@ -39,6 +39,9 @@ class DataPreprocessor:
     CONFIG = config('pre_processing.zheng')
 
     def zheng(self, sig, fqs=500):
+        """
+        Zheng et al's denoising approach
+        """
         sig = self.butterworth_low_pass(sig)
         sig -= self.rloess(sig, n=fqs)
         return self.nlm(sig)
