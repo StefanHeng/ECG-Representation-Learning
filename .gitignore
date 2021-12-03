@@ -1,3 +1,4 @@
+*.ipynb linguist-vendored
 .DS_Store
 .idea/
 
