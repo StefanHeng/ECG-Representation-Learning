@@ -64,6 +64,15 @@ classdef data_preprocessor
     end
 
     methods (Static)
+        function ret = zheng(sig, fqs)
+            arguments
+                sig (1, :) {mustBeNumeric}
+                fqs {mustBeNumeric}
+            end
+            ret = data_preprocessor.butterworth_low_pass(sig)
+            ret = ret - data_preprocessor.rloess(ret, fqs)
+        end
+
         function ret = butterworth_low_pass(sig, opn)
             arguments
                 sig (1, :) {mustBeNumeric}
@@ -73,10 +82,46 @@ classdef data_preprocessor
                 opn.r_pass {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.passband_ripple
                 opn.r_stop {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.stopband_attenuation
             end
-%            opn.fqs
-%            opn.w_pass
             opn
+            nyq = 0.5 * opn.fqs;
+            [n, wn] = buttord(opn.w_pass / nyq, opn.w_stop / nyq, opn.r_pass, opn.r_stop);
+            [bz, az] = butter(n, wn);
+            ret = filtfilt(bz, az, sig);
+        end
+
+        function ret = rloess(sig, n)
+            arguments
+                sig (1, :) {mustBeNumeric}
+                n {mustBeNumeric}
+            end
+            ret = smooth(1:length(sig), sig, n, 'rloess').';  % For shape 1 x numel(sig)
+            'what the size'
+            size(ret)
+        end
+
+        function ret = est_noise_std(sig)
+            arguments
+                sig (1, :) {mustBeNumeric}
+            end
+            res = sig;
+            sq = sqrt(6);
+            for i = 2:length(res)-1
+                res(i) = (2*res(i) - res(i-1) - res(i+1)) / sq;
+            end
+            ret = 1.4826 * median(abs(res - median(res)))
+        end
+
+        function ret = nlm(sig, opn)
+            arguments
+                sig (1, :) {mustBeNumeric}
+                opn.scale {mustBeNumeric} = data_preprocessor.C_ZHENG.nlm.smooth_factor
+                opn.sch_wd {mustBeNumeric} = NaN
+                opn.patch_wd {mustBeNumeric} = data_preprocessor.C_ZHENG.nlm.window_size
+            end
             size(sig)
+            NaN
+            sch_wd = opn.sch_wd || numel(sig)
+            ret = nlm(sig, opn.scale * data_preprocessor.est_noise_std(sig), sch_wd, opn.patch_wd);
         end
     end
 end
