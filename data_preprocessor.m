@@ -59,7 +59,6 @@
 
 classdef data_preprocessor
     properties (Constant)
-        config = util.get_config();
         C_ZHENG = util.config.pre_processing.zheng;
     end
 
