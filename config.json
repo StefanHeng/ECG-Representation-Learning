@@ -1,4 +1,9 @@
 {
+    "meta": {
+        "path_base": "/Users/stefanh/Documents/UMich/Research/ECG-Classify",
+        "dir_proj": "ECG-Representation-Learning",
+        "dir_dset": "datasets"
+    },
     "datasets": {
         "BIH_MVED": {
             "nm": "MIT-BIH Malignant Ventricular Ectopy Database",
@@ -8,8 +13,8 @@
             "dir_nm": "St-Petersburg-INCART",
             "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
             "rec_fmt": "*.dat",
-            "n_rec": 75,
-            "n_pat": 32,
+            "n_rec": 5,
+            "n_pat": 2,
             "fqs": 257,
             "rec_ext": ".dat"
         },
@@ -17,8 +22,8 @@
             "nm": "PTB-XL, a large publicly available electrocardiography dataset",
             "dir_nm": "PTB-XL",
             "rec_fmt": "records500/**/*.dat",
-            "n_rec": 21837,
-            "n_pat": 18885,
+            "n_rec": 5,
+            "n_pat": 5,
             "fqs": 500,
             "rec_ext": ".dat"
         },
@@ -27,8 +32,8 @@
             "dir_nm": "PTB-Diagnostic",
             "rec_fmt": "**/*.dat",
             "path_label": "RECORDS",
-            "n_rec": 549,
-            "n_pat": 290,
+            "n_rec": 5,
+            "n_pat": 3,
             "fqs": 1000,
             "rec_ext": ".dat"
         },
@@ -42,8 +47,8 @@
             "nm": "China Physiological Signal Challenge 2018 - from CinC",
             "dir_nm": "CSPC-2018-CinC",
             "rec_fmt": "*.mat",
-            "n_rec": 6877,
-            "n_pat": 6877,
+            "n_rec": 5,
+            "n_pat": 5,
             "fqs": 500,
             "rec_ext": ".mat"
         },
@@ -51,7 +56,7 @@
             "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
             "dir_nm": "CSPC-2018-Extra-CinC",
             "rec_fmt": "*.mat",
-            "n_rec": 3453,
+            "n_rec": 5,
             "n_pat": "Unknown",
             "fqs": 500,
             "rec_ext": ".mat"
@@ -60,7 +65,7 @@
             "nm": "Georgia 12-lead ECG Challenge (G12EC) Database",
             "dir_nm": "Georgia-12-Lead",
             "rec_fmt": "*.mat",
-            "n_rec": 10344,
+            "n_rec": 5,
             "n_pat": "Unknown",
             "fqs": 500,
             "rec_ext": ".mat"
@@ -70,8 +75,8 @@
             "dir_nm": "Chapman-Shaoxing",
             "rec_fmt": "ECGData/*.csv",
             "fqs": 500,
-            "n_rec": 10646,
-            "n_pat": 10646,
+            "n_rec": 5,
+            "n_pat": 5,
             "rec_ext": ".csv"
         },
         "CODE_TEST": {

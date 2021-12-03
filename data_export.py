@@ -5,9 +5,11 @@ import h5py
 import numpy as np
 import pandas as pd
 from icecream import ic
-import wfdb, wfdb.processing
+import wfdb
+import wfdb.processing
 
 from util import *
+from data_preprocessor import DataPreprocessor
 
 # pd.set_option('display.width', 200)
 # pd.set_option('display.max_columns', 7)
@@ -42,12 +44,14 @@ class RecDataExport:
         self.d_my = config('datasets.my')
         self.path_exp = os.path.join(PATH_BASE, DIR_DSET, self.d_my['dir_nm'])
 
+        self.dp = DataPreprocessor()
+
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
         self.fqs = fqs
 
     def __call__(self):
         # self.export_labels()
-        self.export_dset('INCART')
+        self.export_dset('G12EC')
 
     def rec_nms(self, dnm):
         d_dset = self.d_dsets[dnm]
@@ -172,66 +176,75 @@ class RecDataExport:
         assert dnm in self.dsets_exp['total']
         d_dset = self.d_dsets[dnm]
 
-        rec_nms = self.rec_nms(dnm)
-        # nm = rec_nms[0]
-        # ic(rec_nms)
-        # ic(nm)
-        # def get_sig(fnm):
-        #     rec = wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix']))
-        #     sig = rec.p_signal.T  # (12 channels x #samples)
-        #     assert len(sig.shape) == 2 and sig.shape[0] == 12
-        #
-        #     # rec = get_record_eg(dnm)
-        #     ic(sig.shape)
+        rec_nms = self.rec_nms(dnm)[:5]
         # sigs = np.stack([wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix'])).p_signal.T for nm in rec_nms])
+        print(f'{now()}| Reading in {len(rec_nms)} records... ')
         sigs = np.stack(  # Concurrency
             list(conc_map(lambda nm: wfdb.rdrecord(nm.removesuffix(d_dset['rec_ext'])).p_signal.T, rec_nms))
         )
-        ic(sigs[0].shape)
         fqs = d_dset['fqs']
-        ic(fqs)
-        # y, x = wfdb.processing.resample_sig(sigs[0, 0], fqs, 500)
-        # ic(y.shape, x[:10])
-
-        def _resample(sig):  # Seems to work with 1D signal only
-            return np.stack([wfdb.processing.resample_sig(s, fqs, 500)[0] for s in sig])
-        # ic(_resample(sigs[0]).shape)
-        if resample:
-            # sigs, _ = wfdb.processing.resample_sig(sigs, d_dset['fqs'], 500)
-            sigs = np.stack(
-                list(conc_map(_resample, sigs))
-            )
+        print(f'{now()}| ... of shape {sigs.shape} and frequency {fqs}Hz')
         shape = sigs.shape
-        ic(shape)
+        # ic(shape)
+        # ic(fqs)
         assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
         assert not np.isnan(sigs).any()
 
+        if resample and self.fqs != fqs:
+            print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
+            sigs = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
+                lambda sig: np.stack([wfdb.processing.resample_sig(s, fqs, self.fqs)[0] for s in sig]), sigs)
+            ))
+            fqs = self.fqs
+        dsets = dict(
+            ori=sigs
+        )
+
+        print(f'{now()}| Denoising signals... ')
+        # sigs_denoised = np.stack(
+        #     list(conc_map(lambda sig: np.stack([self.dp.zheng(s) for s in sig]), sigs))
+        # )
+        sigs_denoised = np.stack(
+            [np.stack([self.dp.zheng(s) for s in sig]) for sig in sigs]
+        )
+        dsets['denoised'] = sigs_denoised
+
         mean, std = sigs.mean(), sigs.std()
-        sigs = (sigs - mean) / std
+        sigs_normalized = (sigs_denoised - mean) / std
+        dsets['normalized'] = sigs_normalized
 
         fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
-        ic(fnm)
-        exit(1)
-        open(fl_nm, 'a').close()  # Create file in OS
-        fl = h5py.File(fl_nm, 'w')
-        fl.attrs['feat_stor_idxs'] = json.dumps(self.ENC_FEAT_STOR)
-        fl.attrs['brg_nms'] = json.dumps(self.FLDR_NMS)
-        fl.attrs['nums_msr'] = json.dumps(self.NUMS_MESR)
-        fl.attrs['feat_disp_nms'] = json.dumps({idx: nm for idx, nm in enumerate(extr.D_PROP_FUNC)})
-        print(f'Metadata attributes created: {list(fl.attrs.keys())}')
-        for idx_brg, test_nm in enumerate(self.FLDR_NMS):
-            group = fl.create_group(test_nm)
-            for acc in ['hori', 'vert']:
-                arr_extr = np.stack([
-                    self.get_feature_series(idx_brg, func, acc) for k, func in extr.D_PROP_FUNC.items()
-                ])
-                group.create_dataset(acc, data=arr_extr)
-        print(f'Features extracted: {[nm for nm in fl]}')
+        print(f'{now()}| Writing processed signals to [{stem(fnm, ext=True)}]...')
+        open(fnm, 'a').close()  # Create file in OS
+        fl = h5py.File(fnm, 'w')
+        fl.attrs['meta'] = json.dumps(dict(
+            dnm=dnm,
+            mean=mean,
+            std=std,
+            fqs=fqs
+        ))
+        print(f'{now()}| Metadata attributes created: {list(fl.attrs.keys())}')
+        for dnm, data in dsets:
+            fl.create_dataset(dnm, data=data)
+        # fl.create_dataset('data-processed', data=[1, 2, 3])
+        # for idx_brg, test_nm in enumerate(self.FLDR_NMS):
+        #     group = fl.create_group(test_nm)
+        #     for acc in ['hori', 'vert']:
+        #         arr_extr = np.stack([
+        #             self.get_feature_series(idx_brg, func, acc) for k, func in extr.D_PROP_FUNC.items()
+        #         ])
+        #         group.create_dataset(acc, data=arr_extr)
+        print(f'{now()}| Dataset processing complete: {[nm for nm in fl]}')
 
 
 if __name__ == '__main__':
     de = RecDataExport()
     de()
+
+    def sanity_check():
+        """
+        Check the data processing result
+        """
 
     # fix_g12ec_headers()
 

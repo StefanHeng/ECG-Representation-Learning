@@ -153,7 +153,9 @@ if __name__ == '__main__':
 
     # ic([force_odd(x) for x in range(10)])
 
-    s, truth_denoised, truth_lowpass, truth_rloess, truth_localres, truth_after2nd = get_nlm_denoise_truth(verbose=True)
+    s, truth_denoised, truth_lowpass, truth_rloess, truth_localres, truth_after2nd = get_nlm_denoise_truth(
+        verbose=False
+    )
     # plot_1d([s, truth_denoised], label=['Original', 'Denoised, truth'], e=2 ** 10)
     dp = DataPreprocessor()
 
@@ -184,4 +186,13 @@ if __name__ == '__main__':
         plot_1d([denoised, truth_denoised], label=['my', 'ori'], e=2**11)
         plot_1d(denoised-truth_denoised, label='difference', e=2**11)
         ic(np.allclose(denoised, truth_denoised, atol=10))
-    check_nlm_1d()
+    # check_nlm_1d()
+
+    def check_runtime():
+        # sig = get_signal_eg('INCART')[:, 0]  # Doesn't terminate locally, on `INCART`
+        # ic(sig.shape)
+        ic(s.shape)
+        ic()
+        ic(dp.zheng(s))
+        ic()
+    check_runtime()

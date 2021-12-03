@@ -5,6 +5,7 @@ import glob
 from functools import reduce
 import pathlib
 import concurrent.futures
+from datetime import datetime
 
 import h5py
 import numpy as np
@@ -59,6 +60,20 @@ def conc_map(fn, it):
     """
     with concurrent.futures.ThreadPoolExecutor() as executor:
         return executor.map(fn, it)
+
+
+def now(as_str=True):
+    d = datetime.now()
+    return d.strftime('%Y-%m-%d %H:%M:%S') if as_str else d
+
+
+def sizeof_fmt(num, suffix='B'):
+    """ Converts byte size to human readable format """
+    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
 def stem(path, ext=False):
@@ -241,6 +256,7 @@ def get_nlm_denoise_truth(verbose=False):
     df = pd.read_csv(fnm)
     df_de = pd.read_csv(fnm.replace('ECGData', 'ECGDataDenoised'), header=None)
     if verbose:
+        ic(fnm)
         ic(len(df))
         ic(df_de.head(6))
         ic(df_de.iloc[:6, 0])
@@ -271,3 +287,7 @@ if __name__ == '__main__':
     ic(get_signal_eg(dnm='G12EC', n=0).shape)
     ic(get_signal_eg(dnm='CHAP_SHAO', n=0))
     ic(get_signal_eg(dnm='CODE_TEST', n=0).shape)
+
+    for dnm in config(f'datasets_export.total'):
+        path = get_rec_paths(dnm)[0]
+        ic(dnm, stem(path, ext=True), sizeof_fmt(os.path.getsize(path)))

@@ -1,6 +1,6 @@
 from icecream import ic
 
-from util import conc_map
+from util import conc_map, sizeof_fmt
 
 if __name__ == '__main__':
     # import numpy as np
@@ -59,5 +59,17 @@ if __name__ == '__main__':
     # ic(clst_map(lambda x: x**2, range(10)))
     # ic(list(clst_map(lambda x: x**2, range(10))))
 
-    fmt = '%s %s'
-    ic(fmt % (1, 2))
+    # fmt = '%s %s'
+    # ic(fmt % (1, 2))
+
+    # import datetime
+    # ic(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    # import os
+    # sz = os.path.getsize('test_lang.py')
+    # ic(sz, sizeof_fmt(sz))
+
+    arr = list(range(5))
+    elm1, rest = arr[0], arr[1:]
+    ic(arr)
+    ic(elm1, rest)

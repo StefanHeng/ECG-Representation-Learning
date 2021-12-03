@@ -10,6 +10,11 @@ from data_path import *
 
 
 config = {
+    'meta': dict(
+        path_base=PATH_BASE,
+        dir_proj=DIR_PROJ,
+        dir_dset=DIR_DSET
+    ),
     DIR_DSET: dict(
         BIH_MVED=dict(
             nm='MIT-BIH Malignant Ventricular Ectopy Database',
