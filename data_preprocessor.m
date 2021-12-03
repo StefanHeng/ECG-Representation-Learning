@@ -18,6 +18,13 @@
 % 
 % Written by Jianwei Zheng.
 
+u = util;
+u
+u.meta
+%c = util.config();
+%c.meta
+
+quit(1)
 PATH= '/Users/stefanh/Documents/UMich/Research/ECG-Classify/datasets/Chapman-Shaoxing/ECGData';
 OutPutFilePath = '/Users/stefanh/Documents/UMich/Research/ECG-Classify/datasets/Chapman-Shaoxing/my_denoise_debugging';
 %FileTable is the files you want to denoise
