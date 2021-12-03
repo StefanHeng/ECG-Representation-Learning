@@ -22,40 +22,21 @@ config = util.config();
 PATH_BASE = config.meta.path_base;
 DIR_DSET = config.meta.dir_dset;
 
+% ld_nms = ["I";"II";"III";"aVR";"aVL";"aVF";"V1";"V2";"V3";"V4";"V5";"V6"];
 dnm = 'CHAP_SHAO';
-d_dset = config.datasets.(dnm);
+fls = util.get_rec_files(dnm);
+fls(78)
 
-%fls = dir(path)
-%regexpi({filesList.name}, '[a-z]{2}[0-9]{6}[a-z\-]{0,2}', 'match')
-fls = dir(fullfile(PATH_BASE, DIR_DSET, d_dset.dir_nm, d_dset.rec_fmt));
-%fls = fls(1:10)
-%{fls.folder}
-%{fls.name}
-%strcat({fls.folder}, {fls.name})
-%[~, idx] = sort({fls.name});
-[~, idx] = sort(strcat({fls.folder}, {fls.name}));
-fls = fls(idx)
-
-%for i = 1:numel(fls)
-for i = 1:10
+for i = 1:numel(fls)
     f = fls(i);
-    path = fullfile(f.folder, f.name)
+    fnm = fullfile(f.folder, f.name);
+    sigs = readmatrix(fnm).';
+    size(sigs)
+
+    quit(1)
 end
-%f = fls(77)
-%f.name, f.folder
-%get=@(f) (f.name);
-%fls = arrayfun(@get, fls)
 
-quit(1)
 
-%FileTable is the files you want to denoise
-%FileTable = (readtable('..\InitialDiagnostics.csv','ReadVariableNames',true));
-%[LengthFileList,~] = size(FileTable);
-%LeadNames =["I";"II";"III";"aVR";"aVL";"aVF";"V1";"V2";"V3";"V4";"V5";"V6"];
-%
-%DenFileList = dir(strcat(OutPutFilePath,'*.csv'));
-%DenFileList = struct2table(DenFileList);
-%DenFileList = table2array(DenFileList(:,1));
 
 %parfor i=1:LengthFileList
 %parfor i=1:20
@@ -67,12 +48,12 @@ quit(1)
         DataFile = table2array(readtable(DataFileName,'ReadVariableNames',true));
         [rows,~] = size(DataFile);
         DenoisingData= zeros(rows,12);
-        
+
         for j=1:12
             fix(clock)
-            OrigECG  = DataFile(:,j);   
-            Fs=500;        
-            fp=50;fs=60;                    
+            OrigECG  = DataFile(:,j);
+            Fs=500;
+            fp=50;fs=60;
             rp=1;rs=2.5;                   
             wp=fp/(Fs/2);ws=fs/(Fs/2);     
             [n,wn]=buttord(wp,ws,rp,rs);     
