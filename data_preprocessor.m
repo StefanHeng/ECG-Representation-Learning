@@ -18,15 +18,36 @@
 % 
 % Written by Jianwei Zheng.
 
-u = util;
-u
-u.meta
-%c = util.config();
-%c.meta
+config = util.config();
+PATH_BASE = config.meta.path_base;
+DIR_DSET = config.meta.dir_dset;
+
+dnm = 'CHAP_SHAO';
+d_dset = config.datasets.(dnm);
+
+%fls = dir(path)
+%regexpi({filesList.name}, '[a-z]{2}[0-9]{6}[a-z\-]{0,2}', 'match')
+fls = dir(fullfile(PATH_BASE, DIR_DSET, d_dset.dir_nm, d_dset.rec_fmt));
+%fls = fls(1:10)
+%{fls.folder}
+%{fls.name}
+%strcat({fls.folder}, {fls.name})
+%[~, idx] = sort({fls.name});
+[~, idx] = sort(strcat({fls.folder}, {fls.name}));
+fls = fls(idx)
+
+%for i = 1:numel(fls)
+for i = 1:10
+    f = fls(i);
+    path = fullfile(f.folder, f.name)
+end
+%f = fls(77)
+%f.name, f.folder
+%get=@(f) (f.name);
+%fls = arrayfun(@get, fls)
 
 quit(1)
-PATH= '/Users/stefanh/Documents/UMich/Research/ECG-Classify/datasets/Chapman-Shaoxing/ECGData';
-OutPutFilePath = '/Users/stefanh/Documents/UMich/Research/ECG-Classify/datasets/Chapman-Shaoxing/my_denoise_debugging';
+
 %FileTable is the files you want to denoise
 %FileTable = (readtable('..\InitialDiagnostics.csv','ReadVariableNames',true));
 %[LengthFileList,~] = size(FileTable);
