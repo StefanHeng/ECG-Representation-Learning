@@ -4,12 +4,16 @@ config = util.config();
 dnm = 'CHAP_SHAO';
 fls = util.get_rec_files(dnm);
 fls(78)
+dp = data_preprocessor
 
 for i = 1:numel(fls)
     f = fls(i);
     fnm = fullfile(f.folder, f.name);
     sigs = readmatrix(fnm).';
     size(sigs)
+    sig = sigs(1, :);
+    size(sig)
+    dp.butterworth_low_pass(sig)
 
     quit(1)
 end
