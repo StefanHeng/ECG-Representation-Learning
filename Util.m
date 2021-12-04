@@ -23,11 +23,16 @@ classdef Util
             ret = ret(idx);
         end
 
+        function ret = zero_pad(n, n_d)
+            % :param n_: Number of decimals in total
+            ret = num2str(n, ['%0' num2str(n_d) '.f']);
+        end
+
         function ret = now()
             % String representation of current time, as in `t.strftime('%Y-%m-%d %H:%M:%S')`
             c = fix(clock);
             [y, mo, d, h, mi, s] = deal(c(1), c(2), c(3), c(4), c(5), c(6));
-            pad = @(n, n_) num2str(n, ['%0' num2str(n_) '.f']);
+            pad = @(n, n_) Util.zero_pad(n, n_);
             ret = [pad(y, 4) '-' pad(mo, 2) '-' pad(d, 2) ' ' pad(h, 2) ':' pad(mi, 2) ':' pad(s, 2) ];
         end
 
@@ -37,13 +42,11 @@ classdef Util
                 which string = 'combined'
             end
             assert(strcmp(which, 'combined') || strcmp(which, 'denoised'))
-%            k_fmt = '';
             if strcmp(which, 'combined')
                 k_fmt = 'rec_fmt';
             else
                 k_fmt = 'rec_fmt_denoised';
             end
-%            k_fmt
             ret = sprintf(Util.D_DSET.(k_fmt), dnm);
             ret = fullfile(Util.PATH_BASE, Util.DIR_DSET, Util.D_DSET.dir_nm, ret);
         end

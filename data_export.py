@@ -179,7 +179,7 @@ class RecDataExport:
         print(f'{now()}| Reading in {len(rec_nms)} records of [{dnm}]... ')
         sigs = np.stack(list(conc_map(lambda nm: fnm2sigs(nm, dnm), rec_nms)))  # Concurrency
         fqs = d_dset['fqs']
-        print(f'{now()}| ... of shape {sigs.shape} and frequency {fqs}Hz')
+        print(f'{now()}|     ... of shape {sigs.shape} and frequency {fqs}Hz')
         shape = sigs.shape
         assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
         assert not np.isnan(sigs).any()

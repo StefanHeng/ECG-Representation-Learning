@@ -12,25 +12,31 @@ classdef DataExport
             disp(['Denosing dataset [' dnm ']... '])
             [sigs, attr] = self.dl.run(dnm);
             n_rec = size(sigs, 1);
-            disp(['... of [' num2str(n_rec) '] elements '])
+            disp(['    ... of [' num2str(n_rec) '] elements '])
+            pad = @(n) Util.zero_pad(n, numel(num2str(n_rec)));
 
             fqs = attr.fqs;
             denoiser = @(sig) self.dp.zheng(sig, fqs);
 %            for i = 1:n_rec
-            for i = 1:5
+            for i = 1:2
                 sigs_ = squeeze(sigs(i, :, :));
-                disp([Util.now() '| Denosing file #' num2str(i) '... '])
-                sigs = self.apply_1d(sigs_, denoiser);
+%                disp([Util.now() '| Denosing file #' num2str(i) '... '])
+                disp([Util.now() '| Denosing file #' pad(i) '... '])
+                sigs(i, :, :) = self.apply_1d(sigs_, denoiser);
 %                disp(util.now())
 %                quit(1)
             end
 
-            fnm = sprintf(self.D_DSET.rec_fmt, dnm);
-            fnm = fullfile(self.PATH_BASE, self.DIR_DSET, self.D_DSET.dir_nm, fnm);
-%            h5disp(fnm, '/')
-%            assert(strcmp(which, self.K_ORI) || strcmp(which, self.K_RSAM))
-            sigs = permute(h5read(fnm, '/data'), [3 2 1]);
-            attr = jsondecode(h5readatt(fnm, '/', 'meta'));
+%            fnm = sprintf(self.D_DSET.rec_fmt, dnm);
+%            fnm = fullfile(self.PATH_BASE, self.DIR_DSET, self.D_DSET.dir_nm, fnm);
+            % Write to hdf5
+            fnm = Util.get_dset_combined_fnm(dnm, 'denoised')
+            delete(fnm)  % Essentially overwrite the file
+            dir_nm = '/data';
+            h5create(fnm, dir_nm, flip(size(sigs)))  % `sz` parameter inspired by `h5py`
+%            hdf5write(fnm, dir_nm, sigs)
+            h5writeatt(fnm, '/', 'meta', jsonencode(attr));
+            h5disp(fnm)
         end
 
         function sigs = apply_1d(self, sigs, fn)
