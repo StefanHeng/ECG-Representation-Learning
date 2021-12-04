@@ -189,23 +189,26 @@ class RecDataExport:
         assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
         assert not np.isnan(sigs).any()
 
+        attr = dict(
+            dnm=dnm,
+            fqs=fqs,
+            resampled=resample
+        )
+
         resample = resample and self.fqs != fqs
         if resample:
             print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
             dsets['resampled'] = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
                 lambda sig: np.stack([wfdb.processing.resample_sig(s, fqs, self.fqs)[0] for s in sig]), sigs)
             ))
-            fqs = self.fqs
+            attr['fqs'] = self.fqs
+            attr['fqs_ori'] = fqs
 
         fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
         print(f'{now()}| Writing processed signals to [{stem(fnm, ext=True)}]...')
         open(fnm, 'a').close()  # Create file in OS
         fl = h5py.File(fnm, 'w')
-        fl.attrs['meta'] = json.dumps(dict(
-            dnm=dnm,
-            fqs=fqs,
-            resampled=resample
-        ))
+        fl.attrs['meta'] = json.dumps(attr)
         print(f'{now()}| Metadata attributes created: {list(fl.attrs.keys())}')
         for nm, data in dsets.items():
             fl.create_dataset(nm, data=data)
