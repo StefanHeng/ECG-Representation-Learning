@@ -74,17 +74,24 @@ classdef DataPreprocessor
             ret = self.nlm(ret);
         end
 
-        function ret = resample(self, sig, fqs, fqs_tgt)
+        function ret = resampler(self, fqs, fqs_tgt)
             arguments
                 self
-                sig (1, :) {mustBeNumeric}
                 fqs {mustBeNumeric}
                 fqs_tgt {mustBeNumeric}
             end
             [numer, denom] = rat(fqs_tgt / fqs);
             assert(fqs_tgt == fqs * numer / denom);
-            ret = resample(sig, numer, denom);
+            ret = @(sig) resample(sig, numer, denom);
         end
+
+%        function ret = resample(self, sig, resampler)
+%%            [numer, denom] = rat(fqs_tgt / fqs);
+%%            assert(fqs_tgt == fqs * numer / denom);
+%%            resampler = @(sig) resample(sig, numer, denom);
+%            ret = resampler(sig);
+%%            ret = resample(sig, numer, denom);
+%        end
 
         function ret = butterworth_low_pass(self, sig, opn)
             arguments

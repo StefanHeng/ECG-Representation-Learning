@@ -17,7 +17,9 @@ function check_resample()
 
     dp = DataPreprocessor;
     sig_ori = sig;
-    sig_new = dp.resample(sig_ori, fqs_ori, fqs_new);
+%    sig_new = dp.resample(sig_ori, fqs_ori, fqs_new);
+    resampler = dp.resampler(fqs_ori, fqs_new);
+    sig_new = resampler(sig_ori);
     t_new = (0:numel(sig_new)-1)/fqs_new;
 
     figure('units','inch','position',[7, 7, 16, 9]);
