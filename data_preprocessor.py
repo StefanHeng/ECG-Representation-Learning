@@ -148,6 +148,26 @@ class DataPreprocessor:
         denoised_sig[- patch_wd:] = sig[- patch_wd:]
         return denoised_sig
 
+    @staticmethod
+    def normalize(sig, method='3std', mean=None, std=None):
+        """
+        :param sig: Signal to normalize
+        :param method: Normalization approach
+            If `0-mean`, normalize to mean of 0 and standard deviation of 1
+            If `3std`, normalize data within 3 standard deviation to range of [-1, 1]
+        :param mean: If not given, default to mean of entire signal
+        :param std: If not given, default to std of entire signal
+        """
+        if mean is None:
+            mean = sig.mean()
+        if std is None:
+            std = sig.std()
+
+        if method == '0-mean':
+            return (sig - mean) / std
+        elif method == '3std':
+            pass
+
 
 if __name__ == '__main__':
     import os

@@ -16,19 +16,16 @@ classdef data_export
             for i = 1:numel(fls)
                 f = fls(i);
                 fnm = fullfile(f.folder, f.name);
-                disp(['Denosing file ' f.name])
-                disp(fix(clock))
-                disp(util.now())
+                disp([util.now() '| Denosing file ' num2str(i) ': ' f.name])
                 sigs = data_export.single(fnm, denoiser);
                 size(sigs)
-                now = fix(clock)
+                disp(util.now())
                 quit(1)
             end
         end
 
         function ret = single(fnm, denoiser)
             ret = readmatrix(fnm).';
-            size(ret, 2)
             for i = 1:size(ret, 1)
                 ret(i, :) = denoiser(ret(i, :));
             end

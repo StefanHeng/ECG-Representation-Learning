@@ -205,18 +205,33 @@ def get_record_eg(dnm, n=0, ln=None):
 
     .. note:: Works only if a wfdb record file exists
     """
-    # d_dset = config(f'{DIR_DSET}.{dnm}')
-    # dir_nm = d_dset['dir_nm']
-    # path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
-    # rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
     rec_path = get_rec_paths(dnm)[n]
     kwargs = dict(
         sampto=ln
     )
-    for k, v in kwargs.items():
-        if k is None:
-            del kwargs[v]
+    # for k, v in kwargs.items():
+    #     if k is None:
+    #         del kwargs[v]
+    kwargs = {k: v for k, v in kwargs.items() if k is not None}
     return wfdb.rdrecord(rec_path[:rec_path.index('.')], **kwargs)
+
+
+def fnm2sigs(fnm, dnm):
+    if not hasattr(config, 'd_d_dset'):
+        fnm2sigs.d_d_dset = config(DIR_DSET)
+
+    if dnm == 'CHAP_SHAO':
+        return pd.read_csv(fnm).to_numpy().T
+    elif dnm == 'CODE_TEST':
+        assert isinstance(fnm, int)  # Single file with all recordings
+        if not hasattr(config, 'ct_tracings'):
+            fnms = get_rec_paths(dnm)
+            assert len(fnms) == 1
+            fnm2sigs.ct_tracings = h5py.File(fnm, 'r')
+
+        return fnm2sigs.ct_tracings['tracings'][fnm]
+    else:
+        return wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext'])).p_signal.T
 
 
 def get_signal_eg(dnm=None, n=None):
@@ -233,13 +248,15 @@ def get_signal_eg(dnm=None, n=None):
         n = np.random.randint(config(f'{DIR_DSET}.{dnm}.n_rec'))
 
     if dnm == 'CHAP_SHAO':
-        fnm = get_rec_paths(dnm)[n]
-        df = pd.read_csv(fnm)
-        return df.to_numpy()
+        # fnm = get_rec_paths(dnm)[n]
+        # df = pd.read_csv(fnm)
+        # return df.to_numpy()
+        return fnm2sigs(get_rec_paths(dnm)[n], dnm)
     elif dnm == 'CODE_TEST':
-        fnm = get_rec_paths(dnm)[0]  # 1 hdf5 file
-        rec = h5py.File(fnm, 'r')
-        return rec['tracings'][n]
+        # fnm = get_rec_paths(dnm)[0]  # 1 hdf5 file
+        # rec = h5py.File(fnm, 'r')
+        # return rec['tracings'][n]
+        return fnm2sigs(n, dnm)
     else:
         return get_record_eg(dnm, n=n).p_signal
 

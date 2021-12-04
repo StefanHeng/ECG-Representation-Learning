@@ -32,7 +32,9 @@ def fix_g12ec_headers():
 
 class RecDataExport:
     """
-    Integrate & export collected 12-lead ECG datasets, including pre-processed ECG signals and labels
+    Integrate & export the 12-lead ECG datasets collected, in standardized format `hdf5`
+
+    See the MATLAB versions for exporting denoised signals
     """
 
     def __init__(self, fqs=250):
@@ -49,9 +51,11 @@ class RecDataExport:
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
         self.fqs = fqs
 
-    def __call__(self):
+    def __call__(self, resample=False):
         # self.export_labels()
-        self.export_dset('G12EC')
+        # for dnm in self.dsets_exp['total']:
+        #     self.export_dset(dnm)
+        self.export_dset('CHAP_SHAO', resample)
 
     def rec_nms(self, dnm):
         d_dset = self.d_dsets[dnm]
@@ -62,7 +66,6 @@ class RecDataExport:
     def get_label_df(self, dnm):
         d_dset = self.d_dsets[dnm]
         dir_nm = d_dset['dir_nm']
-        # path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
         path = os.path.join(PATH_BASE, DIR_DSET, dir_nm)
 
         def get_get_pat_num():
@@ -143,7 +146,6 @@ class RecDataExport:
             n_pat = h5py.File(fnm, 'r')['tracings'].shape[0]
             return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
 
-        # recs = sorted(glob.iglob(os.path.join(path, d_dset['rec_fmt']), recursive=True))[:5]
         rec_nms = self.rec_nms(dnm)[:5]
         if dnm == 'CODE_TEST':
             rows = get_row_code_test(rec_nms)
@@ -151,7 +153,6 @@ class RecDataExport:
             rows = [get_row(fnm) for fnm in rec_nms]
         df = pd.concat([pd.DataFrame([r], columns=self.lbl_cols) for r in rows], ignore_index=True)
         ic(df)
-        # dfs.append(df_)
         return df
 
     def export_labels(self):
@@ -163,55 +164,38 @@ class RecDataExport:
         df.to_csv(fnm)
         print(f'Exported to {fnm}')
 
-    def export_dset(self, dnm, resample=True, normalize=''):
+    def export_dset(self, dnm, resample=False):
         """
         Normalization by mean & std across the entire dataset
         :param dnm: Dataset name
         :param resample: If true, resample to export `fqs`
-        :param normalize: Normalization approach
-            If `0-mean`, normalize to mean of 0 and standard deviation of 1
-            If `3std`, normalize data within 3 standard deviation to range of [-1, 1]
-        :return:
         """
+
         assert dnm in self.dsets_exp['total']
         d_dset = self.d_dsets[dnm]
 
         rec_nms = self.rec_nms(dnm)[:5]
         # sigs = np.stack([wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix'])).p_signal.T for nm in rec_nms])
-        print(f'{now()}| Reading in {len(rec_nms)} records... ')
-        sigs = np.stack(  # Concurrency
-            list(conc_map(lambda nm: wfdb.rdrecord(nm.removesuffix(d_dset['rec_ext'])).p_signal.T, rec_nms))
-        )
+        print(f'{now()}| Reading in {len(rec_nms)} records of [{dnm}]... ')
+        sigs = np.stack(list(conc_map(lambda nm: fnm2sigs(nm, dnm), rec_nms)))  # Concurrency
         fqs = d_dset['fqs']
         print(f'{now()}| ... of shape {sigs.shape} and frequency {fqs}Hz')
-        shape = sigs.shape
-        # ic(shape)
-        # ic(fqs)
-        assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
-        assert not np.isnan(sigs).any()
-
-        if resample and self.fqs != fqs:
-            print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
-            sigs = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
-                lambda sig: np.stack([wfdb.processing.resample_sig(s, fqs, self.fqs)[0] for s in sig]), sigs)
-            ))
-            fqs = self.fqs
         dsets = dict(
             ori=sigs
         )
+        shape = sigs.shape
+        ic(shape)
+        ic(fqs)
+        assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
+        assert not np.isnan(sigs).any()
 
-        print(f'{now()}| Denoising signals... ')
-        # sigs_denoised = np.stack(
-        #     list(conc_map(lambda sig: np.stack([self.dp.zheng(s) for s in sig]), sigs))
-        # )
-        sigs_denoised = np.stack(
-            [np.stack([self.dp.zheng(s) for s in sig]) for sig in sigs]
-        )
-        dsets['denoised'] = sigs_denoised
-
-        mean, std = sigs.mean(), sigs.std()
-        sigs_normalized = (sigs_denoised - mean) / std
-        dsets['normalized'] = sigs_normalized
+        resample = resample and self.fqs != fqs
+        if resample:
+            print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
+            dsets['resampled'] = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
+                lambda sig: np.stack([wfdb.processing.resample_sig(s, fqs, self.fqs)[0] for s in sig]), sigs)
+            ))
+            fqs = self.fqs
 
         fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
         print(f'{now()}| Writing processed signals to [{stem(fnm, ext=True)}]...')
@@ -219,32 +203,22 @@ class RecDataExport:
         fl = h5py.File(fnm, 'w')
         fl.attrs['meta'] = json.dumps(dict(
             dnm=dnm,
-            mean=mean,
-            std=std,
-            fqs=fqs
+            fqs=fqs,
+            resampled=resample
         ))
         print(f'{now()}| Metadata attributes created: {list(fl.attrs.keys())}')
-        for dnm, data in dsets:
-            fl.create_dataset(dnm, data=data)
-        # fl.create_dataset('data-processed', data=[1, 2, 3])
-        # for idx_brg, test_nm in enumerate(self.FLDR_NMS):
-        #     group = fl.create_group(test_nm)
-        #     for acc in ['hori', 'vert']:
-        #         arr_extr = np.stack([
-        #             self.get_feature_series(idx_brg, func, acc) for k, func in extr.D_PROP_FUNC.items()
-        #         ])
-        #         group.create_dataset(acc, data=arr_extr)
+        for nm, data in dsets.items():
+            fl.create_dataset(nm, data=data)
         print(f'{now()}| Dataset processing complete: {[nm for nm in fl]}')
 
 
 if __name__ == '__main__':
+    # fix_g12ec_headers()
+
     de = RecDataExport()
-    de()
+    de(resample=True)
 
     def sanity_check():
         """
         Check the data processing result
         """
-
-    # fix_g12ec_headers()
-
