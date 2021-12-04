@@ -5,15 +5,19 @@ function check_resample()
     dl = DataLoader;
     sigs = dl.run('CHAP_SHAO');
     sig = squeeze(sigs(1, 1, :));
-    size(sig)
-
+    sz = size(sig)
     fqs_ori = 500;
     fqs_new = 250;
-    [numer, denom] = rat(fqs_new / fqs_ori)
-    assert(fqs_new == fqs_ori * numer / denom)
     t_ori = (1:numel(sig)) / fqs_ori;
+
+%    [numer, denom] = rat(fqs_new / fqs_ori)
+%    assert(fqs_new == fqs_ori * numer / denom)
+%    sig_ori = sig;
+%    sig_new = resample(sig_ori, numer, denom);
+
+    dp = DataPreprocessor;
     sig_ori = sig;
-    sig_new = resample(sig_ori, numer, denom);
+    sig_new = dp.resample(sig_ori, fqs_ori, fqs_new);
     t_new = (0:numel(sig_new)-1)/fqs_new;
 
     figure('units','inch','position',[7, 7, 16, 9]);

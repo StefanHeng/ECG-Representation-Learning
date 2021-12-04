@@ -57,30 +57,44 @@
 %        fprintf('Finished File: %s\n',FileTable.Patient_ID{i});
 
 
-classdef data_preprocessor
+classdef DataPreprocessor
     properties (Constant)
         C_ZHENG = util.config.pre_processing.zheng;
     end
 
-    methods (Static)
-        function ret = zheng(sig, fqs)
+    methods
+        function ret = zheng(self, sig, fqs)
             arguments
+                self
                 sig (1, :) {mustBeNumeric}
                 fqs {mustBeNumeric}
             end
-            ret = data_preprocessor.butterworth_low_pass(sig);
-            ret = ret - data_preprocessor.rloess(ret, fqs);
-            ret = data_preprocessor.nlm(ret);
+            ret = self.butterworth_low_pass(sig);
+            ret = ret - self.rloess(ret, fqs);
+            ret = self.nlm(ret);
         end
 
-        function ret = butterworth_low_pass(sig, opn)
+        function ret = resample(self, sig, fqs, fqs_tgt)
             arguments
+                self
+                sig (1, :) {mustBeNumeric}
+                fqs {mustBeNumeric}
+                fqs_tgt {mustBeNumeric}
+            end
+            [numer, denom] = rat(fqs_tgt / fqs);
+            assert(fqs_tgt == fqs * numer / denom);
+            ret = resample(sig, numer, denom);
+        end
+
+        function ret = butterworth_low_pass(self, sig, opn)
+            arguments
+                self
                 sig (1, :) {mustBeNumeric}
                 opn.fqs {mustBeNumeric} = 500
-                opn.w_pass {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.passband
-                opn.w_stop {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.stopband
-                opn.r_pass {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.passband_ripple
-                opn.r_stop {mustBeNumeric} = data_preprocessor.C_ZHENG.low_pass.stopband_attenuation
+                opn.w_pass {mustBeNumeric} = self.C_ZHENG.low_pass.passband
+                opn.w_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband
+                opn.r_pass {mustBeNumeric} = self.C_ZHENG.low_pass.passband_ripple
+                opn.r_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband_attenuation
             end
             nyq = 0.5 * opn.fqs;
             [n, wn] = buttord(opn.w_pass / nyq, opn.w_stop / nyq, opn.r_pass, opn.r_stop);
@@ -88,16 +102,18 @@ classdef data_preprocessor
             ret = filtfilt(bz, az, sig);
         end
 
-        function ret = rloess(sig, n)
+        function ret = rloess(self, sig, n)
             arguments
+                self
                 sig (1, :) {mustBeNumeric}
                 n {mustBeNumeric}
             end
             ret = smooth(1:length(sig), sig, n, 'rloess').';  % For shape 1 x numel(sig)
         end
 
-        function ret = est_noise_std(sig)
+        function ret = est_noise_std(self, sig)
             arguments
+                self
                 sig (1, :) {mustBeNumeric}
             end
             res = sig;
@@ -108,15 +124,16 @@ classdef data_preprocessor
             ret = 1.4826 * median(abs(res - median(res)));
         end
 
-        function ret = nlm(sig, opn)
+        function ret = nlm(self, sig, opn)
             arguments
+                self
                 sig (1, :) {mustBeNumeric}
-                opn.scale {mustBeNumeric} = data_preprocessor.C_ZHENG.nlm.smooth_factor
+                opn.scale {mustBeNumeric} = self.C_ZHENG.nlm.smooth_factor
                 opn.sch_wd {mustBeNumeric} = NaN
-                opn.patch_wd {mustBeNumeric} = data_preprocessor.C_ZHENG.nlm.window_size
+                opn.patch_wd {mustBeNumeric} = self.C_ZHENG.nlm.window_size
             end
             if ~isnan(opn.sch_wd) sch_wd = opn.sch_wd; else sch_wd = numel(sig); end
-            ret = nlm(sig, opn.scale * data_preprocessor.est_noise_std(sig), sch_wd, opn.patch_wd);
+            ret = nlm(sig, opn.scale * self.est_noise_std(sig), sch_wd, opn.patch_wd);
         end
     end
 end
