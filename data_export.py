@@ -164,51 +164,45 @@ class RecDataExport:
         df.to_csv(fnm)
         print(f'Exported to {fnm}')
 
-    def export_dset(self, dnm, resample=False):
+    def export_dset(self, dnm, resample=False, single=True):
         """
-        Normalization by mean & std across the entire dataset
         :param dnm: Dataset name
         :param resample: If true, resample to export `fqs`
+        :param single: Relevant for `resample` <- True only: If true, keep *only* the resampled copy
         """
 
         assert dnm in self.dsets_exp['total']
         d_dset = self.d_dsets[dnm]
 
-        rec_nms = self.rec_nms(dnm)[:5]
+        rec_nms = self.rec_nms(dnm)
         # sigs = np.stack([wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix'])).p_signal.T for nm in rec_nms])
         print(f'{now()}| Reading in {len(rec_nms)} records of [{dnm}]... ')
         sigs = np.stack(list(conc_map(lambda nm: fnm2sigs(nm, dnm), rec_nms)))  # Concurrency
         fqs = d_dset['fqs']
         print(f'{now()}| ... of shape {sigs.shape} and frequency {fqs}Hz')
-        dsets = dict(
-            ori=sigs
-        )
         shape = sigs.shape
-        ic(shape)
-        ic(fqs)
         assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
         assert not np.isnan(sigs).any()
 
-        attr = dict(
-            dnm=dnm,
-            fqs=fqs,
-            resampled=resample
-        )
-
         resample = resample and self.fqs != fqs
         if resample:
+            def resampler(s):
+                return wfdb.processing.resample_sig(s, fqs, self.fqs)[0]
+            ic()
             print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
-            dsets['resampled'] = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
-                lambda sig: np.stack([wfdb.processing.resample_sig(s, fqs, self.fqs)[0] for s in sig]), sigs)
+            sigs = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
+                lambda sig: np.stack([resampler(s) for s in sig]), sigs)
             ))
-            attr['fqs'] = self.fqs
-            attr['fqs_ori'] = fqs
+            fqs = self.fqs
+            ic()
+        dsets = dict(data=sigs)
+        attrs = dict(dnm=dnm, fqs=fqs, resampled=resample)
 
         fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
         print(f'{now()}| Writing processed signals to [{stem(fnm, ext=True)}]...')
         open(fnm, 'a').close()  # Create file in OS
         fl = h5py.File(fnm, 'w')
-        fl.attrs['meta'] = json.dumps(attr)
+        fl.attrs['meta'] = json.dumps(attrs)
         print(f'{now()}| Metadata attributes created: {list(fl.attrs.keys())}')
         for nm, data in dsets.items():
             fl.create_dataset(nm, data=data)

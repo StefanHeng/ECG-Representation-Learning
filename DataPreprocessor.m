@@ -59,7 +59,7 @@
 
 classdef DataPreprocessor
     properties (Constant)
-        C_ZHENG = util.config.pre_processing.zheng;
+        C_ZHENG = Util.config.pre_processing.zheng;
     end
 
     methods

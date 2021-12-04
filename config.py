@@ -81,7 +81,8 @@ config = {
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined',
             fnm_labels='records.csv',
-            rec_fmt='%s-processed.hdf5',
+            rec_fmt='%s-combined.hdf5',
+            rec_fmt_denoised='%s-denoised.hdf5',
         )
     ),
     'datasets_export': dict(
