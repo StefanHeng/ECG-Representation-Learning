@@ -1,4 +1,4 @@
-classdef data_loader
+classdef DataLoader
     % Given dataset name, returns N x 12 x l signal array, per the hdf5 file
     properties (Constant)
         DIR_DSET = util.config.meta.dir_dset;
@@ -6,7 +6,7 @@ classdef data_loader
         DNM = 'my'
         K_ORI = '/ori'
         K_RSAM = '/resampled'
-        D_DSET = util.config.(data_loader.DIR_DSET).(data_loader.DNM)
+        D_DSET = util.config.(DataLoader.DIR_DSET).(DataLoader.DNM)
     end
 
     methods
@@ -21,11 +21,6 @@ classdef data_loader
 %            h5disp(fnm, '/')
             assert(strcmp(which, self.K_ORI) || strcmp(which, self.K_RSAM))
             sigs = permute(h5read(fnm, which), [3 2 1]);
-%            if strcmp(which, self.K_ORI)
-%                sigs = permute(h5read(fnm, self.K_ORI), [3 2 1]);
-%            elseif strcmp(which, self.K_ORI)
-%                sigs = permute(h5read(fnm, self.K_RSAM), [3 2 1]);
-%            end
             attr = jsondecode(h5readatt(fnm, '/', 'meta'));
         end
     end

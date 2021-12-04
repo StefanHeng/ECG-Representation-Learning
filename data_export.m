@@ -2,7 +2,7 @@ classdef data_export
     properties (Constant)
         DIR_DSET = util.config.meta.dir_dset;
         dp = data_preprocessor;
-        dl = data_loader;
+        dl = DataLoader;
     end
 
     methods
