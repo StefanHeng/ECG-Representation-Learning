@@ -2,6 +2,8 @@
 
 %try_resample()
 
+addpath('..')
+%Util.config
 de = DataExport;
 dnm = 'CHAP_SHAO';
 de.run(dnm)

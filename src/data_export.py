@@ -1,5 +1,6 @@
 import glob
 from pathlib import Path
+from typing import Union
 
 import h5py
 import numpy as np
@@ -51,10 +52,11 @@ class RecDataExport:
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
         self.fqs = fqs
 
-    def __call__(self, resample=False):
+    def __call__(self, resample: Union[str, bool] = False):
         # self.export_labels()
         # for dnm in self.dsets_exp['total']:
         #     self.export_dset(dnm)
+        # TODO: Test run
         self.export_dset('CHAP_SHAO', resample)
 
     def rec_nms(self, dnm):
@@ -164,11 +166,11 @@ class RecDataExport:
         df.to_csv(fnm)
         print(f'Exported to {fnm}')
 
-    def export_dset(self, dnm, resample=False, single=True):
+    def export_dset(self, dnm, resample):
         """
         :param dnm: Dataset name
         :param resample: If true, resample to export `fqs`
-        :param single: Relevant for `resample` <- True only: If true, keep *only* the resampled copy
+            If `single`, keep *only* the resampled copy
         """
 
         assert dnm in self.dsets_exp['total']
@@ -190,12 +192,14 @@ class RecDataExport:
                 return wfdb.processing.resample_sig(s, fqs, self.fqs)[0]
             ic()
             print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
-            sigs = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
+            sigs_ = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
                 lambda sig: np.stack([resampler(s) for s in sig]), sigs)
             ))
             fqs = self.fqs
             ic()
-        dsets = dict(data=sigs)
+        dsets = dict(data=sigs_ if resample else sigs)
+        if not resample == 'single':
+            dsets['ori'] = sigs
         attrs = dict(dnm=dnm, fqs=fqs, resampled=resample)
 
         fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
@@ -212,10 +216,29 @@ class RecDataExport:
 if __name__ == '__main__':
     # fix_g12ec_headers()
 
-    de = RecDataExport()
-    de(resample=True)
+    def export():
+        de = RecDataExport()
+        de(resample='single')
+    # export()
 
     def sanity_check():
         """
-        Check the data processing result
+        Check the data processing result from MATLAB
         """
+        dnm = 'CHAP_SHAO'
+        d_dset = config(f'datasets.my')
+        # ic(d_dset['rec_fmt'] % dnm)
+        path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
+        fnm = os.path.join(path_exp, d_dset['rec_fmt_denoised'] % dnm)
+        ic(fnm)
+        rec = h5py.File(fnm, 'r')
+        ic(rec, list(rec.keys()), list(rec.attrs))
+
+        data = rec['data']
+        ic(type(data), data.shape, data[0, :3, :5])
+        ic(np.where(data != 0))
+        ic(rec.attrs['meta'])
+
+        # s, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
+        # ic(truth_denoised[:10])
+    sanity_check()

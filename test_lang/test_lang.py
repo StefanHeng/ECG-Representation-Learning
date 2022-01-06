@@ -69,7 +69,4 @@ if __name__ == '__main__':
     # sz = os.path.getsize('test_lang.py')
     # ic(sz, sizeof_fmt(sz))
 
-    arr = list(range(5))
-    elm1, rest = arr[0], arr[1:]
-    ic(arr)
-    ic(elm1, rest)
+    pass

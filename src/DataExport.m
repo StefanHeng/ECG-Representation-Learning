@@ -1,6 +1,7 @@
 classdef DataExport
     % Export denoised verion of dataset
     properties (Constant)
+        Util
         PATH_BASE = Util.config.meta.path_base;
         DIR_DSET = Util.config.meta.dir_dset;
         dp = DataPreprocessor;
@@ -20,21 +21,18 @@ classdef DataExport
 %            for i = 1:n_rec
             for i = 1:2
                 sigs_ = squeeze(sigs(i, :, :));
-%                disp([Util.now() '| Denosing file #' num2str(i) '... '])
                 disp([Util.now() '| Denosing file #' pad(i) '... '])
                 sigs(i, :, :) = self.apply_1d(sigs_, denoiser);
-%                disp(util.now())
-%                quit(1)
             end
 
-%            fnm = sprintf(self.D_DSET.rec_fmt, dnm);
-%            fnm = fullfile(self.PATH_BASE, self.DIR_DSET, self.D_DSET.dir_nm, fnm);
             % Write to hdf5
             fnm = Util.get_dset_combined_fnm(dnm, 'denoised')
-            delete(fnm)  % Essentially overwrite the file
+            delete(fnm)  % Equivalently, file is overwriten
             dir_nm = '/data';
-            h5create(fnm, dir_nm, flip(size(sigs)))  % `sz` parameter inspired by `h5py`
-%            hdf5write(fnm, dir_nm, sigs)
+%            flip(size(sigs))
+            dims = flip(size(sigs));
+            h5create(fnm, dir_nm, dims)  % `sz` parameter inspired by `h5py`
+            h5write(fnm, dir_nm, reshape(sigs, dims));
             h5writeatt(fnm, '/', 'meta', jsonencode(attr));
             h5disp(fnm)
         end

@@ -13,11 +13,12 @@ import pandas as pd
 import wfdb
 from wfdb import processing
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 import seaborn as sns
-from icecream import ic
 
 from data_path import *
 
+rcParams['figure.constrained_layout.use'] = True
 sns.set_style('darkgrid')
 
 
@@ -68,7 +69,7 @@ def now(as_str=True):
 
 
 def sizeof_fmt(num, suffix='B'):
-    """ Converts byte size to human readable format """
+    """ Converts byte size to human-readable format """
     for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
@@ -110,10 +111,6 @@ def save_fig(save, title):
 
 def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, **kwargs):
     """ Plot potentially multiple 1D signals """
-    # kwargs = dict(
-    #     label=label
-    # )
-
     def _plot(a, lb):
         a = a[s:e]
         plt.plot(np.arange(a.size), a, marker='o', ms=0.3, lw=0.25, label=lb, **kwargs)
@@ -122,8 +119,6 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, **kwargs):
         arr = [arr]
     lbl = [None for _ in arr] if label is None else label
     _ = [_plot(a, lb) for a, lb in zip(arr, lbl)]  # Execute
-    # else:
-    #     _plot(arr, label)
     if label:
         plt.legend()
     if title:

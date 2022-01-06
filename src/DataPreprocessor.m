@@ -1,24 +1,5 @@
 % Modified from https://github.com/zheng120/ECGDenoisingTool
 
-% ***************************************************************************
-% Copyright 2017-2019, Jianwei Zheng, Chapman University,
-% zheng120@mail.chapman.edu
-% 
-% Licensed under the Apache License, Version 2.0 (the "License");
-% you may not use this file except in compliance with the License.
-% You may obtain a copy of the License at
-% 
-% 	http://www.apache.org/licenses/LICENSE-2.0
-% 
-% Unless required by applicable law or agreed to in writing, software
-% distributed under the License is distributed on an "AS IS" BASIS,
-% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-% See the License for the specific language governing permissions and
-% limitations under the License.
-% 
-% Written by Jianwei Zheng.
-
-
 %        DataFileName = strcat(PATH,'/MUSE_20180111_163412_52000.csv')
 %        DataFile = table2array(readtable(DataFileName,'ReadVariableNames',true));
 %        [rows,~] = size(DataFile);
@@ -64,6 +45,23 @@ classdef DataPreprocessor
 
     methods
         function ret = zheng(self, sig, fqs)
+            % ***************************************************************************
+            % Copyright 2017-2019, Jianwei Zheng, Chapman University,
+            % zheng120@mail.chapman.edu
+            %
+            % Licensed under the Apache License, Version 2.0 (the "License");
+            % you may not use this file except in compliance with the License.
+            % You may obtain a copy of the License at
+            %
+            % 	http://www.apache.org/licenses/LICENSE-2.0
+            %
+            % Unless required by applicable law or agreed to in writing, software
+            % distributed under the License is distributed on an "AS IS" BASIS,
+            % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            % See the License for the specific language governing permissions and
+            % limitations under the License.
+            %
+            % Written by Jianwei Zheng.
             arguments
                 self
                 sig (1, :) {mustBeNumeric}
@@ -84,14 +82,6 @@ classdef DataPreprocessor
             assert(fqs_tgt == fqs * numer / denom);
             ret = @(sig) resample(sig, numer, denom);
         end
-
-%        function ret = resample(self, sig, resampler)
-%%            [numer, denom] = rat(fqs_tgt / fqs);
-%%            assert(fqs_tgt == fqs * numer / denom);
-%%            resampler = @(sig) resample(sig, numer, denom);
-%            ret = resampler(sig);
-%%            ret = resample(sig, numer, denom);
-%        end
 
         function ret = butterworth_low_pass(self, sig, opn)
             arguments
