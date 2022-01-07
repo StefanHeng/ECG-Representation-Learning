@@ -1,13 +1,15 @@
 % ld_nms = ["I";"II";"III";"aVR";"aVL";"aVF";"V1";"V2";"V3";"V4";"V5";"V6"];
 
-%try_resample()
-
 addpath('..')
-%Util.config
-de = DataExport;
-dnm = 'CHAP_SHAO';
-de.run(dnm)
 
+%try_resample()
+%denoise_acc_check()
+
+%Util.config
+dnm = 'CHAP_SHAO';
+de = DataExport;
+%de.run(dnm, 'ori')
+de.run(dnm, 'data')
 
 function try_resample()
     % Python counterpart is faster, probably for concurrency
@@ -35,4 +37,18 @@ function try_resample()
     %    quit(1)
     end
     disp(Util.now())
+end
+
+function denoise_acc_check()
+    dp = DataPreprocessor;
+    dl = DataLoader;
+    dnm = 'CHAP_SHAO';
+
+    [sigs, attr] = dl.run(dnm);
+%    size(sigs)
+    sig = sigs(:, 1, 78)
+%    size(sig)
+
+    sig_den = dp.zheng(sig, 500)
+    quit(1)
 end

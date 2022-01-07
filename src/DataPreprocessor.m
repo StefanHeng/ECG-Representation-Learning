@@ -68,8 +68,14 @@ classdef DataPreprocessor
                 self
                 sig (1, :) {mustBeNumeric}
                 fqs {mustBeNumeric}
-            end
-            ret = self.butterworth_low_pass(sig);
+        end
+            opn.fqs = fqs;
+            opn.w_pass = self.C_ZHENG.low_pass.passband;
+            opn.w_stop = self.C_ZHENG.low_pass.stopband;
+            opn.r_pass = self.C_ZHENG.low_pass.passband_ripple;
+            opn.r_stop = self.C_ZHENG.low_pass.stopband_attenuation;
+            ret = self.butterworth_low_pass(sig, opn);
+%            quit(1)
             ret = ret - self.rloess(ret, fqs);
             ret = self.nlm(ret);
         end
@@ -89,13 +95,15 @@ classdef DataPreprocessor
             arguments
                 self
                 sig (1, :) {mustBeNumeric}
-                opn.fqs {mustBeNumeric} = 500
-                opn.w_pass {mustBeNumeric} = self.C_ZHENG.low_pass.passband
-                opn.w_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband
-                opn.r_pass {mustBeNumeric} = self.C_ZHENG.low_pass.passband_ripple
-                opn.r_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband_attenuation
+                opn
+%                opn.fqs {mustBeNumeric} = 500
+%                opn.w_pass {mustBeNumeric} = self.C_ZHENG.low_pass.passband
+%                opn.w_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband
+%                opn.r_pass {mustBeNumeric} = self.C_ZHENG.low_pass.passband_ripple
+%                opn.r_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband_attenuation
             end
             nyq = 0.5 * opn.fqs;
+%            opn.fqs, opn.w_pass
             [n, wn] = buttord(opn.w_pass / nyq, opn.w_stop / nyq, opn.r_pass, opn.r_stop);
             [bz, az] = butter(n, wn);
             ret = filtfilt(bz, az, sig);

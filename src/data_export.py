@@ -190,15 +190,15 @@ class RecDataExport:
         if resample:
             def resampler(s):
                 return wfdb.processing.resample_sig(s, fqs, self.fqs)[0]
-            ic()
+            # ic()
             print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
             sigs_ = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
                 lambda sig: np.stack([resampler(s) for s in sig]), sigs)
             ))
             fqs = self.fqs
-            ic()
+            # ic()
         dsets = dict(data=sigs_ if resample else sigs)
-        if not resample == 'single':
+        if resample and not resample == 'single':
             dsets['ori'] = sigs
         attrs = dict(dnm=dnm, fqs=fqs, resampled=resample)
 
@@ -217,17 +217,17 @@ if __name__ == '__main__':
     # fix_g12ec_headers()
 
     def export():
-        de = RecDataExport()
-        de(resample='single')
+        de = RecDataExport(fqs=500)
+        # de(resample='single')
+        de(resample=True)
     # export()
 
     def sanity_check():
         """
-        Check the data processing result from MATLAB
+        Check the MATLAB h5 output working properly
         """
         dnm = 'CHAP_SHAO'
         d_dset = config(f'datasets.my')
-        # ic(d_dset['rec_fmt'] % dnm)
         path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
         fnm = os.path.join(path_exp, d_dset['rec_fmt_denoised'] % dnm)
         ic(fnm)
@@ -238,41 +238,98 @@ if __name__ == '__main__':
         ic(type(data), data.shape, data[0, :3, :5])
         ic(rec.attrs['meta'])
 
-        # d = data[7000]
-        # ic(d, not np.all(d == 0))
-
-        # Check which signal is denoised
+        # Check which signal is denoised, those not-yet denoised are filled with 0
         idx_filled = np.array([not np.all(d == 0) for d in data])
         ic(idx_filled.shape, idx_filled[:10])
         ic(np.count_nonzero(idx_filled))
 
-        s, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
-        ic(s[:10], truth_denoised[:10], s.shape)
-        # plot_1d(
-        #     [truth_denoised, s],
-        #     label=['Denoised', 'Original, resampled'],
-        #     title=dnm,
-        #     # e=2**11
-        # )
+        for i in range(75, 80):
+            ic(data[i, -1, :20])
+        arr = np.array(data[74:80])
+        ic(arr.shape, arr)
+        ic(np.where(arr > 540))
+        ic(arr[(arr > 540) & (arr < 541)])
+    sanity_check()
 
-        # Check random channel
+    def check_matlab_out():
+        """
+        Check the MATLAB data processing output quality
+        """
+        from matplotlib.widgets import Button
+
+        dnm = 'CHAP_SHAO'
+        d_dset = config(f'datasets.my')
+        path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
         rec_ori = h5py.File(os.path.join(path_exp, d_dset['rec_fmt'] % dnm), 'r')
-        data_ori = rec_ori['data']  # Same frequency as the denoised
+        rec_den = h5py.File(os.path.join(path_exp, d_dset['rec_fmt_denoised'] % dnm), 'r')
+        data_ori, data_den = rec_den['data'], rec_ori['data']  # Share frequency
         ic(data_ori.shape)
         n_sig, n_ch, l_ch = data_ori.shape
-        # n = data_ori.size / data_ori.shape[0]
 
-        idxs = np.arange(n_sig * n_ch)
-        np.random.shuffle(idxs)
-        i = 0
-        i_s, i_c = idxs[i] // n_ch, idxs[i] % n_ch
-        i_s, i_c = 3, 0
-        ic(data[i_s, i_c], data_ori[i_s, i_c])
-        # plot_1d([s, data_ori[i_s, i_c]])
+        s, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
+        ic(s[:10], truth_denoised[:10], s.shape)
         plot_1d(
-            [data_ori[i_s, i_c], data[i_s, i_c]],
-            label=['Original, resampled', 'Denoised'],
+            [truth_denoised, s],
+            label=['Denoised', 'Original, resampled'],
             title=dnm,
-            # e=2**10
+            # e=2**11
         )
-    sanity_check()
+
+        # Pick a channel randomly
+        def _step(s, c):
+            # s, c = 3, 0
+            # ic(data[i_s, i_c], data_ori[i_s, i_c])
+            # plot_1d([s, data_ori[i_s, i_c]])
+            plt.cla()
+            plot_1d(
+                [data_ori[s, c], data_den[s, c]],
+                label=['Original, resampled', 'Denoised'],
+                title=f'{dnm} random plot: signal {s + 1} channel {c + 1}',
+                new_fig=False,
+                # e=2**10
+            )
+
+        class PlotFrame:
+            def __init__(self, i=0, n_s=n_sig, n_c=n_ch):
+                self.n_s = n_s
+                self.n_c = n_c
+                n = self.n_s * self.n_c
+                self.idxs = np.arange(n)
+                np.random.shuffle(self.idxs)
+
+                self.idx = i
+                self.clp = clipper(0, n-1)
+                self._set_curr_idx()
+
+            def _set_curr_idx(self):
+                self.i_s, self.i_c = self.idxs[self.idx] // self.n_s, self.idxs[self.idx] % self.n_c
+
+            def next(self, event):
+                prev_idx = self.idx
+                self.idx = self.clp(self.idx+1)
+                if prev_idx != self.idx:
+                    self._set_curr_idx()
+                    _step(self.i_s, self.i_c)
+
+            def prev(self, event):
+                prev_idx = self.idx
+                self.idx = self.clp(self.idx-1)
+                if prev_idx != self.idx:
+                    self._set_curr_idx()
+                    _step(self.i_s, self.i_c)
+
+        plt.figure(figsize=(18, 6))
+        init = 0
+        pf = PlotFrame(i=init)
+        ax = plt.gca()
+        btn_next = Button(plt.axes([0.81, 0.05, 0.1, 0.075]), 'Next')
+        btn_next.on_clicked(pf.next)
+        btn_prev = Button(plt.axes([0.7, 0.05, 0.1, 0.075]), 'Previous')
+        btn_prev.on_clicked(pf.prev)
+        plt.sca(ax)
+
+        # _step(pf.i_s, pf.i_c)
+        _step(77, 0)
+        plt.show()
+    check_matlab_out()
+

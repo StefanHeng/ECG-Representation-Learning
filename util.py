@@ -77,13 +77,20 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def stem(path, ext=False):
+def clipper(low, high):
     """
-    :param path: A potentially full path to a file
+    :return: A clipping function for range [low, high]
+    """
+    return lambda x: max(min(x, high), low)
+
+
+def stem(path_, ext=False):
+    """
+    :param path_: A potentially full path to a file
     :param ext: If True, file extensions is preserved
     :return: The file name, without parent directories
     """
-    return os.path.basename(path) if ext else pathlib.Path(path).stem
+    return os.path.basename(path_) if ext else pathlib.Path(path_).stem
 
 
 def remove_1st_occurrence(str_, str_sub):
@@ -109,12 +116,14 @@ def save_fig(save, title):
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
 
 
-def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, **kwargs):
+def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, **kwargs):
     """ Plot potentially multiple 1D signals """
     def _plot(a, lb):
         a = a[s:e]
         plt.plot(np.arange(a.size), a, marker='o', ms=0.3, lw=0.25, label=lb, **kwargs)
-    plt.figure(figsize=(18, 6), constrained_layout=True)
+    if new_fig:
+        # plt.figure(figsize=(18, 6), constrained_layout=True)
+        plt.figure(figsize=(18, 6))
     if not isinstance(arr, list):
         arr = [arr]
     lbl = [None for _ in arr] if label is None else label
@@ -123,8 +132,9 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, **kwargs):
         plt.legend()
     if title:
         plt.title(title)
-    save_fig(save, title)
-    plt.show()
+    if new_fig:
+        save_fig(save, title)
+        plt.show()
 
 
 def plot_resampling(x, y, x_, y_, title=None):

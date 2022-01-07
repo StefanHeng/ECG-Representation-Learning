@@ -8,14 +8,15 @@ classdef DataLoader
     end
 
     methods
-        function [sigs, attr] = run(self, dnm)
+        function [sigs, attr] = run(self, dnm, key)
             arguments
                 self
                 dnm
+                key {mustBeText} = 'data'
             end
             fnm = Util.get_dset_combined_fnm(dnm);
 %            sigs = permute(h5read(fnm, '/data'), [3 2 1]);
-            sigs = h5read(fnm, '/data');
+            sigs = h5read(fnm, strcat('/', key));
             attr = jsondecode(h5readatt(fnm, '/', 'meta'));
         end
     end
