@@ -45,6 +45,8 @@ classdef DataPreprocessor
 
     methods
         function ret = zheng(self, sig, fqs)
+            % Modified from:
+            %
             % ***************************************************************************
             % Copyright 2017-2019, Jianwei Zheng, Chapman University,
             % zheng120@mail.chapman.edu

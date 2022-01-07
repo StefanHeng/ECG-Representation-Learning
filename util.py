@@ -258,7 +258,7 @@ def get_signal_eg(dnm=None, n=None):
 
 def get_nlm_denoise_truth(verbose=False):
     dnm = 'CHAP_SHAO'
-    fnm = get_rec_paths(dnm)[77]
+    fnm = get_rec_paths(dnm)[77]  # Arbitrary
     fnm_stem = stem(fnm)
     dbg_path = os.path.join(PATH_BASE, DIR_DSET, config(f'{DIR_DSET}.{dnm}.dir_nm'), 'my_denoise_debugging')
     if verbose:

@@ -236,9 +236,43 @@ if __name__ == '__main__':
 
         data = rec['data']
         ic(type(data), data.shape, data[0, :3, :5])
-        ic(np.where(data != 0))
         ic(rec.attrs['meta'])
 
-        # s, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
-        # ic(truth_denoised[:10])
+        # d = data[7000]
+        # ic(d, not np.all(d == 0))
+
+        # Check which signal is denoised
+        idx_filled = np.array([not np.all(d == 0) for d in data])
+        ic(idx_filled.shape, idx_filled[:10])
+        ic(np.count_nonzero(idx_filled))
+
+        s, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
+        ic(s[:10], truth_denoised[:10], s.shape)
+        # plot_1d(
+        #     [truth_denoised, s],
+        #     label=['Denoised', 'Original, resampled'],
+        #     title=dnm,
+        #     # e=2**11
+        # )
+
+        # Check random channel
+        rec_ori = h5py.File(os.path.join(path_exp, d_dset['rec_fmt'] % dnm), 'r')
+        data_ori = rec_ori['data']  # Same frequency as the denoised
+        ic(data_ori.shape)
+        n_sig, n_ch, l_ch = data_ori.shape
+        # n = data_ori.size / data_ori.shape[0]
+
+        idxs = np.arange(n_sig * n_ch)
+        np.random.shuffle(idxs)
+        i = 0
+        i_s, i_c = idxs[i] // n_ch, idxs[i] % n_ch
+        i_s, i_c = 3, 0
+        ic(data[i_s, i_c], data_ori[i_s, i_c])
+        # plot_1d([s, data_ori[i_s, i_c]])
+        plot_1d(
+            [data_ori[i_s, i_c], data[i_s, i_c]],
+            label=['Original, resampled', 'Denoised'],
+            title=dnm,
+            # e=2**10
+        )
     sanity_check()

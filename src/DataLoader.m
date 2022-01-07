@@ -14,8 +14,8 @@ classdef DataLoader
                 dnm
             end
             fnm = Util.get_dset_combined_fnm(dnm);
-%            h5disp(fnm, '/')
-            sigs = permute(h5read(fnm, '/data'), [3 2 1]);
+%            sigs = permute(h5read(fnm, '/data'), [3 2 1]);
+            sigs = h5read(fnm, '/data');
             attr = jsondecode(h5readatt(fnm, '/', 'meta'));
         end
     end
