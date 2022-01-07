@@ -214,6 +214,7 @@ class RecDataExport:
 
 
 if __name__ == '__main__':
+    np.random.seed(config('random_seed'))
     # fix_g12ec_headers()
 
     def export():
@@ -242,13 +243,6 @@ if __name__ == '__main__':
         idx_filled = np.array([not np.all(d == 0) for d in data])
         ic(idx_filled.shape, idx_filled[:10])
         ic(np.count_nonzero(idx_filled))
-
-        # for i in range(75, 80):
-        #     ic(data[i, -1, :20])
-        # arr = np.array(data[74:80])
-        # ic(arr.shape, arr)
-        # ic(np.where(arr > 540))
-        # ic(arr[(arr > 540) & (arr < 541)])
     # sanity_check()
 
     def check_matlab_out():
@@ -262,24 +256,21 @@ if __name__ == '__main__':
         path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
         rec_ori = h5py.File(os.path.join(path_exp, d_dset['rec_fmt'] % dnm), 'r')
         rec_den = h5py.File(os.path.join(path_exp, d_dset['rec_fmt_denoised'] % dnm), 'r')
-        data_ori, data_den = rec_den['data'], rec_ori['data']  # Share frequency
+        data_den, data_ori = rec_den['data'], rec_ori['data']  # Share frequency
         ic(data_ori.shape)
         n_sig, n_ch, l_ch = data_ori.shape
 
-        s, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
-        ic(s[:10], truth_denoised[:10], s.shape)
+        sig, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
+        ic(sig[:10], truth_denoised[:10], sig.shape)
         plot_1d(
-            [truth_denoised, s],
-            label=['Denoised', 'Original, resampled'],
+            [sig, truth_denoised],
+            label=['Original, resampled', 'Denoised'],
             title=dnm,
             # e=2**11
         )
 
         # Pick a channel randomly
         def _step(s, c):
-            # s, c = 3, 0
-            # ic(data[i_s, i_c], data_ori[i_s, i_c])
-            # plot_1d([s, data_ori[i_s, i_c]])
             plt.cla()
             plot_1d(
                 [data_ori[s, c], data_den[s, c]],
@@ -291,10 +282,12 @@ if __name__ == '__main__':
 
         class PlotFrame:
             def __init__(self, i=0, n_s=n_sig, n_c=n_ch):
-                self.n_s = n_s
+                self.n_s = n_s  # TODO: until full dataset ready
+                self.n_s = 1024
                 self.n_c = n_c
                 n = self.n_s * self.n_c
                 self.idxs = np.arange(n)
+                # ic(self.n_s, self.n_c, self.idxs)
                 np.random.shuffle(self.idxs)
 
                 self.idx = i
@@ -302,7 +295,7 @@ if __name__ == '__main__':
                 self._set_curr_idx()
 
             def _set_curr_idx(self):
-                self.i_s, self.i_c = self.idxs[self.idx] // self.n_s, self.idxs[self.idx] % self.n_c
+                self.i_s, self.i_c = self.idxs[self.idx] // self.n_c, self.idxs[self.idx] % self.n_c
 
             def next(self, event):
                 prev_idx = self.idx

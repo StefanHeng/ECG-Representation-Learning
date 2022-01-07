@@ -300,7 +300,7 @@ def get_nlm_denoise_truth(verbose=False):
 
 if __name__ == '__main__':
     from icecream import ic
-    np.random.seed(77)
+    np.random.seed(config('random_seed'))
 
     # ic(config('datasets.BIH_MVED'))
 
