@@ -3,13 +3,13 @@
 addpath('..')
 
 %try_resample()
-%denoise_acc_check()
+denoise_acc_check()
 
 %Util.config
 dnm = 'CHAP_SHAO';
 de = DataExport;
 %de.run(dnm, 'ori')
-de.run(dnm, 'data')
+%de.run(dnm, 'data')
 
 function try_resample()
     % Python counterpart is faster, probably for concurrency
@@ -46,9 +46,10 @@ function denoise_acc_check()
 
     [sigs, attr] = dl.run(dnm);
 %    size(sigs)
-    sig = sigs(:, 1, 78)
+    sig = sigs(:, 1, 78);
 %    size(sig)
 
-    sig_den = dp.zheng(sig, 500)
+%    sig_den = dp.zheng(sig, 500)
+    sig_den = dp.zheng(sig, 250)
     quit(1)
 end

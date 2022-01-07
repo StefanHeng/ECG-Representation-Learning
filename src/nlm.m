@@ -1,16 +1,14 @@
-% Modified from https://github.com/zheng120/ECGDenoisingTool
+% Modified from https://github.com/zheng120/ECGDenoisingToolx
 
-function [denoisedSig,debug] = NLM_1dDarbon(signal,lambda,P,PatchHW)
-    % function [denoisedSig,debug] = NLM_1dDarbon(signal,lambda,P,PatchHW)
+function sig_den = NLM_1dDarbon(sig, scale, sch_wd, patch_wd)
     % Implements fast NLM method of Darbon et al, for a 1-D signal
     % INPUTS:
     % signal: input signal (vector)
-    % lambda: Gaussian scale factor
-    % P: max search distance
-    % PatchWH: patch half-width
+    % scale: Gaussian scale factor
+    % sch_wd: max search distance
+    % patch_wd: patch half-width
     % OUTPUTS:
-    % denoisedSig: the NLM-denoised signal
-    % debug: structure containing various quantitities that can help debug
+    % sig_den: the NLM-denoised signal
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % =========================================================================
@@ -25,62 +23,54 @@ function [denoisedSig,debug] = NLM_1dDarbon(signal,lambda,P,PatchHW)
     %
     %       Last Update 05/09/2013
     % =========================================================================
-    %
-
-    if length(P)==1,  % scalar has been entered; expand into patch sample index vector
-        Pvec = -P:P;
+    if length(sch_wd)==1,  % scalar has been entered; expand into patch sample index vector
+        sch_wd_ = -sch_wd:sch_wd;
     else
-       Pvec = P;  % use the vector that has been input
+        sch_wd_ = sch_wd;  % use the vector that has been input
     end
-    debug=[];
-    N = length(signal);
+    l_s = length(sig);
 
-    denoisedSig = NaN*ones(size(signal));
+    sig_den = NaN * ones(size(sig));
 
     % to simpify, don't bother denoising edges
-    iStart=1+PatchHW+1;
-    iEnd = N-PatchHW;
-    denoisedSig(iStart:iEnd) = 0;
-
-    debug.iStart = iStart;
-    debug.iEnd = iEnd;
+    i_strt=1 + patch_wd + 1;
+    i_end = l_s - patch_wd;
+    sig_den(i_strt:i_end) = 0;
 
     % initialize weight normalization
-    Z = zeros(size(signal));
-    cnt = zeros(size(signal));
+    z = zeros(size(sig));
+    cnt = zeros(size(sig));
 
     % convert lambda value to 'h', denominator, as in original Buades papers
-    Npatch = 2*PatchHW+1;
-    h = 2*Npatch*lambda^2;
+    n_patch = 2*patch_wd + 1;
+    h = 2*n_patch * scale^2;
 
-    for idx = Pvec  % loop over all possible differences: s-t
+    for idx = sch_wd_  % loop over all possible differences: s-t
         % do summation over p  - Eq. 3 in Darbon
-        k=1:N;
-        kplus = k+idx;
-        igood = find(kplus>0 & kplus<=N);  % ignore OOB data; we could also handle it
-        SSD=zeros(size(k));
-        SSD(igood) = (signal(k(igood))-signal(kplus(igood))).^2;
-        Sdx = cumsum(SSD);
+        k=1:l_s;
+        kplus = k + idx;
+        igood = find(kplus>0 & kplus<=l_s);  % ignore OOB data; we could also handle it
+        ssd = zeros(size(k));
+        ssd(igood) = (sig(k(igood)) - sig(kplus(igood))).^2;
+        sdx = cumsum(ssd);
 
-        for ii=iStart:iEnd  % loop over all points 's'
-            distance = Sdx(ii+PatchHW) - Sdx(ii-PatchHW-1); % Eq 4; this is in place of point-by-point MSE
-            % but note the -1; we want to icnlude the point ii-iPatchHW
+        for ii = i_strt:i_end  % loop over all points 's'
+            distance = sdx(ii+patch_wd) - sdx(ii-patch_wd-1); % Eq 4; this is in place of point-by-point MSE
+            % but note the -1; we want to include the point ii-iPatchHW
 
-            w = exp(-distance/h);  %Eq 2 in Darbon
+            w = exp(-distance / h);  %Eq 2 in Darbon
             t = ii+idx;  % in the papers, this is not made explicit
 
-            if t>1 && t<=N
-                denoisedSig(ii) = denoisedSig(ii) + w*signal(t);
-                Z(ii) = Z(ii) + w;
+            if t>1 && t<=l_s
+                sig_den(ii) = sig_den(ii) + w*sig(t);
+                z(ii) = z(ii) + w;
                 cnt(ii) = cnt(ii)+1;
             end
-
         end
     end % loop over shifts
 
     % now apply normalization
-    denoisedSig = denoisedSig./(Z+eps);
-    denoisedSig(1:PatchHW+1) =signal(1:PatchHW+1);
-    denoisedSig(end-PatchHW+1:end) =signal(end-PatchHW+1:end);
-    debug.Z = Z;
+    sig_den = sig_den./(z+eps);
+    sig_den(1 : patch_wd+1) = sig(1 : patch_wd+1);
+    sig_den(end-patch_wd+1 : end) =sig(end-patch_wd+1 : end);
 end

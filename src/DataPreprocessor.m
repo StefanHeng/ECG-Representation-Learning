@@ -103,7 +103,6 @@ classdef DataPreprocessor
 %                opn.r_stop {mustBeNumeric} = self.C_ZHENG.low_pass.stopband_attenuation
             end
             nyq = 0.5 * opn.fqs;
-%            opn.fqs, opn.w_pass
             [n, wn] = buttord(opn.w_pass / nyq, opn.w_stop / nyq, opn.r_pass, opn.r_stop);
             [bz, az] = butter(n, wn);
             ret = filtfilt(bz, az, sig);

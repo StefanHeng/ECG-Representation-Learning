@@ -217,9 +217,9 @@ if __name__ == '__main__':
     # fix_g12ec_headers()
 
     def export():
-        de = RecDataExport(fqs=500)
-        # de(resample='single')
-        de(resample=True)
+        de = RecDataExport(fqs=250)
+        de(resample='single')
+        # de(resample=True)
     # export()
 
     def sanity_check():
@@ -243,13 +243,13 @@ if __name__ == '__main__':
         ic(idx_filled.shape, idx_filled[:10])
         ic(np.count_nonzero(idx_filled))
 
-        for i in range(75, 80):
-            ic(data[i, -1, :20])
-        arr = np.array(data[74:80])
-        ic(arr.shape, arr)
-        ic(np.where(arr > 540))
-        ic(arr[(arr > 540) & (arr < 541)])
-    sanity_check()
+        # for i in range(75, 80):
+        #     ic(data[i, -1, :20])
+        # arr = np.array(data[74:80])
+        # ic(arr.shape, arr)
+        # ic(np.where(arr > 540))
+        # ic(arr[(arr > 540) & (arr < 541)])
+    # sanity_check()
 
     def check_matlab_out():
         """

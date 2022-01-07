@@ -31,14 +31,11 @@ classdef DataExport
                 sigs_den = zeros(size(sigs));
             end
 %            for i = 1:n_rec
-            for i = 77:79
+            for i = 1:1024
                 if ~any(sigs_den(:, :, i), 'all')
                     sigs_ = squeeze(sigs(:, :, i));
                     disp([Util.now() '| Denosing file #' pad(i) '... '])
                     sigs_den(:, :, i) = self.apply_1d(sigs_, denoiser);
-%                    if sigs_den(1, 1, i) == 540.9251
-                    sigs_den(:, 1, i)
-%                    end
                 else
                     disp([Util.now() '| File #' pad(i) ' was denoised - ignored '])
                 end
@@ -58,7 +55,6 @@ classdef DataExport
         function sigs = apply_1d(self, sigs, fn)
             % Apply function along the closest-tied axis of 2D array
             for i = 1:size(sigs, 2)
-%                i
                 sigs(:, i) = fn(sigs(:, i));
             end
         end
