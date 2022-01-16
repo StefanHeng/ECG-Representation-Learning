@@ -69,4 +69,6 @@ if __name__ == '__main__':
     # sz = os.path.getsize('test_lang.py')
     # ic(sz, sizeof_fmt(sz))
 
-    pass
+    from enum import Enum
+    CLP_CH = Enum('CaliperChange', 'Add Remove Edit')
+    ic(CLP_CH, vars(CLP_CH), CLP_CH.Add)
