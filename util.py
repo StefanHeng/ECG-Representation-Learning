@@ -195,8 +195,8 @@ def get_my_rec_labels():
 def get_rec_paths(dnm):
     d_dset = config(f'{DIR_DSET}.{dnm}')
     dir_nm = d_dset['dir_nm']
-    path = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
-    return sorted(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
+    path_ = f'{PATH_BASE}/{DIR_DSET}/{dir_nm}'
+    return sorted(glob.iglob(f'{path_}/{d_dset["rec_fmt"]}', recursive=True))
 
 
 def get_record_eg(dnm, n=0, ln=None):
@@ -310,6 +310,6 @@ if __name__ == '__main__':
     ic(get_signal_eg(dnm='CHAP_SHAO', n=0))
     ic(get_signal_eg(dnm='CODE_TEST', n=0).shape)
 
-    for dnm in config(f'datasets_export.total'):
-        path = get_rec_paths(dnm)[0]
-        ic(dnm, stem(path, ext=True), sizeof_fmt(os.path.getsize(path)))
+    for dnm_ in config(f'datasets_export.total'):
+        path = get_rec_paths(dnm_)[0]
+        ic(dnm_, stem(path, ext=True), sizeof_fmt(os.path.getsize(path)))

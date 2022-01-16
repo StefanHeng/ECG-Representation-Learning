@@ -1,12 +1,12 @@
-import glob
+# import glob
 from pathlib import Path
 from typing import Union
 
-import h5py
-import numpy as np
-import pandas as pd
-from icecream import ic
-import wfdb
+# import h5py
+# import numpy as np
+# import pandas as pd
+# from icecream import ic
+# import wfdb
 import wfdb.processing
 
 from util import *
@@ -68,7 +68,7 @@ class RecDataExport:
     def get_label_df(self, dnm):
         d_dset = self.d_dsets[dnm]
         dir_nm = d_dset['dir_nm']
-        path = os.path.join(PATH_BASE, DIR_DSET, dir_nm)
+        path_ = os.path.join(PATH_BASE, DIR_DSET, dir_nm)
 
         def get_get_pat_num():
             def incart(fnm_):
@@ -79,7 +79,7 @@ class RecDataExport:
             def ptb_xl(path_r_no_dset):
                 if not hasattr(ptb_xl, 'df__'):
                     ptb_xl.df__ = pd.read_csv(
-                        os.path.join(path, 'ptbxl_database.csv'), usecols=['patient_id', 'filename_hr']
+                        os.path.join(path_, 'ptbxl_database.csv'), usecols=['patient_id', 'filename_hr']
                     )
                 return int(ptb_xl.df__[ptb_xl.df__.filename_hr == path_r_no_dset].iloc[0]['patient_id'])
 
@@ -177,9 +177,8 @@ class RecDataExport:
         d_dset = self.d_dsets[dnm]
 
         rec_nms = self.rec_nms(dnm)
-        # sigs = np.stack([wfdb.rdrecord(nm.removesuffix(d_dset['rec_suffix'])).p_signal.T for nm in rec_nms])
         print(f'{now()}| Reading in {len(rec_nms)} records of [{dnm}]... ')
-        sigs = np.stack(list(conc_map(lambda nm: fnm2sigs(nm, dnm), rec_nms)))  # Concurrency
+        sigs = np.stack(list(conc_map(lambda nm_: fnm2sigs(nm_, dnm), rec_nms)))  # Concurrency
         fqs = d_dset['fqs']
         print(f'{now()}|     ... of shape {sigs.shape} and frequency {fqs}Hz')
         shape = sigs.shape
@@ -187,6 +186,7 @@ class RecDataExport:
         assert not np.isnan(sigs).any()
 
         resample = resample and self.fqs != fqs
+        sigs_ = None
         if resample:
             def resampler(s):
                 return wfdb.processing.resample_sig(s, fqs, self.fqs)[0]
@@ -265,7 +265,7 @@ if __name__ == '__main__':
         plot_1d(
             [sig, truth_denoised],
             label=['Original, resampled', 'Denoised'],
-            title=dnm,
+            title=f'[{dnm}] output generated from dataset',
             # e=2**11
         )
 
@@ -275,7 +275,7 @@ if __name__ == '__main__':
             plot_1d(
                 [data_ori[s, c], data_den[s, c]],
                 label=['Original, resampled', 'Denoised'],
-                title=f'{dnm} random plot: signal {s + 1} channel {c + 1}',
+                title=f'[{dnm}] Processed Signal random plot: signal {s + 1} channel {c + 1}',
                 new_fig=False,
                 # e=2**10
             )
@@ -325,4 +325,3 @@ if __name__ == '__main__':
         _step(77, 0)
         plt.show()
     check_matlab_out()
-
