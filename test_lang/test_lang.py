@@ -90,25 +90,6 @@ if __name__ == '__main__':
     # ax = sns.barplot(x=x, y=y, palette='Blues_d')
     ax = sns.barplot(x=x, y=y, palette='flare')
 
-    import scipy.optimize
-
-    def r2(y, y_fit):
-        return 1 - (np.square(y - y_fit).sum() / np.square(y - np.mean(y)).sum())
-
-    def fit_power_law(x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
-        def pow_law(x_, a, b):
-            return a * np.power(x_, b)
-        x, y = np.asarray(x).astype(float), np.asarray(y)
-        ic(x, pow_law(x, x[0], -1))
-        (a_, b_), p_cov = scipy.optimize.curve_fit(f=pow_law, xdata=x, ydata=y, p0=(x[0], -1))
-        x_plot = np.linspace(x.min(), x.max(), num=x.size)
-        ic(x_plot)
-        y_fit = pow_law(x_plot, a_, b_)
-        ic(y_fit)
-        plt.plot(x_plot, y_fit, label='Fitted power law', lw=2)
-        return a_, b_
-    fit_power_law(x, y)
-    plt.show()
     ic(np.power(np.array([0, 1., 6]), -2))
 
 

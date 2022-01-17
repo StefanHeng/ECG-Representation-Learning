@@ -6,11 +6,13 @@ from functools import reduce
 import pathlib
 import concurrent.futures
 from datetime import datetime
+from typing import Union
 
 import colorama
 import h5py
 import numpy as np
 import pandas as pd
+import scipy.optimize
 import wfdb
 from wfdb import processing
 import matplotlib.pyplot as plt
@@ -155,25 +157,55 @@ def save_fig(save, title):
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
 
 
-def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, **kwargs):
+def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, show=True, plot_kwargs=None):
     """ Plot potentially multiple 1D signals """
+    kwargs = dict(marker='o', ms=0.3, lw=0.25) | plot_kwargs
+
     def _plot(a, lb):
         a = a[s:e]
-        plt.plot(np.arange(a.size), a, marker='o', ms=0.3, lw=0.25, label=lb, **kwargs)
+        plt.plot(np.arange(a.size), a, label=lb, **kwargs)
     if new_fig:
-        # plt.figure(figsize=(18, 6), constrained_layout=True)
         plt.figure(figsize=(18, 6))
     if not isinstance(arr, list):
         arr = [arr]
+    if not isinstance(label, list):
+        label = [label]
     lbl = [None for _ in arr] if label is None else label
     _ = [_plot(a, lb) for a, lb in zip(arr, lbl)]  # Execute
+
     if label:
         plt.legend()
     if title:
         plt.title(title)
     if new_fig:
         save_fig(save, title)
+    if show:
         plt.show()
+
+
+def r2(y, y_fit):
+    return 1 - (np.square(y - y_fit).sum() / np.square(y - np.mean(y)).sum())
+
+
+def fit_power_law(x: np.ndarray, y: np.ndarray, return_fit: Union[int, bool] = False):
+    """
+    :return: 2-tuple of (coefficient, exponent) for power law
+        If `return_fit` is True, return additionally 2-tuple of (fitted x, fitted y)
+            If integer given, the fitted curve is returned by scale
+    """
+    def pow_law(x_, a, b):
+        return a * np.power(x_, b)
+    x, y = np.asarray(x).astype(float), np.asarray(y)
+    (a_, b_), p_cov = scipy.optimize.curve_fit(f=pow_law, xdata=x, ydata=y, p0=(x[0], -1))
+    ret = (a_, b_)
+    if return_fit:
+        scale = 1 if return_fit is True else return_fit
+        x_plot = np.linspace(x.min(), x.max(), num=x.size * scale)
+        print(x.min(), x_plot)
+        y_fit = pow_law(x_plot, a_, b_)
+        ret = ret, (x_plot, y_fit)
+        # plt.plot(x_plot, y_fit, label='Fitted power law', lw=2)
+    return ret
 
 
 def plot_resampling(x, y, x_, y_, title=None):

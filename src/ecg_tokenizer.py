@@ -1,5 +1,4 @@
-from enum import Enum
-from typing import Iterable
+# from enum import Enum
 
 from sklearn.cluster import SpectralClustering, AgglomerativeClustering, DBSCAN, OPTICS, Birch
 
@@ -85,12 +84,13 @@ class EcgTokenizer:
                 log(f'Invalid padding scheme {self.pad}', 'err')
                 exit(1)
 
-    def fit(self, sigs: np.ndarray, method='spectral', cls_kwargs=None, plot_dist=False):
+    def fit(self, sigs: np.ndarray, method='spectral', cls_kwargs=None, plot_dist: Union[int, bool] = False):
         """
         :param sigs: Array of shape N x C x L
         :param method: Clustering method
         :param cls_kwargs: Arguments to the clustering method
-        :param plot_dist: If true, the counts for each cluster is plotted
+        :param plot_dist: If True, the counts for each cluster is plotted
+            If integer give, the first most common classes are plotted
 
         Symbols for each signal channel learned separately
             Clustering labels are assigned for each channel, for N x C labels in total, in the input order
@@ -106,47 +106,33 @@ class EcgTokenizer:
         means = segs.mean(axis=-1, keepdims=True)
         segs -= means  # Set mean of each segment to 0
 
-        # if method == 'spectral':  # Too slow to run
-        #     c = SpectralClustering(n_clusters=2**4, random_state=config('random_seed'), affinity='rbf')
-        #     c = c.fit(segs)
-        #     ic(c.labels_)
-        # elif method == 'hierarchical':
-        #     c = AgglomerativeClustering(n_clusters=None, linkage='average', distance_threshold=0.05)
-        #     ic()
-        #     c = c.fit(segs)
-        #     ic()
-        #     lbs = c.labels_
-        #     ic(np.unique(lbs))
-        # elif method == 'dbscan':
-        #     c = DBSCAN(eps=0.01, min_samples=5)
-        #     ic()
-        #     c = c.fit(segs)
-        #     ic()
-        #     lbs = c.labels_
-        #     ic(np.unique(lbs, return_counts=True))
-        # elif method == 'optics':
-        #     c = OPTICS(max_eps=0.05, min_samples=5)
-        #     ic()
-        #     c = c.fit(segs)
-        #     ic()
-        #     lbs = c.labels_
-        #     ic(np.unique(lbs))
-        # elif method == 'birch':
-        #     c = Birch(threshold=0.05, n_clusters=None)
-        #     ic()
-        #     c = c.fit(segs)
-        #     ic()
-        #     lbs = c.labels_
-        #     ic(np.unique(lbs))
-        # pass
-
         ic()
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
         ic()
         lbs, counts = np.unique(cls.labels_, return_counts=True)
-        ic(lbs, counts)
-        ic(lbs.shape, counts.shape)
-        plot_1d(np.sort(counts), label='#Samples by cluster bar plot')
+        ic(lbs, counts, lbs.shape, counts.shape)
+
+        counts = np.flip(np.sort(counts))
+        ic(counts)
+        rank = np.arange(counts.size)+1
+        ic(rank)
+        if plot_dist:
+            n = None if plot_dist is True else plot_dist
+            y = np.flip(np.sort(counts))[:n]
+            plt.figure(figsize=(18, 6))
+            # sns.barplot(x=rank, y=counts, palette='flare')
+            plt.plot(rank[:n], y, marker='o', lw=0.5, ms=1, label='# sample')
+            scale = 10
+            (a_, b_), (x_, y_) = fit_power_law(rank, counts, return_fit=scale)
+            a_, b_ = round(a_, 2), round(b_, 2)
+            n_ = n*scale
+            plt.plot(x_[:n_], y_[:n_], lw=0.4, ls='-', label=fr'Fitted power law: ${a_} x^{{{b_}}}$')
+            # ic(ret)
+            plt.xlabel('Cluster, ranked')
+            plt.ylabel('Frequency')
+            plt.title('Rank-frequency plot after clustering')
+            plt.legend()
+            plt.show()
 
 
 if __name__ == '__main__':
@@ -164,5 +150,9 @@ if __name__ == '__main__':
 
     # et.fit(el[:16], method='dbscan', cls_kwargs=dict(eps=0.01, min_samples=3))
     # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
-    et.fit(el[:32], method='hierarchical', cls_kwargs=dict(distance_threshold=0.02))
+    et.fit(
+        el[:8],
+        method='hierarchical', cls_kwargs=dict(distance_threshold=0.02),
+        plot_dist=40
+    )
 
