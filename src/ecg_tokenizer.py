@@ -148,9 +148,6 @@ class EcgTokenizer:
             plt.legend()
             plt.show()
 
-        # for lb in ids_vocab:
-        #     arr = segs[lbs == lb].sum(axis=0)
-        #     ic(arr, arr.shape)
         self.centers = np.stack([
             segs[lbs == lb].mean(axis=0) for lb in ids_vocab
         ])
@@ -171,58 +168,81 @@ class EcgTokenizer:
                     top=0.925, bottom=bot,
                     wspace=plot_sep, hspace=plot_sep*8
                 )
+                d_lns = dict()
+                d_axs = dict()
 
-                i_bch = 0  # Batch
-                offset = i_bch * sz_bch
-                idxs_ord = np.arange(sz_bch) + offset  # Ordering for display
-                idxs_sz = idxs_sort[idxs_ord]  # Internal ordering based on counts
-                ic(offset, idxs_ord, counts[idxs_sz])
-                mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
-                ylim = max(abs(mi), abs(ma)) * 1.25
-                ylim = [-ylim, ylim]
-                it_c = iter(cs)
-                for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
-                    clr = next(it_c)
-                    idx_ord = r * n_col + c
-                    ax_ = fig.add_subplot(n_row, n_col, idx_ord+1)
-                    idx_sz: int = idxs_sz[idx_ord]
-                    ax_.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)
-                    if n_samp:
-                        kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
-                        idxs_samp = np.arange(n_segs)[lbs == idx_sz]
-                        # ic(idxs_samp.shape)
-                        sz_cls = idxs_samp.shape[0]
-                        # ic(sz_cls)
-                        if sz_cls > n_samp:
-                            for i in random.sample(range(sz_cls), n_samp):
-                                # ic(i, idxs_samp, idxs_samp[i])
-                                # ic(segs[idxs_samp[i]])
-                                # ic(idx_sz, lbs[idxs_samp[i]], idxs_samp[i])
-                                ax_.plot(segs[idxs_samp[i]], **kwargs)
-                            # exit(1)
+                def update(idx, first=False):
+                    i_bch = idx  # Batch
+                    offset = i_bch * sz_bch
+                    idxs_ord = np.arange(sz_bch) + offset  # Ordering for display
+                    idxs_sz = idxs_sort[idxs_ord]  # Internal ordering based on counts
+                    mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
+                    ylim = max(abs(mi), abs(ma)) * 1.25
+                    ylim = [-ylim, ylim]
+                    it_c = iter(cs)
+                    for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
+                        clr = next(it_c)
+                        idx_ord = r * n_col + c
+                        if first:
+                            ax_ = d_axs[idx_ord] = fig.add_subplot(n_row, n_col, idx_ord+1)
                         else:
-                            for i in idxs_samp:
-                                ax_.plot(segs[i], **kwargs)
+                            ax_ = d_axs[idx_ord]
 
-                    ax_.set_title(f'Seg #{idx_ord+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
-                    ax_.set_ylim(ylim)
-                    ax_.axes.xaxis.set_ticklabels([])
-                    ax_.axes.yaxis.set_ticklabels([])
+                        idx_sz: int = idxs_sz[idx_ord]
+                        # ic(first)
+                        if first:
+                            # List containing single element
+                            d_lns[idx_ord] = ax_.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)[0]
+                            ic(ax_.lines)
+                            # ic(lns, type(lns))
+                        else:
+                            d_lns[idx_ord].set_ydata(self.centers[idx_sz])
+                            pass
+                        if n_samp:
+                            kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
+                            idxs_samp = np.arange(n_segs)[lbs == idx_sz]
+                            sz_cls = idxs_samp.shape[0]
+
+                            n_exist = len(ax_.lines)
+                            n_new = min(sz_cls, n_samp)
+                            ic(n_exist, n_new)
+
+                            if sz_cls > n_samp:
+                                ys = (segs[idxs_samp[i]] for i in random.sample(range(sz_cls), n_samp))
+                            else:
+                                ys = (segs[i] for i in idxs_samp)
+                            if n_new <= n_exist:
+                                for i in range(n_new):
+                                    ax_.lines[i].set_ydata(next(ys))
+                                for _ in range(n_exist - n_new):  # Drop additional lines
+                                    # ax_.lines = ax_.lines[:-()]
+                                    ax_.lines[-1].remove()
+                            else:  # n_exist < n_new
+                                for i in range(n_exist):
+                                    ax_.lines[i].set_ydata(next(ys))
+                                for i in range(n_exist, n_new):
+                                    ax_.plot(next(ys), **kwargs)
+                            ic(ax_.lines)
+                        # ic(type(ax_))
+                        ax_.set_title(f'Seg #{idx_ord+offset+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
+                        ax_.set_ylim(ylim)
+                        ax_.axes.xaxis.set_ticklabels([])
+                        ax_.axes.yaxis.set_ticklabels([])
                 plt.suptitle('Segment plot, ordered by frequency')
                 ax_sld = plt.axes([margin_h*4, bot/2, 1-margin_h*8, 0.01])
                 n_bch = math.ceil(self.centers.shape[0] / sz_bch)
                 slider = Slider(
                     ax_sld, 'Batch #', 0, n_bch-1, valinit=0, valstep=1,
-                    # color=sns.color_palette(palette='husl', n_colors=7)[3]
+                    color=sns.color_palette(palette='husl', n_colors=7)[3]
                 )
                 slider.vline._linewidth = 0  # Hides vertical red line marking init value
 
+                update(0, first=True)
                 # def update(val):
                 #     i_bch = val
                 #     ic(val, slider.val)
                 #     l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
                 #     # ax.figure.canvas.draw_idle()
-
                 slider.on_changed(update)
                 plt.show()
 
@@ -230,8 +250,10 @@ class EcgTokenizer:
 if __name__ == '__main__':
     from icecream import ic
 
+    random.seed(config('random_seed'))
+
     el = EcgLoader('CHAP_SHAO')  # TODO: Generalize to multiple datasets
-    et = EcgTokenizer(k=32)
+    et = EcgTokenizer(k=16)
 
     def sanity_check():
         s = el[0]
@@ -243,9 +265,9 @@ if __name__ == '__main__':
     # et.fit(el[:16], method='dbscan', cls_kwargs=dict(eps=0.01, min_samples=3))
     # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
     et.fit(
-        el[:16],
-        method='hierarchical', cls_kwargs=dict(distance_threshold=0.0006),
+        el[:2],
+        method='hierarchical', cls_kwargs=dict(distance_threshold=0.0008),
         plot_dist=40,
         plot_segments=(5, 4),
-        plot_seg_sample=8
+        plot_seg_sample=16
     )
