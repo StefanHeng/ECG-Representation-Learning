@@ -109,7 +109,7 @@ def log(s, c: str = '', as_str=False):
     if as_str:
         return f'{c}{s}{log.reset}'
     else:
-        print(f'{c}{now()} |{s}{log.reset}')
+        print(f'{c}{now()}| {s}{log.reset}')
 
 
 def logs(s, c):

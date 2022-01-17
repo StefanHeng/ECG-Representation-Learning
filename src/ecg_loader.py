@@ -40,7 +40,6 @@ class EcgLoader:
         :return: (min, max) of the signal records
         """
         arr = self.dset[self.idxs_processed]
-        # ic(arr, arr.shape, type(arr))
         return arr.min(), arr.max()
 
     @property
@@ -54,8 +53,6 @@ class EcgLoader:
         return self.dset.shape[0] if self.is_full else len(self.set_processed)
 
     def __getitem__(self, idx):
-        # ic(idx)
-        # assert self.is_full or idx in self.set_processed
         if self.normalize:
             mi, ma = self.range
             return (self.dset[idx] - mi) / (ma - mi)
