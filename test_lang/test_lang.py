@@ -117,9 +117,7 @@ if __name__ == '__main__':
         ic(val, slider.val)
         l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
         # ax.figure.canvas.draw_idle()
-
     slider.on_changed(update)
-
     plt.show()
 
-    ic(np.linalg.norm(np.full(32, 0.1)))
+    # ic(np.linalg.norm(np.full(32, 0.1)))

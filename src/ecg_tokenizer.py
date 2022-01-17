@@ -1,6 +1,8 @@
 # from enum import Enum
+import random
 
-from sklearn.cluster import SpectralClustering, AgglomerativeClustering, DBSCAN, OPTICS, Birch
+from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch
+from matplotlib.widgets import Slider
 
 from util import *
 from ecg_loader import EcgLoader
@@ -89,7 +91,9 @@ class EcgTokenizer:
     def fit(
             self, sigs: np.ndarray, method='spectral', cls_kwargs=None,
             plot_dist: Union[bool, int] = False,
-            plot_segments: Union[bool, tuple[int, int]] = False):
+            plot_segments: Union[bool, tuple[int, int]] = False,
+            plot_seg_sample: int = None
+    ):
         """
         :param sigs: Array of shape N x C x L
         :param method: Clustering method
@@ -97,6 +101,7 @@ class EcgTokenizer:
         :param plot_dist: If True, the counts for each cluster is plotted
             If integer give, the first most common classes are plotted
         :param plot_segments: If 2-tuple given, plots the segment centroid for each cluster in grid
+        :param plot_seg_sample: If `plot_segments` and given, samples from each cluster are plotted
 
         Symbols for each signal channel learned separately
             Clustering labels are assigned for each channel, for N x C labels in total, in the input order
@@ -108,7 +113,8 @@ class EcgTokenizer:
             assert sigs.shape[-1] % self.k == 0
         n_rec = sigs.shape[0]
         segs = sigs.reshape(-1, self.k)
-        log(f'Clustering {logs(n_rec, c="i")} signals => {logs(segs.shape[0], c="i")} segments')
+        n_segs = segs.shape[0]
+        log(f'Clustering {logs(n_rec, c="i")} signals => {logs(n_segs, c="i")} segments')
         means = segs.mean(axis=-1, keepdims=True)
         segs -= means  # Set mean of each segment to 0
 
@@ -146,49 +152,78 @@ class EcgTokenizer:
         #     arr = segs[lbs == lb].sum(axis=0)
         #     ic(arr, arr.shape)
         self.centers = np.stack([
-            segs[lbs == lb].sum(axis=0) for lb in ids_vocab
+            segs[lbs == lb].mean(axis=0) for lb in ids_vocab
         ])
         ic(self.centers, self.centers.shape)
         if plot_segments:
-            n_col, n_row = plot_segments
-            i_batch = 0
-            n_batch = n_row * n_col
-            offset = i_batch * n_batch
-            idxs_ord = np.arange(n_batch) + offset  # Ordering for display
-            idxs_sz = idxs_sort[idxs_ord]  # Internal ordering based on counts
-            ic(offset, idxs_ord, counts[idxs_sz])
-            mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
-            ylim = max(abs(mi), abs(ma)) * 1.25
-            ylim = [-ylim, ylim]
+            with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
+                n_col, n_row = plot_segments
+                sz_bch = n_row * n_col
+                n_samp = plot_seg_sample
 
-            # lw doesn't seem to affect anything
-            # sns.set_context(rc={'grid.linewidth': 0.5})
-            with sns.axes_style('whitegrid', {'grid.linestyle': ':', 'grid.linewidth': 5}):
+                cs = sns.color_palette(palette='husl', n_colors=sz_bch)
                 fig = plt.figure(figsize=(n_col * 3, n_row * 2), constrained_layout=False)
-                # gs = fig.add_gridspec(n_col, n_row)
-                # ax = plt.gca()
-                margin_h, plot_sep = 0.125/n_col, 0.125/n_col
+                n = max(n_col, n_row)
+                margin_h, plot_sep = 0.125/n, 0.125/n
+                bot = 0.0125 * n
                 plt.subplots_adjust(
-                    left=margin_h, right=1-margin_h/2,
-                    top=0.925, bottom=0.125,
+                    left=margin_h/2, right=1-margin_h/2,
+                    top=0.925, bottom=bot,
                     wspace=plot_sep, hspace=plot_sep*8
                 )
-                # ic([(r, c) for r in range(n_row) for c in range(n_col)])
-                # for r in iter(range(n_row))
+
+                i_bch = 0  # Batch
+                offset = i_bch * sz_bch
+                idxs_ord = np.arange(sz_bch) + offset  # Ordering for display
+                idxs_sz = idxs_sort[idxs_ord]  # Internal ordering based on counts
+                ic(offset, idxs_ord, counts[idxs_sz])
+                mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
+                ylim = max(abs(mi), abs(ma)) * 1.25
+                ylim = [-ylim, ylim]
+                it_c = iter(cs)
                 for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
+                    clr = next(it_c)
                     idx_ord = r * n_col + c
-                    ic(r, c, idx_ord)
                     ax_ = fig.add_subplot(n_row, n_col, idx_ord+1)
-                    # idx_ord = idx_ord + offset
-                    idx_sz = idxs_sz[idx_ord]
-                    ax_.plot(self.centers[idx_sz], lw=0.25, marker='o', ms=0.3)
+                    idx_sz: int = idxs_sz[idx_ord]
+                    ax_.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)
+                    if n_samp:
+                        kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
+                        idxs_samp = np.arange(n_segs)[lbs == idx_sz]
+                        # ic(idxs_samp.shape)
+                        sz_cls = idxs_samp.shape[0]
+                        # ic(sz_cls)
+                        if sz_cls > n_samp:
+                            for i in random.sample(range(sz_cls), n_samp):
+                                # ic(i, idxs_samp, idxs_samp[i])
+                                # ic(segs[idxs_samp[i]])
+                                # ic(idx_sz, lbs[idxs_samp[i]], idxs_samp[i])
+                                ax_.plot(segs[idxs_samp[i]], **kwargs)
+                            # exit(1)
+                        else:
+                            for i in idxs_samp:
+                                ax_.plot(segs[i], **kwargs)
+
                     ax_.set_title(f'Seg #{idx_ord+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
                     ax_.set_ylim(ylim)
-                    # ax_.axes.xaxis.set_ticks([])
-                    # ax_.axes.yaxis.set_ticks([])
                     ax_.axes.xaxis.set_ticklabels([])
                     ax_.axes.yaxis.set_ticklabels([])
                 plt.suptitle('Segment plot, ordered by frequency')
+                ax_sld = plt.axes([margin_h*4, bot/2, 1-margin_h*8, 0.01])
+                n_bch = math.ceil(self.centers.shape[0] / sz_bch)
+                slider = Slider(
+                    ax_sld, 'Batch #', 0, n_bch-1, valinit=0, valstep=1,
+                    # color=sns.color_palette(palette='husl', n_colors=7)[3]
+                )
+                slider.vline._linewidth = 0  # Hides vertical red line marking init value
+
+                # def update(val):
+                #     i_bch = val
+                #     ic(val, slider.val)
+                #     l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
+                #     # ax.figure.canvas.draw_idle()
+
+                slider.on_changed(update)
                 plt.show()
 
 
@@ -208,8 +243,9 @@ if __name__ == '__main__':
     # et.fit(el[:16], method='dbscan', cls_kwargs=dict(eps=0.01, min_samples=3))
     # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
     et.fit(
-        el[:8],
-        method='hierarchical', cls_kwargs=dict(distance_threshold=0.001),
+        el[:16],
+        method='hierarchical', cls_kwargs=dict(distance_threshold=0.0006),
         plot_dist=40,
-        plot_segments=(5, 4)
+        plot_segments=(5, 4),
+        plot_seg_sample=8
     )
