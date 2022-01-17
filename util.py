@@ -23,6 +23,7 @@ from data_path import *
 
 rcParams['figure.constrained_layout.use'] = True
 sns.set_style('darkgrid')
+sns.set_context(rc={'grid.linewidth': 0.5})
 
 
 def get(dic, ks):
@@ -193,18 +194,19 @@ def fit_power_law(x: np.ndarray, y: np.ndarray, return_fit: Union[int, bool] = F
         If `return_fit` is True, return additionally 2-tuple of (fitted x, fitted y)
             If integer given, the fitted curve is returned by scale
     """
+    # from icecream import ic
     def pow_law(x_, a, b):
+        # ic(x_, a, b)
         return a * np.power(x_, b)
     x, y = np.asarray(x).astype(float), np.asarray(y)
     (a_, b_), p_cov = scipy.optimize.curve_fit(f=pow_law, xdata=x, ydata=y, p0=(x[0], -1))
+
     ret = (a_, b_)
     if return_fit:
         scale = 1 if return_fit is True else return_fit
         x_plot = np.linspace(x.min(), x.max(), num=x.size * scale)
-        print(x.min(), x_plot)
         y_fit = pow_law(x_plot, a_, b_)
         ret = ret, (x_plot, y_fit)
-        # plt.plot(x_plot, y_fit, label='Fitted power law', lw=2)
     return ret
 
 

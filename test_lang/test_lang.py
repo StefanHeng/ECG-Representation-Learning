@@ -73,23 +73,53 @@ if __name__ == '__main__':
     # CLP_CH = Enum('CaliperChange', 'Add Remove Edit')
     # ic(CLP_CH, vars(CLP_CH), CLP_CH.Add)
 
-    import seaborn as sns
-    import matplotlib.pyplot as plt
+    # import seaborn as sns
+    # import matplotlib.pyplot as plt
+    #
+    # # sns.set_theme(style="whitegrid")
+    # # tips = sns.load_dataset("tips")
+    # # ax = sns.barplot(x="day", y="total_bill", data=tips)
+    # # ax = sns.barplot(x="size", y="total_bill", data=tips, palette="Blues_d")
+    # import numpy as np
+    # # x = np.array([1, 2, 3])
+    # # y = np.array([67, 23, 1])
+    # x = np.arange(12)+1
+    # y = np.array([304.08994, 229.13878, 173.71886, 135.75499,
+    #                111.096794, 94.25109, 81.55578, 71.30187,
+    #                62.146603, 54.212032, 49.20715, 46.765743])
+    # # ax = sns.barplot(x=x, y=y, palette='Blues_d')
+    # ax = sns.barplot(x=x, y=y, palette='flare')
+    #
+    # ic(np.power(np.array([0, 1., 6]), -2))
 
-    # sns.set_theme(style="whitegrid")
-    # tips = sns.load_dataset("tips")
-    # ax = sns.barplot(x="day", y="total_bill", data=tips)
-    # ax = sns.barplot(x="size", y="total_bill", data=tips, palette="Blues_d")
+    # Taken from https://github.com/matplotlib/matplotlib/issues/19256
     import numpy as np
-    # x = np.array([1, 2, 3])
-    # y = np.array([67, 23, 1])
-    x = np.arange(12)+1
-    y = np.array([304.08994, 229.13878, 173.71886, 135.75499,
-                   111.096794, 94.25109, 81.55578, 71.30187,
-                   62.146603, 54.212032, 49.20715, 46.765743])
-    # ax = sns.barplot(x=x, y=y, palette='Blues_d')
-    ax = sns.barplot(x=x, y=y, palette='flare')
+    import matplotlib.pyplot as plt
+    from matplotlib.widgets import Slider
 
-    ic(np.power(np.array([0, 1., 6]), -2))
+    fig = plt.figure(figsize=(16, 9), constrained_layout=False)
+    ax = plt.gca()
+    plt.subplots_adjust(top=0.975, left=0.05, right=0.95, bottom=0.125)
+    ax_slider = plt.axes([0.125, 0.05, 0.75, 0.01])
+    slider = Slider(ax_slider, 'Freq', 0.1, 30.0, valinit=5, valstep=0.5)
+    ic(slider.vline, vars(slider.vline))
+    slider.vline._linewidth = 0  # Hides vertical red line marking init value
 
+    t = np.arange(0.0, 1.0, 0.001)
+    f0 = 3
+    delta_f = 5.0
+    amp = 5
+    s = amp * np.sin(2 * np.pi * f0 * t)
+    l, = ax.plot(t, s, lw=2)
 
+    def update(val):
+        freq = slider.val
+        ic(val, slider.val)
+        l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
+        # ax.figure.canvas.draw_idle()
+
+    slider.on_changed(update)
+
+    plt.show()
+
+    ic(np.linalg.norm(np.full(32, 0.1)))

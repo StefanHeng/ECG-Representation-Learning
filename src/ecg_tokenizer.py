@@ -64,6 +64,8 @@ class EcgTokenizer:
         self.k = k
         self.pad_ = pad
 
+        self.centers = None  # of dim (N_cls, k); centers[i] stores the cluster mean for id `i`
+
     def pad(self, sig):
         """
         :param sig: 2D array of shape C x L, or 3D array of shape N x C x L
@@ -84,13 +86,17 @@ class EcgTokenizer:
                 log(f'Invalid padding scheme {self.pad}', 'err')
                 exit(1)
 
-    def fit(self, sigs: np.ndarray, method='spectral', cls_kwargs=None, plot_dist: Union[int, bool] = False):
+    def fit(
+            self, sigs: np.ndarray, method='spectral', cls_kwargs=None,
+            plot_dist: Union[bool, int] = False,
+            plot_segments: Union[bool, tuple[int, int]] = False):
         """
         :param sigs: Array of shape N x C x L
         :param method: Clustering method
         :param cls_kwargs: Arguments to the clustering method
         :param plot_dist: If True, the counts for each cluster is plotted
             If integer give, the first most common classes are plotted
+        :param plot_segments: If 2-tuple given, plots the segment centroid for each cluster in grid
 
         Symbols for each signal channel learned separately
             Clustering labels are assigned for each channel, for N x C labels in total, in the input order
@@ -108,31 +114,82 @@ class EcgTokenizer:
 
         ic()
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
+        lbs = cls.labels_  # Treated as the token id
         ic()
-        lbs, counts = np.unique(cls.labels_, return_counts=True)
-        ic(lbs, counts, lbs.shape, counts.shape)
+        ids_vocab, counts = np.unique(cls.labels_, return_counts=True)
+        idxs_sort = np.argsort(-counts)
+        ic(ids_vocab.shape, ids_vocab, counts)
 
-        counts = np.flip(np.sort(counts))
-        ic(counts)
-        rank = np.arange(counts.size)+1
-        ic(rank)
         if plot_dist:
             n = None if plot_dist is True else plot_dist
-            y = np.flip(np.sort(counts))[:n]
+            # y = np.flip(np.sort(counts))[:n]
+            y = counts[idxs_sort][:n]
+            rank = (np.arange(counts.size) + 1)[:n]
+
             plt.figure(figsize=(18, 6))
-            # sns.barplot(x=rank, y=counts, palette='flare')
-            plt.plot(rank[:n], y, marker='o', lw=0.5, ms=1, label='# sample')
+            plt.plot(rank, y, marker='o', lw=0.5, ms=1, label='# sample')
+
             scale = 10
-            (a_, b_), (x_, y_) = fit_power_law(rank, counts, return_fit=scale)
+            (a_, b_), (x_, y_) = fit_power_law(rank, y, return_fit=scale)
             a_, b_ = round(a_, 2), round(b_, 2)
             n_ = n*scale
             plt.plot(x_[:n_], y_[:n_], lw=0.4, ls='-', label=fr'Fitted power law: ${a_} x^{{{b_}}}$')
-            # ic(ret)
+            log(f'R-squared for fitted curve: {logs(r2(y_, a_ * np.power(x_, b_)), c="i")}')
+
             plt.xlabel('Cluster, ranked')
             plt.ylabel('Frequency')
             plt.title('Rank-frequency plot after clustering')
             plt.legend()
             plt.show()
+
+        # for lb in ids_vocab:
+        #     arr = segs[lbs == lb].sum(axis=0)
+        #     ic(arr, arr.shape)
+        self.centers = np.stack([
+            segs[lbs == lb].sum(axis=0) for lb in ids_vocab
+        ])
+        ic(self.centers, self.centers.shape)
+        if plot_segments:
+            n_col, n_row = plot_segments
+            i_batch = 0
+            n_batch = n_row * n_col
+            offset = i_batch * n_batch
+            idxs_ord = np.arange(n_batch) + offset  # Ordering for display
+            idxs_sz = idxs_sort[idxs_ord]  # Internal ordering based on counts
+            ic(offset, idxs_ord, counts[idxs_sz])
+            mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
+            ylim = max(abs(mi), abs(ma)) * 1.25
+            ylim = [-ylim, ylim]
+
+            # lw doesn't seem to affect anything
+            # sns.set_context(rc={'grid.linewidth': 0.5})
+            with sns.axes_style('whitegrid', {'grid.linestyle': ':', 'grid.linewidth': 5}):
+                fig = plt.figure(figsize=(n_col * 3, n_row * 2), constrained_layout=False)
+                # gs = fig.add_gridspec(n_col, n_row)
+                # ax = plt.gca()
+                margin_h, plot_sep = 0.125/n_col, 0.125/n_col
+                plt.subplots_adjust(
+                    left=margin_h, right=1-margin_h/2,
+                    top=0.925, bottom=0.125,
+                    wspace=plot_sep, hspace=plot_sep*8
+                )
+                # ic([(r, c) for r in range(n_row) for c in range(n_col)])
+                # for r in iter(range(n_row))
+                for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
+                    idx_ord = r * n_col + c
+                    ic(r, c, idx_ord)
+                    ax_ = fig.add_subplot(n_row, n_col, idx_ord+1)
+                    # idx_ord = idx_ord + offset
+                    idx_sz = idxs_sz[idx_ord]
+                    ax_.plot(self.centers[idx_sz], lw=0.25, marker='o', ms=0.3)
+                    ax_.set_title(f'Seg #{idx_ord+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
+                    ax_.set_ylim(ylim)
+                    # ax_.axes.xaxis.set_ticks([])
+                    # ax_.axes.yaxis.set_ticks([])
+                    ax_.axes.xaxis.set_ticklabels([])
+                    ax_.axes.yaxis.set_ticklabels([])
+                plt.suptitle('Segment plot, ordered by frequency')
+                plt.show()
 
 
 if __name__ == '__main__':
@@ -152,7 +209,7 @@ if __name__ == '__main__':
     # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
     et.fit(
         el[:8],
-        method='hierarchical', cls_kwargs=dict(distance_threshold=0.02),
-        plot_dist=40
+        method='hierarchical', cls_kwargs=dict(distance_threshold=0.001),
+        plot_dist=40,
+        plot_segments=(5, 4)
     )
-
