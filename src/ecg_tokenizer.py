@@ -3,6 +3,7 @@ import random
 import pickle
 
 # from scipy.spatial import KDTree
+import numpy as np
 from sklearn.neighbors import KDTree
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch
 from matplotlib.widgets import Slider
@@ -95,7 +96,11 @@ class EcgTokenizer:
             assert isinstance(tokenizer, cls)
             return tokenizer
 
-    def __call__(self, sig: np.ndarray, plot: Union[bool, tuple[int, int]] = False):
+    def __call__(
+            self,
+            sig: np.ndarray,
+            plot: Union[bool, tuple[int, int]] = False, plot_args: dict = None
+    ):
         """
         :param sig: Signals or batch of signals to decode, of dim `d_prev::l`, where `l` is the number of samples
         :param plot: If true, the decoded ids are plotted with input signal in grid
@@ -106,34 +111,28 @@ class EcgTokenizer:
         """
         # TODO: Generalize: now, works on signals of the same sample length only
         sp = sig.shape
-        # ic(sig)
         ic(sig.shape)
         sp, l = sp[:-1], sp[-1]
         sig = self.pad(sig)
-        # ic(sig)
         if plot:
             segs = sig.reshape(-1, self.k).copy()
         else:
             segs = sig.reshape(-1, self.k)
-        # ic(segs.shape)
         means = segs.mean(axis=-1, keepdims=True)
-        # ic(means.shape)
         segs -= means
         dist, idx = self.nn.query(segs, k=1, return_distance=True)
         ic(dist.max(), dist.min())  # Sanity check
-        # ic(dist, idx)
-        ic(idx.shape)
         shape = sp+(-1,)
         ids = idx.reshape(shape)  # Token ids
         means = means.reshape(shape)
-        # ic(ids, ids.shape, means.shape)
         if plot:
+            scale = plot_args['scale'] if 'scale' in plot_args else 1
+
             ln = ids.shape[-1]
             sig_ = sig.reshape(-1, sig.shape[-1])
-            ic(sig_)
             ids_ = ids.reshape(-1, ln)
             means_ = means.reshape(-1, ln)
-            # ic(sig_.shape, ids_.shape, means_.shape)
+
             with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
                 n_col, n_row = plot
                 sz_bch = n_row * n_col
@@ -141,48 +140,68 @@ class EcgTokenizer:
                 i_bch = 0
                 offset = i_bch * sz_bch
 
-                cs = sns.color_palette(palette='husl', n_colors=sz_bch)
-                fig = plt.figure(figsize=(n_col * 6, n_row * 2), constrained_layout=False)
+                cs = sns.color_palette(palette='husl', n_colors=16)
+                # ic(cs)
+                cs = [cs[2], cs[10], cs[12]]
+                # ic(cs)
+                fig = plt.figure(figsize=(n_col*6*scale, n_row*2*scale), constrained_layout=False)
+                n_ = max(n_col, n_row)
+                margin_h, plot_sep = 0.075/n_, 0.075/n_
+                bot = 0.025 * n_
+                plt.subplots_adjust(
+                    left=margin_h/2, right=1-margin_h/2,
+                    top=0.95, bottom=bot,
+                    wspace=plot_sep, hspace=plot_sep*4
+                )
+                # ax_fig = plt.gca()
 
                 idxs_ord = np.arange(sz_bch) + offset
                 sigs_ori = sig_[idxs_ord, :]
-                # ic(sigs_ori.shape)
-                # ic(means_[idxs_ord, :, np.newaxis].shape)
                 sigs_dec = (self.centers[ids_[idxs_ord]] + means_[idxs_ord, :, np.newaxis]).reshape(sz_bch, -1)
-                ic(sigs_ori, sigs_dec)
-                # ic(sigs_dec.shape)
 
-                n = 256
-                # n = sigs_ori.shape[-1]
-                mi = min(sigs_ori[:n].min(), sigs_dec[:n].min())
-                ma = max(sigs_ori[:n].max(), sigs_dec[:n].max())
+                # n = 1024
+                n = sigs_ori.shape[-1]
+                # sigs_ori, sigs_dec = sigs_ori[:, :n], sigs_dec[:, :n]
+
+                ic(sigs_ori != 0)
+                ic(sigs_ori[sigs_ori != 0].shape)
+                vals = np.concatenate([sigs_ori[sigs_ori != 0], sigs_dec[sigs_dec != 0]])
+                p = 10
+                m, std = vals.mean(), vals.std()
+                ic(np.percentile(vals, 100-p))
+                ic(np.percentile(vals, p))
+                ic(vals, vals.shape)  # Remove the 0's padded
+                # mi, ma = vals.min(), vals.max()
+                mi, ma = m-2*std, m+2*std
+                # mi = min(sigs_ori[sigs_ori != 0].min(), sigs_dec.min())
+                # ma = max(sigs_ori.max(), sigs_dec.max())
                 ic(mi, ma)
-                ylim = max(abs(mi), abs(ma)) * 1.25
-                ylim = [-ylim, ylim]
+                # ylim = max(abs(mi), abs(ma)) * 1.25
+                # ylim = [-ylim, ylim]
+                ylim = [mi, ma]
                 kwargs = dict(lw=0.25, marker='o', ms=0.3)
 
                 for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
+                    it_c = iter(cs)
                     idx = r * n_col + c
-                    ic(idx)
-                    # ic(r, c)
+                    # ic(idx)
                     ax = fig.add_subplot(n_row, n_col, idx+1)
-                    # idx = idx+offset
 
-                    # ax.plot(sig_[idx][:n], label='Signal, original')
-                    ax.plot(sigs_ori[idx, :n], label='Signal, original', **kwargs)
-                    # ic(ids_[idx])
-                    # ic(self.centers[ids_[idx]].shape, means_[idx].shape)
-                    # sig_dec = (self.centers[ids_[idx]] + means_[idx].reshape(-1, 1)).flatten()
-                    # ic(sig_dec.shape)
-                    ax.plot(sigs_dec[idx, :n], label='Signal, decoded', **kwargs)
-                    # ic(sig_dec)
-                    bounds = np.arange(0, math.ceil(n/self.k)) * self.k
-                    ax.vlines(x=bounds, ymin=mi, ymax=ma, ls='-', lw=0.25, alpha=0.5, label='Segment boundaries')
+                    ax.plot(sigs_ori[idx], label='Signal, original', c=next(it_c), **kwargs)
+                    ax.plot(sigs_dec[idx], label='Signal, decoded', c=next(it_c), **kwargs)
+                    bounds = np.arange(0, math.ceil(n/self.k)+1) * self.k
+                    ax.vlines(
+                        x=bounds, ymin=mi, ymax=ma,
+                        ls='-', lw=0.25, alpha=0.5, colors=next(it_c), label='Segment boundaries'
+                    )
+                    ax.set_ylim(ylim)
                     ax.set_title(f'Signal #{idx+offset+1}', fontdict=dict(fontsize=8))
-
-            plt.legend()
-            plt.suptitle('Decoding plot')
-            plt.show()
+                    ax.axes.xaxis.set_ticklabels([])
+                    ax.axes.yaxis.set_ticklabels([])
+                plt.legend()
+                # ax_fig.legend()
+                plt.suptitle('Decoding plot')
+                plt.show()
         return ids, means
 
     def pad(self, sig):
@@ -386,5 +405,5 @@ if __name__ == '__main__':
         # ic(et, vars(et))
         ic(len(el))
         # et(el[1020:1024], plot=(2, 3))
-        et(el[400:420], plot=(2, 3))
+        et(el[400:420], plot=(2, 3), plot_args=dict(scale=2))
     check_save()
