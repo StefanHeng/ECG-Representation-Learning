@@ -129,21 +129,25 @@ class EcgTokenizer:
             scale = plot_args['scale'] if 'scale' in plot_args else 1
 
             ln = ids.shape[-1]
+            ic(ln)
             sig_ = sig.reshape(-1, sig.shape[-1])
             ids_ = ids.reshape(-1, ln)
             means_ = means.reshape(-1, ln)
+            dist_ = dist.reshape(-1, ln).sum(axis=-1)
+            # ic(dist.shape)
+            # ic(dist_, dist_.shape)
+            idxs_sort = np.argsort(-dist_)
+            ic(idxs_sort)
+            # exit(1)
 
             with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
                 n_col, n_row = plot
                 sz_bch = n_row * n_col
-
                 i_bch = 0
                 offset = i_bch * sz_bch
 
                 cs = sns.color_palette(palette='husl', n_colors=16)
-                # ic(cs)
                 cs = [cs[2], cs[10], cs[12]]
-                # ic(cs)
                 fig = plt.figure(figsize=(n_col*6*scale, n_row*2*scale), constrained_layout=False)
                 n_ = max(n_col, n_row)
                 margin_h, plot_sep = 0.075/n_, 0.075/n_
@@ -153,54 +157,40 @@ class EcgTokenizer:
                     top=0.95, bottom=bot,
                     wspace=plot_sep, hspace=plot_sep*4
                 )
-                # ax_fig = plt.gca()
 
                 idxs_ord = np.arange(sz_bch) + offset
-                sigs_ori = sig_[idxs_ord, :]
-                sigs_dec = (self.centers[ids_[idxs_ord]] + means_[idxs_ord, :, np.newaxis]).reshape(sz_bch, -1)
+                idxs_dist = idxs_sort[idxs_ord]
+                ic(idxs_dist)
+                sigs_ori = sig_[idxs_dist, :]
+                sigs_dec = (self.centers[ids_[idxs_dist]] + means_[idxs_dist, :, np.newaxis]).reshape(sz_bch, -1)
+                ic(sigs_ori.shape, sigs_dec.shape)
+                # exit(1)
 
-                # n = 1024
-                n = sigs_ori.shape[-1]
-                # sigs_ori, sigs_dec = sigs_ori[:, :n], sigs_dec[:, :n]
-
-                ic(sigs_ori != 0)
-                ic(sigs_ori[sigs_ori != 0].shape)
                 vals = np.concatenate([sigs_ori[sigs_ori != 0], sigs_dec[sigs_dec != 0]])
-                p = 10
                 m, std = vals.mean(), vals.std()
-                ic(np.percentile(vals, 100-p))
-                ic(np.percentile(vals, p))
-                ic(vals, vals.shape)  # Remove the 0's padded
-                # mi, ma = vals.min(), vals.max()
-                mi, ma = m-2*std, m+2*std
-                # mi = min(sigs_ori[sigs_ori != 0].min(), sigs_dec.min())
-                # ma = max(sigs_ori.max(), sigs_dec.max())
-                ic(mi, ma)
-                # ylim = max(abs(mi), abs(ma)) * 1.25
-                # ylim = [-ylim, ylim]
+                mi, ma = m-3*std, m+3*std
                 ylim = [mi, ma]
                 kwargs = dict(lw=0.25, marker='o', ms=0.3)
+                n = sigs_ori.shape[-1]
+                bounds = np.arange(0, math.ceil(n/self.k)+1) * self.k
 
                 for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
                     it_c = iter(cs)
                     idx = r * n_col + c
-                    # ic(idx)
                     ax = fig.add_subplot(n_row, n_col, idx+1)
 
                     ax.plot(sigs_ori[idx], label='Signal, original', c=next(it_c), **kwargs)
                     ax.plot(sigs_dec[idx], label='Signal, decoded', c=next(it_c), **kwargs)
-                    bounds = np.arange(0, math.ceil(n/self.k)+1) * self.k
                     ax.vlines(
                         x=bounds, ymin=mi, ymax=ma,
-                        ls='-', lw=0.25, alpha=0.5, colors=next(it_c), label='Segment boundaries'
+                        lw=0.3, alpha=0.7, colors=next(it_c), label='Segment boundaries'
                     )
                     ax.set_ylim(ylim)
-                    ax.set_title(f'Signal #{idx+offset+1}', fontdict=dict(fontsize=8))
-                    ax.axes.xaxis.set_ticklabels([])
-                    ax.axes.yaxis.set_ticklabels([])
+                    ax.set_title(f'Signal #{idxs_dist[idx+offset]}, ', fontdict=dict(fontsize=8))
+                    # ax.axes.xaxis.set_ticklabels([])
+                    # ax.axes.yaxis.set_ticklabels([])
                 plt.legend()
-                # ax_fig.legend()
-                plt.suptitle('Decoding plot')
+                plt.suptitle('Decoding plot, by descending fitness')
                 plt.show()
         return ids, means
 
