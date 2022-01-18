@@ -120,31 +120,24 @@ class EcgTokenizer:
             segs = sig.reshape(-1, self.k)
         means = segs.mean(axis=-1, keepdims=True)
         segs -= means
-        dist, idx = self.nn.query(segs, k=1, return_distance=True)
-        ic(dist.max(), dist.min())  # Sanity check
+        dists, idxs = self.nn.query(segs, k=1, return_distance=True)
+        ic(dists.max(), dists.min())  # Sanity check
         shape = sp+(-1,)
-        ids = idx.reshape(shape)  # Token ids
+        ids = idxs.reshape(shape)  # Token ids
         means = means.reshape(shape)
         if plot:
             scale = plot_args['scale'] if 'scale' in plot_args else 1
 
             ln = ids.shape[-1]
-            ic(ln)
             sig_ = sig.reshape(-1, sig.shape[-1])
             ids_ = ids.reshape(-1, ln)
             means_ = means.reshape(-1, ln)
-            dist_ = dist.reshape(-1, ln).sum(axis=-1)
-            # ic(dist.shape)
-            # ic(dist_, dist_.shape)
-            idxs_sort = np.argsort(-dist_)
-            ic(idxs_sort)
-            # exit(1)
+            dists_ = dists.reshape(-1, ln).sum(axis=-1)
+            idxs_sort = np.argsort(-dists_)
 
             with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
                 n_col, n_row = plot
                 sz_bch = n_row * n_col
-                i_bch = 0
-                offset = i_bch * sz_bch
 
                 cs = sns.color_palette(palette='husl', n_colors=16)
                 cs = [cs[2], cs[10], cs[12]]
@@ -157,39 +150,60 @@ class EcgTokenizer:
                     top=0.95, bottom=bot,
                     wspace=plot_sep, hspace=plot_sep*4
                 )
+                d_ax = dict()
 
-                idxs_ord = np.arange(sz_bch) + offset
-                idxs_dist = idxs_sort[idxs_ord]
-                ic(idxs_dist)
-                sigs_ori = sig_[idxs_dist, :]
-                sigs_dec = (self.centers[ids_[idxs_dist]] + means_[idxs_dist, :, np.newaxis]).reshape(sz_bch, -1)
-                ic(sigs_ori.shape, sigs_dec.shape)
-                # exit(1)
+                def update(idx_, first=False):
+                    i_bch = idx_
+                    offset = i_bch * sz_bch
+                    idxs_ord = np.arange(sz_bch) + offset
+                    idxs_dist = idxs_sort[idxs_ord]
+                    sigs_ori = sig_[idxs_dist, :]
+                    sigs_dec = (self.centers[ids_[idxs_dist]] + means_[idxs_dist, :, np.newaxis]).reshape(sz_bch, -1)
 
-                vals = np.concatenate([sigs_ori[sigs_ori != 0], sigs_dec[sigs_dec != 0]])
-                m, std = vals.mean(), vals.std()
-                mi, ma = m-3*std, m+3*std
-                ylim = [mi, ma]
-                kwargs = dict(lw=0.25, marker='o', ms=0.3)
-                n = sigs_ori.shape[-1]
-                bounds = np.arange(0, math.ceil(n/self.k)+1) * self.k
+                    vals = np.concatenate([sigs_ori[sigs_ori != 0], sigs_dec[sigs_dec != 0]])
+                    m, std = vals.mean(), vals.std()
+                    mi, ma = m-3*std, m+3*std
+                    ylim = [mi, ma]
+                    kwargs = dict(lw=0.25, marker='o', ms=0.3)
+                    n = sigs_ori.shape[-1]
+                    bounds = np.arange(0, math.ceil(n/self.k)+1) * self.k
 
-                for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
-                    it_c = iter(cs)
-                    idx = r * n_col + c
-                    ax = fig.add_subplot(n_row, n_col, idx+1)
-
-                    ax.plot(sigs_ori[idx], label='Signal, original', c=next(it_c), **kwargs)
-                    ax.plot(sigs_dec[idx], label='Signal, decoded', c=next(it_c), **kwargs)
-                    ax.vlines(
-                        x=bounds, ymin=mi, ymax=ma,
-                        lw=0.3, alpha=0.7, colors=next(it_c), label='Segment boundaries'
-                    )
-                    ax.set_ylim(ylim)
-                    ax.set_title(f'Signal #{idxs_dist[idx+offset]}, ', fontdict=dict(fontsize=8))
-                    # ax.axes.xaxis.set_ticklabels([])
-                    # ax.axes.yaxis.set_ticklabels([])
-                plt.legend()
+                    for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
+                        it_c = iter(cs)
+                        idx = r * n_col + c
+                        if first:
+                            ax = d_ax[idx] = fig.add_subplot(n_row, n_col, idx+1)
+                            ax.plot(sigs_ori[idx], label='Signal, original', c=next(it_c), **kwargs)
+                            ax.plot(sigs_dec[idx], label='Signal, decoded', c=next(it_c), **kwargs)
+                            ax.vlines(
+                                x=bounds, ymin=mi, ymax=ma,
+                                lw=0.3, alpha=0.7, colors=next(it_c), label='Segment boundaries'
+                            )
+                        else:
+                            # ic(d_ax)
+                            ax = d_ax[idx]
+                            ln1, ln2 = ax.lines
+                            ln1.set_ydata(sigs_ori[idx])
+                            ln2.set_ydata(sigs_dec[idx])
+                        ax.set_ylim(ylim)
+                        ax.set_title(
+                            f'Signal #{idxs_dist[idx]}, total dist = {round(dists_[idxs_dist[idx]], 2)}',
+                            fontdict=dict(fontsize=8)
+                        )
+                        ax.axes.xaxis.set_ticklabels([])
+                        ax.axes.yaxis.set_ticklabels([])
+                        if first and r == 0 and c == 0:
+                            ax.legend()
+                ax_sld = plt.axes([margin_h*2, bot/2, 1-margin_h*4, 0.01])
+                n_bch = math.ceil(sig_.shape[0] / sz_bch)
+                init = 0
+                slider = Slider(
+                    ax_sld, 'Batch #', 0, n_bch-1, valinit=init, valstep=1,
+                    color=sns.color_palette(palette='husl', n_colors=7)[3]
+                )
+                slider.vline._linewidth = 0  # Hides vertical red line marking init value
+                update(init, first=True)
+                slider.on_changed(update)
                 plt.suptitle('Decoding plot, by descending fitness')
                 plt.show()
         return ids, means
@@ -348,14 +362,12 @@ class EcgTokenizer:
                 plt.suptitle('Segment plot, ordered by frequency')
                 ax_sld = plt.axes([margin_h*4, bot/2, 1-margin_h*8, 0.01])
                 n_bch = math.ceil(self.centers.shape[0] / sz_bch)
-
                 init = 0
                 slider = Slider(
                     ax_sld, 'Batch #', 0, n_bch-1, valinit=init, valstep=1,
                     color=sns.color_palette(palette='husl', n_colors=7)[3]
                 )
-                slider.vline._linewidth = 0  # Hides vertical red line marking init value
-
+                slider.vline._linewidth = 0
                 update(init, first=True)
                 slider.on_changed(update)
                 plt.show()
