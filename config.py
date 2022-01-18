@@ -124,8 +124,14 @@ for dnm, d in config[DIR_DSET].items():
         d['rec_ext'] = fmt[fmt.index('.'):]
 
 
+d_my = config['datasets']['my']
+config['path-export'] = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'])
+
+
 if __name__ == '__main__':
     import json
+
+    from icecream import ic
 
     fl_nm = 'config.json'
     ic(config)

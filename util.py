@@ -67,9 +67,9 @@ def conc_map(fn, it):
         return executor.map(fn, it)
 
 
-def now(as_str=True):
+def now(as_str=True, sep=':'):
     d = datetime.now()
-    return d.strftime('%Y-%m-%d %H:%M:%S') if as_str else d
+    return d.strftime(f'%Y-%m-%d %H{sep}%M{sep}%S') if as_str else d  # Considering file output path
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -152,7 +152,7 @@ def config(attr):
     return get(config.config, attr)
 
 
-def save_fig(save, title):
+def save_fig(title, save=True):
     if save:
         fnm = f'{title}.png'
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
@@ -179,7 +179,7 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
     if title:
         plt.title(title)
     if new_fig:
-        save_fig(save, title)
+        save_fig(title, save)
     if show:
         plt.show()
 

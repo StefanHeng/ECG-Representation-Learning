@@ -92,35 +92,42 @@ if __name__ == '__main__':
     #
     # ic(np.power(np.array([0, 1., 6]), -2))
 
-    # Taken from https://github.com/matplotlib/matplotlib/issues/19256
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from matplotlib.widgets import Slider
+    # # Taken from https://github.com/matplotlib/matplotlib/issues/19256
+    # import numpy as np
+    # import matplotlib.pyplot as plt
+    # from matplotlib.widgets import Slider
+    #
+    # fig = plt.figure(figsize=(16, 9), constrained_layout=False)
+    # ax = plt.gca()
+    # plt.subplots_adjust(top=0.975, left=0.05, right=0.95, bottom=0.125)
+    # ax_slider = plt.axes([0.125, 0.05, 0.75, 0.01])
+    # slider = Slider(ax_slider, 'Freq', 0.1, 30.0, valinit=5, valstep=0.5)
+    # ic(slider.vline, vars(slider.vline))
+    # slider.vline._linewidth = 0  # Hides vertical red line marking init value
+    #
+    # t = np.arange(0.0, 1.0, 0.001)
+    # f0 = 3
+    # delta_f = 5.0
+    # amp = 5
+    # s = amp * np.sin(2 * np.pi * f0 * t)
+    # l, = ax.plot(t, s, lw=2)
+    #
+    # def update(val):
+    #     freq = slider.val
+    #     ic(val, slider.val)
+    #     l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
+    #     # ax.figure.canvas.draw_idle()
+    # slider.on_changed(update)
+    # # plt.show()
+    #
+    # # ic(np.linalg.norm(np.full(32, 0.1)))
+    #
+    # gen = (i for i in range(5))
+    # ic(next(gen))
 
-    fig = plt.figure(figsize=(16, 9), constrained_layout=False)
-    ax = plt.gca()
-    plt.subplots_adjust(top=0.975, left=0.05, right=0.95, bottom=0.125)
-    ax_slider = plt.axes([0.125, 0.05, 0.75, 0.01])
-    slider = Slider(ax_slider, 'Freq', 0.1, 30.0, valinit=5, valstep=0.5)
-    ic(slider.vline, vars(slider.vline))
-    slider.vline._linewidth = 0  # Hides vertical red line marking init value
-
-    t = np.arange(0.0, 1.0, 0.001)
-    f0 = 3
-    delta_f = 5.0
-    amp = 5
-    s = amp * np.sin(2 * np.pi * f0 * t)
-    l, = ax.plot(t, s, lw=2)
-
-    def update(val):
-        freq = slider.val
-        ic(val, slider.val)
-        l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
-        # ax.figure.canvas.draw_idle()
-    slider.on_changed(update)
-    # plt.show()
-
-    # ic(np.linalg.norm(np.full(32, 0.1)))
-
-    gen = (i for i in range(5))
-    ic(next(gen))
+    from gibberish import Gibberish
+    import random
+    random.seed(7)
+    gib = Gibberish()
+    ic(gib.generate_word())
+    ic(gib.generate_words(8))

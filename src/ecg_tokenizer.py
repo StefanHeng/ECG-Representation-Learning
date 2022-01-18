@@ -1,11 +1,17 @@
 # from enum import Enum
 import random
+import pickle
 
+# from scipy.spatial import KDTree
+from sklearn.neighbors import KDTree
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch
 from matplotlib.widgets import Slider
 
 from util import *
 from ecg_loader import EcgLoader
+
+
+D_EXP = config('path-export')
 
 
 def cluster(data: np.ndarray, method='spectral', cls_kwargs=None):
@@ -51,6 +57,8 @@ def cluster(data: np.ndarray, method='spectral', cls_kwargs=None):
 class EcgTokenizer:
     """
     Tokenize ECG signals into symbols, given normalized signals in range [0, 1]
+
+    Distance between segments are computed using l2 norm
     """
     D_PAD_F = dict(  # TODO: other padding schemes?
         zero=lambda sig, n_pad: np.pad(sig, ((0, 0), (0, n_pad)), 'constant')  # Defaults to 0, pads to the right only
@@ -67,6 +75,115 @@ class EcgTokenizer:
         self.pad_ = pad
 
         self.centers = None  # of dim (N_cls, k); centers[i] stores the cluster mean for id `i`
+        self.nn: KDTree = None  # Nearest Neighbor for decoding
+
+    def __repr__(self):
+        return f'<{self.__class__.__qualname__} k={self.k} pad={self.pad_}>'
+
+    def save(self):
+        """
+        Save current tokenizer object into pickle
+        """
+        fnm = f'ecg-tokenizer, {now(sep="-")}'
+        with open(os.path.join(D_EXP, f'{fnm}.pickle'), 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def from_pickle(cls, fnm, dir_=D_EXP):
+        with open(os.path.join(dir_, fnm), 'rb') as f:
+            tokenizer = pickle.load(f)
+            assert isinstance(tokenizer, cls)
+            return tokenizer
+
+    def __call__(self, sig: np.ndarray, plot: Union[bool, tuple[int, int]] = False):
+        """
+        :param sig: Signals or batch of signals to decode, of dim `d_prev::l`, where `l` is the number of samples
+        :param plot: If true, the decoded ids are plotted with input signal in grid
+        :return: 2-tuple of (Decoded cluster ids, segment means), each of dim `d_pre::n`,
+            where `n` is the number of segments
+
+        .. note:: Signals are decoded along the last dimension
+        """
+        # TODO: Generalize: now, works on signals of the same sample length only
+        sp = sig.shape
+        # ic(sig)
+        ic(sig.shape)
+        sp, l = sp[:-1], sp[-1]
+        sig = self.pad(sig)
+        # ic(sig)
+        if plot:
+            segs = sig.reshape(-1, self.k).copy()
+        else:
+            segs = sig.reshape(-1, self.k)
+        # ic(segs.shape)
+        means = segs.mean(axis=-1, keepdims=True)
+        # ic(means.shape)
+        segs -= means
+        dist, idx = self.nn.query(segs, k=1, return_distance=True)
+        ic(dist.max(), dist.min())  # Sanity check
+        # ic(dist, idx)
+        ic(idx.shape)
+        shape = sp+(-1,)
+        ids = idx.reshape(shape)  # Token ids
+        means = means.reshape(shape)
+        # ic(ids, ids.shape, means.shape)
+        if plot:
+            ln = ids.shape[-1]
+            sig_ = sig.reshape(-1, sig.shape[-1])
+            ic(sig_)
+            ids_ = ids.reshape(-1, ln)
+            means_ = means.reshape(-1, ln)
+            # ic(sig_.shape, ids_.shape, means_.shape)
+            with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
+                n_col, n_row = plot
+                sz_bch = n_row * n_col
+
+                i_bch = 0
+                offset = i_bch * sz_bch
+
+                cs = sns.color_palette(palette='husl', n_colors=sz_bch)
+                fig = plt.figure(figsize=(n_col * 6, n_row * 2), constrained_layout=False)
+
+                idxs_ord = np.arange(sz_bch) + offset
+                sigs_ori = sig_[idxs_ord, :]
+                # ic(sigs_ori.shape)
+                # ic(means_[idxs_ord, :, np.newaxis].shape)
+                sigs_dec = (self.centers[ids_[idxs_ord]] + means_[idxs_ord, :, np.newaxis]).reshape(sz_bch, -1)
+                ic(sigs_ori, sigs_dec)
+                # ic(sigs_dec.shape)
+
+                n = 256
+                # n = sigs_ori.shape[-1]
+                mi = min(sigs_ori[:n].min(), sigs_dec[:n].min())
+                ma = max(sigs_ori[:n].max(), sigs_dec[:n].max())
+                ic(mi, ma)
+                ylim = max(abs(mi), abs(ma)) * 1.25
+                ylim = [-ylim, ylim]
+                kwargs = dict(lw=0.25, marker='o', ms=0.3)
+
+                for r, c in iter((r, c) for r in range(n_row) for c in range(n_col)):
+                    idx = r * n_col + c
+                    ic(idx)
+                    # ic(r, c)
+                    ax = fig.add_subplot(n_row, n_col, idx+1)
+                    # idx = idx+offset
+
+                    # ax.plot(sig_[idx][:n], label='Signal, original')
+                    ax.plot(sigs_ori[idx, :n], label='Signal, original', **kwargs)
+                    # ic(ids_[idx])
+                    # ic(self.centers[ids_[idx]].shape, means_[idx].shape)
+                    # sig_dec = (self.centers[ids_[idx]] + means_[idx].reshape(-1, 1)).flatten()
+                    # ic(sig_dec.shape)
+                    ax.plot(sigs_dec[idx, :n], label='Signal, decoded', **kwargs)
+                    # ic(sig_dec)
+                    bounds = np.arange(0, math.ceil(n/self.k)) * self.k
+                    ax.vlines(x=bounds, ymin=mi, ymax=ma, ls='-', lw=0.25, alpha=0.5, label='Segment boundaries')
+                    ax.set_title(f'Signal #{idx+offset+1}', fontdict=dict(fontsize=8))
+
+            plt.legend()
+            plt.suptitle('Decoding plot')
+            plt.show()
+        return ids, means
 
     def pad(self, sig):
         """
@@ -151,6 +268,7 @@ class EcgTokenizer:
         self.centers = np.stack([
             segs[lbs == lb].mean(axis=0) for lb in ids_vocab
         ])
+        self.nn = KDTree(self.centers)
         ic(self.centers, self.centers.shape)
         if plot_segments:
             with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
@@ -184,65 +302,52 @@ class EcgTokenizer:
                         clr = next(it_c)
                         idx_ord = r * n_col + c
                         if first:
-                            ax_ = d_axs[idx_ord] = fig.add_subplot(n_row, n_col, idx_ord+1)
+                            ax = d_axs[idx_ord] = fig.add_subplot(n_row, n_col, idx_ord+1)
                         else:
-                            ax_ = d_axs[idx_ord]
+                            ax = d_axs[idx_ord]
 
                         idx_sz: int = idxs_sz[idx_ord]
-                        # ic(first)
                         if first:
-                            # List containing single element
-                            d_lns[idx_ord] = ax_.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)[0]
-                            ic(ax_.lines)
-                            # ic(lns, type(lns))
+                            # `plot` returns List containing single element
+                            d_lns[idx_ord] = ax.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)[0]
                         else:
                             d_lns[idx_ord].set_ydata(self.centers[idx_sz])
-                            pass
                         if n_samp:
                             kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
                             idxs_samp = np.arange(n_segs)[lbs == idx_sz]
                             sz_cls = idxs_samp.shape[0]
-
-                            n_exist = len(ax_.lines)
+                            n_exist = len(ax.lines)
                             n_new = min(sz_cls, n_samp)
-                            ic(n_exist, n_new)
-
                             if sz_cls > n_samp:
                                 ys = (segs[idxs_samp[i]] for i in random.sample(range(sz_cls), n_samp))
                             else:
                                 ys = (segs[i] for i in idxs_samp)
                             if n_new <= n_exist:
                                 for i in range(n_new):
-                                    ax_.lines[i].set_ydata(next(ys))
+                                    ax.lines[i].set_ydata(next(ys))
                                 for _ in range(n_exist - n_new):  # Drop additional lines
-                                    # ax_.lines = ax_.lines[:-()]
-                                    ax_.lines[-1].remove()
+                                    ax.lines[-1].remove()
                             else:  # n_exist < n_new
                                 for i in range(n_exist):
-                                    ax_.lines[i].set_ydata(next(ys))
+                                    ax.lines[i].set_ydata(next(ys))
                                 for i in range(n_exist, n_new):
-                                    ax_.plot(next(ys), **kwargs)
-                            ic(ax_.lines)
-                        # ic(type(ax_))
-                        ax_.set_title(f'Seg #{idx_ord+offset+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
-                        ax_.set_ylim(ylim)
-                        ax_.axes.xaxis.set_ticklabels([])
-                        ax_.axes.yaxis.set_ticklabels([])
+                                    ax.plot(next(ys), **kwargs)
+                        ax.set_title(f'Seg #{idx_ord+offset+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
+                        ax.set_ylim(ylim)
+                        ax.axes.xaxis.set_ticklabels([])
+                        ax.axes.yaxis.set_ticklabels([])
                 plt.suptitle('Segment plot, ordered by frequency')
                 ax_sld = plt.axes([margin_h*4, bot/2, 1-margin_h*8, 0.01])
                 n_bch = math.ceil(self.centers.shape[0] / sz_bch)
+
+                init = 0
                 slider = Slider(
-                    ax_sld, 'Batch #', 0, n_bch-1, valinit=0, valstep=1,
+                    ax_sld, 'Batch #', 0, n_bch-1, valinit=init, valstep=1,
                     color=sns.color_palette(palette='husl', n_colors=7)[3]
                 )
                 slider.vline._linewidth = 0  # Hides vertical red line marking init value
 
-                update(0, first=True)
-                # def update(val):
-                #     i_bch = val
-                #     ic(val, slider.val)
-                #     l.set_ydata(amp * np.sin(2 * np.pi * freq * t))
-                #     # ax.figure.canvas.draw_idle()
+                update(init, first=True)
                 slider.on_changed(update)
                 plt.show()
 
@@ -262,12 +367,24 @@ if __name__ == '__main__':
         ic(s_p, s_p.shape)
     # sanity_check()
 
-    # et.fit(el[:16], method='dbscan', cls_kwargs=dict(eps=0.01, min_samples=3))
-    # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
-    et.fit(
-        el[:2],
-        method='hierarchical', cls_kwargs=dict(distance_threshold=0.0008),
-        plot_dist=40,
-        plot_segments=(5, 4),
-        plot_seg_sample=16
-    )
+    def train():
+        # et.fit(el[:16], method='dbscan', cls_kwargs=dict(eps=0.01, min_samples=3))
+        # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
+        et.fit(
+            el[:16],
+            method='hierarchical', cls_kwargs=dict(distance_threshold=0.0008),
+            plot_dist=40,
+            plot_segments=(5, 4),
+            plot_seg_sample=16
+        )
+        et.save()
+    # train()
+
+    def check_save():
+        fnm = 'ecg-tokenizer, 2022-01-17 20-56-59.pickle'
+        et = EcgTokenizer.from_pickle(fnm)
+        # ic(et, vars(et))
+        ic(len(el))
+        # et(el[1020:1024], plot=(2, 3))
+        et(el[400:420], plot=(2, 3))
+    check_save()
