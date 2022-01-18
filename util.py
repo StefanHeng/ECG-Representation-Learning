@@ -81,7 +81,7 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def log(s, c: str = '', as_str=False):
+def log(s, c: str = 'log', as_str=False):
     """
     Prints `s` to console with color `c`
     """
@@ -115,8 +115,19 @@ def log(s, c: str = '', as_str=False):
         print(f'{c}{now()}| {s}{log.reset}')
 
 
-def logs(s, c):
+def logs(s, c='log'):
     return log(s, c=c, as_str=True)
+
+
+def logi(s):
+    """
+    Syntactic sugar for logging `info`
+    """
+    return logs(s, c='i')
+
+
+def np_index(arr, idx):
+    return np.where(arr == idx)[0][0]
 
 
 def clipper(low, high):
@@ -199,7 +210,7 @@ def fit_power_law(x: np.ndarray, y: np.ndarray, return_fit: Union[int, bool] = F
         # ic(x_, a, b)
         return a * np.power(x_, b)
     x, y = np.asarray(x).astype(float), np.asarray(y)
-    (a_, b_), p_cov = scipy.optimize.curve_fit(f=pow_law, xdata=x, ydata=y, p0=(x[0], -1))
+    (a_, b_), p_cov = scipy.optimize.curve_fit(f=pow_law, xdata=x, ydata=y, p0=(x[0]*2, -1))
 
     ret = (a_, b_)
     if return_fit:
