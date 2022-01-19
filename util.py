@@ -86,6 +86,13 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
+def sig_d(flt: float, n: int = 1):
+    """
+    :return: first n-th significant digit of `sig_d`
+    """
+    return float('{:.{p}g}'.format(flt, p=n))
+
+
 def log(s, c: str = 'log', as_str=False):
     """
     Prints `s` to console with color `c`
@@ -102,6 +109,7 @@ def log(s, c: str = 'log', as_str=False):
             suc=colorama.Fore.GREEN,
             info=colorama.Fore.BLUE,
             i=colorama.Fore.BLUE,
+            w=colorama.Fore.RED,
 
             y=colorama.Fore.YELLOW,
             yellow=colorama.Fore.YELLOW,

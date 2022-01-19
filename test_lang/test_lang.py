@@ -144,7 +144,19 @@ if __name__ == '__main__':
     # vocab = list(ig())
     # ic(len(vocab), vocab[:20])
 
-    from numpy.random import default_rng
-    rng = default_rng(77)
-    ic(rng.choice(10, size=5))
-    ic(rng.choice(10, size=5))
+    # from numpy.random import default_rng
+    # rng = default_rng(77)
+    # ic(rng.choice(10, size=5))
+    # ic(rng.choice(10, size=5))
+
+    # flt = 0.234234328424
+    #
+    # def sig_d(flt: float, n: int = 1):
+    #     """
+    #     :return: first n-th significant digit of `sig_d`
+    #     """
+    #     return float('{:.{p}g}'.format(flt, p=n))
+    # ic(float(f"{flt:.1g}"), f'{float(f"{flt:.1g}"):g}')
+    # ic(sig_d(flt, 2), str(sig_d(flt, 2)))
+
+    pass
