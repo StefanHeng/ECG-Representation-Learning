@@ -125,9 +125,14 @@ if __name__ == '__main__':
     # gen = (i for i in range(5))
     # ic(next(gen))
 
-    from gibberish import Gibberish
-    import random
-    random.seed(7)
-    gib = Gibberish()
-    ic(gib.generate_word())
-    ic(gib.generate_words(8))
+    # from gibberish import Gibberish
+    # import random
+    # random.seed(7)
+    # gib = Gibberish()
+    # ic(gib.generate_word())
+    # ic(gib.generate_words(8))
+
+    import numpy as np
+    f = 0.23423423424124
+    f_ = np.float64(f)
+    ic(f, round(f, 5), type(f_), round(f_, 5))

@@ -262,8 +262,9 @@ class EcgTokenizer:
         :param sigs: Array of shape N x C x L
         :param method: Clustering method
         :param cls_kwargs: Arguments to the clustering method
-        :param plot_dist: If True, the counts for each cluster is plotted
-            If integer give, the first most common classes are plotted
+        :param plot_dist: If True, the counts for each cluster is plotted, ordered by cluster size
+            If True, cluster size is inferred
+            If integer given, the first most common classes are plotted
         :param plot_segments: If 2-tuple given, plots the segment centroid for each cluster in grid
         :param plot_seg_sample: If `plot_segments` and given, samples from each cluster are plotted
         :param save: If true, the trained tokenizer is saved as pickle
@@ -292,19 +293,45 @@ class EcgTokenizer:
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
         lbs = cls.labels_  # Treated as the token id
         ic()
+
         ids_vocab, counts = np.unique(cls.labels_, return_counts=True)
         msk_cls = ids_vocab != -1  # For `DBSCAN`, points with labels -1 are outliers
-        idx_out = np_index(ids_vocab, -1)
-        count_out = counts[idx_out]
-        ids_vocab, counts = ids_vocab[msk_cls], counts[msk_cls]
+        count_out = None
+        if msk_cls.size != ids_vocab.size:  # Outlier label available
+            idx_out = np_index(ids_vocab, -1)
+            count_out = counts[idx_out]
+            ids_vocab, counts = ids_vocab[msk_cls], counts[msk_cls]
         idxs_sort = np.argsort(-counts)
-        log(f'{logi(ids_vocab.size)} clusters produced, with counts {counts[idxs_sort][:64]}... '
-            f'and outlier size {logi(count_out)}')
-        # ic(ids_vocab.shape, ids_vocab, counts)
+        s = f'{logi(ids_vocab.size)} clusters produced, with counts {counts[idxs_sort][:64]} '
+        log(s + f'... and outlier size {logi(count_out)}' if count_out else s)
 
         if plot_dist:
-            n = None if plot_dist is True else plot_dist
-            y = counts[idxs_sort][:n]
+            counts_sort = counts[idxs_sort]
+            if plot_dist is True:  # Plot cluster sizes
+                # ratio = 0.6  # Empirically set  # Approach 1, up until cover the majority of the data
+                # sums = np.cumsum(counts_sort)
+                # n = np.where(sums > sums[-1] * ratio)[0][0]
+
+                ratio = 0.004  # Approach 2, up until change in cluster size is not great
+                min_diff = max(counts_sort.size * ratio, 5)
+                diffs = -np.diff(counts_sort)
+                for i in range(diffs.size-1, 0, -1):  # non-ascending
+                    if diffs[i-1] < diffs[i]:
+                        diffs[i-1] = diffs[i]
+                ic(diffs, -diffs)
+                ext = int(min(segs.size*ratio, 20))  # Extend a bit more
+                n = np.where(diffs < min_diff)[0][0] + ext
+                ic(min_diff, diffs, diffs < min_diff, np.where(diffs < min_diff), n, ext)
+                # m, std = counts.mean(), counts.std()
+                # n = (counts > (m + std)).sum()
+                # ic(m, std, (counts > m + std).sum())
+                # ic(np.where(sums > sums[-1] * ratio))
+                # exit(1)
+            else:
+                n = plot_dist
+                assert isinstance(n, int)
+            # n = None if plot_dist is True else plot_dist
+            y = counts_sort[:n]
             rank = (np.arange(counts.size) + 1)[:n]
 
             plt.figure(figsize=(18, 6))
@@ -315,7 +342,11 @@ class EcgTokenizer:
             a_, b_ = round(a_, 2), round(b_, 2)
             n_ = n*scale
             plt.plot(x_[:n_], y_[:n_], lw=0.4, ls='-', label=fr'Fitted power law: ${a_} x^{{{b_}}}$')
-            log(f'R-squared for fitted curve: {logs(r2(y_, a_ * np.power(x_, b_)), c="i")}')
+            ic(type(r2(y, a_ * np.power(rank, b_))))
+            r2_ = round(r2(y, a_ * np.power(rank, b_)), 5)
+            ax = plt.gca()
+            ax.text(0.75, 0.95, rf'$R^2 = {r2_}$', transform=ax.transAxes)
+            log(f'R-squared for fitted curve: {logi(r2_)}')
 
             plt.xlabel('Cluster, ranked')
             plt.ylabel('Frequency')
@@ -324,6 +355,7 @@ class EcgTokenizer:
             plt.title(t)
             plt.legend()
             if save_fig_:
+                t = t.replace('$', '').replace(r'\epsilon', 'e')
                 save_fig(f'{t}, {now(sep="-")}')
             else:
                 plt.show()
@@ -332,7 +364,7 @@ class EcgTokenizer:
             segs[lbs == lb].mean(axis=0) for lb in ids_vocab
         ])
         self.nn = KDTree(self.centers)
-        # ic(self.centers, self.centers.shape)
+
         if plot_segments:
             with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
                 n_col, n_row = plot_segments
@@ -362,7 +394,9 @@ class EcgTokenizer:
                     ylim = max(abs(mi), abs(ma)) * 1.25
                     ylim = [-ylim, ylim]
                     it_c = iter(cs)
-                    for r, c in iter((r, c) for r in range(n_row) for c in range(n_col) if r*n_col + c + offset < n_vocab):
+                    for r, c in iter(
+                            (r, c) for r in range(n_row) for c in range(n_col) if r*n_col + c + offset < n_vocab
+                    ):
                         clr = next(it_c)
                         idx_ord = r*n_col + c
                         if first:
@@ -377,13 +411,11 @@ class EcgTokenizer:
                         else:
                             d_lns[idx_ord].set_ydata(self.centers[idx_sz])
                         if n_samp:
-                            # ic(n_samp)
                             kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
                             idxs_samp = np.arange(n_segs)[lbs == idx_sz]
                             sz_cls = idxs_samp.shape[0]
                             n_exist = len(ax.lines)-1  # The 1st line for centroid
                             n_new = min(sz_cls, n_samp)
-                            # ic(n_exist, n_new)
                             if sz_cls > n_samp:
                                 ys = (segs[idxs_samp[i]] for i in random.sample(range(sz_cls), n_samp))
                             else:
@@ -415,10 +447,13 @@ class EcgTokenizer:
                     )
                     slider.vline._linewidth = 0
                     slider.on_changed(update)
-                t = rf'Cluster segment centroid plot by frequency ' \
-                    rf'with $k={self.k}$, $n={self.n_sig}$, $\epsilon={self.cls_th}$'
+                t = rf'{D_CLS_NM[self.fit_method]} Cluster centroid plot by frequency '
+                if n_samp:
+                    t += rf'with {n_samp} random samples & '
+                t += rf'with $k={self.k}$, $n={self.n_sig}$, $\epsilon={self.cls_th}$'
                 plt.suptitle(t)
                 if save_fig_:
+                    t = t.replace('$', '').replace(r'\epsilon', 'e')
                     save_fig(f'{t}, {now(sep="-")}')
                 else:
                     plt.show()
@@ -442,15 +477,13 @@ if __name__ == '__main__':
     # sanity_check()
 
     def train():
-        # et.fit(el[:16], method='dbscan', cls_kwargs=dict(eps=0.01, min_samples=3))
-        # et.fit(el[:128], method='birch', cls_kwargs=dict(threshold=0.05))
         et.fit(
-            el[:32],
-            # method='hierarchical', cls_kwargs=dict(distance_threshold=0.0008),
-            method='dbscan', cls_kwargs=dict(eps=0.008),
-            plot_dist=40,
+            el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
+            # el[:32], method='dbscan', cls_kwargs=dict(eps=8e-3),
+            # el[:32], method='birch', cls_kwargs=dict(threshold=8e-4),
+            plot_dist=True,
             plot_segments=(5, 4),
-            plot_seg_sample=32,
+            plot_seg_sample=16,
             save_fig_=True,
             save=True
         )
