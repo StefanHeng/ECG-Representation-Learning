@@ -298,7 +298,7 @@ class EcgTokenizer:
         lbs = cls.labels_  # Treated as the token id
         ic()
 
-        ids_vocab, counts = np.unique(cls.labels_, return_counts=True)
+        ids_vocab, counts = np.unique(cls.labels_, return_counts=True)  # `ids_vocab` sorted ascending
         msk_cls = ids_vocab != -1  # For `DBSCAN`, points with labels -1 are outliers
         count_out = None
         if msk_cls.size != ids_vocab.size:  # Outlier label available
@@ -355,17 +355,48 @@ class EcgTokenizer:
             else:
                 plt.show()
 
-        self.centers = np.stack([
-            segs[lbs == lb].mean(axis=0) for lb in ids_vocab
-        ])
+        self.centers = np.stack([segs[lbs == lb].mean(axis=0) for lb in ids_vocab])
+        ic(ids_vocab[:20])
+        # if ids_vocab.size == ids_vocab[-1]:  # ids_vocab = np.arange(|ids_vocab|)
+        #     idx2lb = np.arange(ids_vocab.size)  # Unify later code
+        # else:
+        #     idx2lb = ids_vocab
+        #     ids_vocab = np.arange(ids_vocab.size)
+        # Endure id = index to `self.centers`
 
-        # label = idxs_sort[888]
-        # ic(label, segs[lbs == label], segs[lbs == label].mean(axis=0))
-        # plt.figure(figsize=(16, 9))
-        # for sample in segs[lbs == label]:
-        #     plt.plot(sample, c='r')
-        # plt.plot(segs[lbs == label].mean(axis=0), c='g')
-        # plt.show()
+        # Enforce the final `ids_vocab` = np.arange(|ids_vocab|), by modifying the labels returned from clustering
+        if ids_vocab.size != ids_vocab[-1]+1:  # Some integer labels have cluster size of 0
+            lb2idx = np.full(ids_vocab[-1]+1, nan)  # Such clusters will have nan assigned
+            vocab = set(ids_vocab)
+            id_assign = 0
+            for id_ori in ids_vocab:
+                if id_ori in vocab:
+                    lb2idx[id_ori] = id_assign
+                    id_assign += 1
+            lbs = lb2idx[lbs]  # Map to new labels
+            assert np.all(~np.isnan(lbs))
+            ids_vocab = np.arange(ids_vocab.size)
+            np.testing.assert_array_equal(np.unique(lbs), ids_vocab)
+
+        np.testing.assert_array_equal(segs, segs_)
+        ic(segs[lbs == 39832].mean(axis=0))
+
+        # np.testing.assert_array_equal(np.arange(ids_vocab.size), ids_vocab)
+        # lb_ = 39832
+        # ic(self.centers[lb_], segs[lbs == lb_], segs[lbs == lb_].mean(axis=0))
+        # for i in range(len(self.centers)):
+        #     ic(i)
+            # ic(i, self.centers[i], segs[lbs == i].mean(axis=0))
+            # np.testing.assert_array_equal(self.centers[i], segs[lbs == i].mean(axis=0))
+
+        label = idxs_sort[13]
+        ic(label)
+        ic(label, segs[lbs == label], segs[lbs == label].mean(axis=0))
+        plt.figure(figsize=(16, 9))
+        for sample in segs[lbs == label]:
+            plt.plot(sample, c='r', **LN_KWARGS)
+        plt.plot(segs[lbs == label].mean(axis=0), c='g', **LN_KWARGS)
+        plt.show()
 
         # samp1, samp2 = segs[lbs == label]
         # samp_mean = segs[lbs == label].mean(axis=0)
@@ -391,7 +422,7 @@ class EcgTokenizer:
                     top=0.925, bottom=bot,
                     wspace=plot_sep, hspace=plot_sep*8
                 )
-                d_lns = dict()  # Lines for the centroid plot, always the first `Line`
+                # d_lns = dict()  # Lines for the centroid plot, always the first `Line`
                 d_axs = dict()
 
                 def update(idx, first=False):
@@ -416,9 +447,17 @@ class EcgTokenizer:
                         idx_sz: int = idxs_sz[idx_ord]
                         if first:
                             # `plot` returns List containing single element
-                            d_lns[idx_ord] = ax.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)[0]
+                            # if idx_sz == label:
+                            #     for i in range(len(self.centers)):
+                            #         np.testing.assert_array_equal(self.centers[i], segs[lbs == i].mean(axis=0))
+                            #
+                            #     ic(label, idx_sz, 'asserting')
+                            #     plot_1d([self.centers[idx_sz], segs[lbs == label].mean(axis=0)], label=['plotted', 'actual'])
+                            #     plt.show()
+                            #     np.testing.assert_array_equal(self.centers[idx_sz], segs[lbs == label].mean(axis=0))
+                            ax.plot(self.centers[idx_sz], lw=0.75, marker='o', ms=0.9, c=clr)
                         else:
-                            d_lns[idx_ord].set_ydata(self.centers[idx_sz])
+                            ax.lines[0].set_ydata(self.centers[idx_sz])  # Centroid plot is the 1st `Line`
                         if n_samp:
                             kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
                             # idxs_samp = np.arange(n_segs)[lbs == idx_sz]
@@ -429,7 +468,10 @@ class EcgTokenizer:
                             n_new = min(sz_cls, n_samp)
                             if sz_cls > n_samp:
                                 # ys = (segs[idxs_samp[i]] for i in random.sample(range(sz_cls), n_samp))
-                                ys = (segs[idxs_samp[i]] for i in rng.choice(sz_cls, size=n_samp, replace=False))
+                                idxs = rng.choice(sz_cls, size=n_samp, replace=False)
+                                if idx_ord + offset + 1 == 3:
+                                    ic(idxs)
+                                ys = (segs[idxs_samp[i]] for i in idxs)
                             else:
                                 ys = (segs[i] for i in idxs_samp)
                             if n_new <= n_exist:
@@ -496,14 +538,14 @@ if __name__ == '__main__':
         et.fit(
             # el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
             # el[:32], method='dbscan', cls_kwargs=dict(eps=8e-3),
-            el[:64], method='birch', cls_kwargs=dict(
+            el[:128], method='birch', cls_kwargs=dict(
                 # branching_factor=256,
                 threshold=6e-4),
             plot_dist=True,
             plot_segments=(5, 4),
             plot_seg_sample=64,
-            save_fig_=True,
-            save=True
+            # save_fig_=True,
+            # save=True
         )
         et.save()
     train()

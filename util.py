@@ -25,6 +25,11 @@ rcParams['figure.constrained_layout.use'] = True
 sns.set_style('darkgrid')
 sns.set_context(rc={'grid.linewidth': 0.5})
 
+LN_KWARGS = dict(marker='o', ms=0.3, lw=0.25)  # matplotlib line plot default args
+
+
+nan = float('nan')
+
 
 def get(dic, ks):
     """
@@ -171,7 +176,7 @@ def save_fig(title, save=True):
 
 def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, show=True, plot_kwargs=None):
     """ Plot potentially multiple 1D signals """
-    kwargs = dict(marker='o', ms=0.3, lw=0.25)
+    kwargs = LN_KWARGS
     if plot_kwargs is not None:
         kwargs |= plot_kwargs
 

@@ -137,9 +137,14 @@ if __name__ == '__main__':
     # f_ = np.float64(f)
     # ic(f, round(f, 5), type(f_), round(f_, 5))
 
-    import numpy as np
+    # import numpy as np
+    # from numpy.random import default_rng
+    # import readableidgen as rig
+    # ig = rig.IdGen(fn=rig.Mappings.LARGE, rng=default_rng(77))
+    # vocab = list(ig())
+    # ic(len(vocab), vocab[:20])
+
     from numpy.random import default_rng
-    import readableidgen as rig
-    ig = rig.IdGen(fn=rig.Mappings.LARGE, rng=default_rng(77))
-    vocab = list(ig())
-    ic(len(vocab), vocab[:20])
+    rng = default_rng(77)
+    ic(rng.choice(10, size=5))
+    ic(rng.choice(10, size=5))
