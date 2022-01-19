@@ -171,7 +171,9 @@ def save_fig(title, save=True):
 
 def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, show=True, plot_kwargs=None):
     """ Plot potentially multiple 1D signals """
-    kwargs = dict(marker='o', ms=0.3, lw=0.25) | plot_kwargs
+    kwargs = dict(marker='o', ms=0.3, lw=0.25)
+    if plot_kwargs is not None:
+        kwargs |= plot_kwargs
 
     def _plot(a, lb):
         a = a[s:e]

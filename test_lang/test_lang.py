@@ -132,7 +132,14 @@ if __name__ == '__main__':
     # ic(gib.generate_word())
     # ic(gib.generate_words(8))
 
+    # import numpy as np
+    # f = 0.23423423424124
+    # f_ = np.float64(f)
+    # ic(f, round(f, 5), type(f_), round(f_, 5))
+
     import numpy as np
-    f = 0.23423423424124
-    f_ = np.float64(f)
-    ic(f, round(f, 5), type(f_), round(f_, 5))
+    from numpy.random import default_rng
+    import readableidgen as rig
+    ig = rig.IdGen(fn=rig.Mappings.LARGE, rng=default_rng(77))
+    vocab = list(ig())
+    ic(len(vocab), vocab[:20])

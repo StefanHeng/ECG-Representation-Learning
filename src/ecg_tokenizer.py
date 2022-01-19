@@ -1,9 +1,9 @@
-# from enum import Enum
-import random
+# import random
 import pickle
 
-# from scipy.spatial import KDTree
-import numpy as np
+
+# import numpy as np
+from numpy.random import default_rng
 from sklearn.neighbors import KDTree
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch
 from matplotlib.widgets import Slider
@@ -290,7 +290,11 @@ class EcgTokenizer:
         segs -= means  # Set mean of each segment to 0
 
         ic()
+        ic(segs.shape, segs[0])
+        segs_ = segs.copy()
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
+        ic(segs.shape, segs[0])
+        np.testing.assert_array_equal(segs, segs_)
         lbs = cls.labels_  # Treated as the token id
         ic()
 
@@ -312,25 +316,17 @@ class EcgTokenizer:
                 # sums = np.cumsum(counts_sort)
                 # n = np.where(sums > sums[-1] * ratio)[0][0]
 
-                ratio = 0.004  # Approach 2, up until change in cluster size is not great
+                ratio = 0.003  # Approach 2, up until change in cluster size is not great
                 min_diff = max(counts_sort.size * ratio, 5)
                 diffs = -np.diff(counts_sort)
-                for i in range(diffs.size-1, 0, -1):  # non-ascending
-                    if diffs[i-1] < diffs[i]:
-                        diffs[i-1] = diffs[i]
-                ic(diffs, -diffs)
+                for i_ in range(diffs.size-1, 0, -1):  # non-ascending
+                    if diffs[i_-1] < diffs[i_]:
+                        diffs[i_-1] = diffs[i_]
                 ext = int(min(segs.size*ratio, 20))  # Extend a bit more
                 n = np.where(diffs < min_diff)[0][0] + ext
-                ic(min_diff, diffs, diffs < min_diff, np.where(diffs < min_diff), n, ext)
-                # m, std = counts.mean(), counts.std()
-                # n = (counts > (m + std)).sum()
-                # ic(m, std, (counts > m + std).sum())
-                # ic(np.where(sums > sums[-1] * ratio))
-                # exit(1)
             else:
                 n = plot_dist
                 assert isinstance(n, int)
-            # n = None if plot_dist is True else plot_dist
             y = counts_sort[:n]
             rank = (np.arange(counts.size) + 1)[:n]
 
@@ -342,10 +338,9 @@ class EcgTokenizer:
             a_, b_ = round(a_, 2), round(b_, 2)
             n_ = n*scale
             plt.plot(x_[:n_], y_[:n_], lw=0.4, ls='-', label=fr'Fitted power law: ${a_} x^{{{b_}}}$')
-            ic(type(r2(y, a_ * np.power(rank, b_))))
             r2_ = round(r2(y, a_ * np.power(rank, b_)), 5)
-            ax = plt.gca()
-            ax.text(0.75, 0.95, rf'$R^2 = {r2_}$', transform=ax.transAxes)
+            ax_ = plt.gca()
+            ax_.text(0.75, 0.95, rf'$R^2 = {r2_}$', transform=ax_.transAxes)
             log(f'R-squared for fitted curve: {logi(r2_)}')
 
             plt.xlabel('Cluster, ranked')
@@ -363,6 +358,20 @@ class EcgTokenizer:
         self.centers = np.stack([
             segs[lbs == lb].mean(axis=0) for lb in ids_vocab
         ])
+
+        # label = idxs_sort[888]
+        # ic(label, segs[lbs == label], segs[lbs == label].mean(axis=0))
+        # plt.figure(figsize=(16, 9))
+        # for sample in segs[lbs == label]:
+        #     plt.plot(sample, c='r')
+        # plt.plot(segs[lbs == label].mean(axis=0), c='g')
+        # plt.show()
+
+        # samp1, samp2 = segs[lbs == label]
+        # samp_mean = segs[lbs == label].mean(axis=0)
+        # plot_1d([samp1, samp2, samp_mean], label=['sample1', 'sample2', 'mean'])
+        # exit(1)
+
         self.nn = KDTree(self.centers)
 
         if plot_segments:
@@ -412,24 +421,30 @@ class EcgTokenizer:
                             d_lns[idx_ord].set_ydata(self.centers[idx_sz])
                         if n_samp:
                             kwargs = dict(lw=0.25, marker='o', ms=0.3, c=clr, alpha=0.5)
-                            idxs_samp = np.arange(n_segs)[lbs == idx_sz]
-                            sz_cls = idxs_samp.shape[0]
+                            # idxs_samp = np.arange(n_segs)[lbs == idx_sz]
+                            idxs_samp = np.where(lbs == idx_sz)[0]
+                            # sz_cls = idxs_samp.shape[0]
+                            sz_cls = idxs_samp.size
                             n_exist = len(ax.lines)-1  # The 1st line for centroid
                             n_new = min(sz_cls, n_samp)
                             if sz_cls > n_samp:
-                                ys = (segs[idxs_samp[i]] for i in random.sample(range(sz_cls), n_samp))
+                                # ys = (segs[idxs_samp[i]] for i in random.sample(range(sz_cls), n_samp))
+                                ys = (segs[idxs_samp[i]] for i in rng.choice(sz_cls, size=n_samp, replace=False))
                             else:
                                 ys = (segs[i] for i in idxs_samp)
                             if n_new <= n_exist:
                                 for i in range(n_new):
-                                    ax.lines[i].set_ydata(next(ys))
-                                for _ in range(n_exist - n_new):  # Drop additional lines
+                                    ax.lines[i+1].set_ydata(next(ys))
+                                for _ in range(n_exist-n_new):  # Drop additional lines
                                     ax.lines[-1].remove()
+                                    # ic('removing', len(ax.lines))
                             else:  # n_exist < n_new
                                 for i in range(n_exist):
-                                    ax.lines[i].set_ydata(next(ys))
+                                    ax.lines[i+1].set_ydata(next(ys))
                                 for i in range(n_exist, n_new):
                                     ax.plot(next(ys), **kwargs)
+                            assert len(ax.lines) == n_new + 1
+                            np.testing.assert_array_equal(ax.lines[0].get_ydata(), self.centers[idx_sz])
                         ax.set_title(f'Seg #{idx_ord+offset+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
                         ax.set_ylim(ylim)
                         ax.axes.xaxis.set_ticklabels([])
@@ -464,7 +479,8 @@ class EcgTokenizer:
 if __name__ == '__main__':
     from icecream import ic
 
-    random.seed(config('random_seed'))
+    # random.seed(config('random_seed'))
+    rng = default_rng(77)
 
     el = EcgLoader('CHAP_SHAO')  # TODO: Generalize to multiple datasets
     et = EcgTokenizer(k=16)
@@ -478,12 +494,14 @@ if __name__ == '__main__':
 
     def train():
         et.fit(
-            el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
+            # el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
             # el[:32], method='dbscan', cls_kwargs=dict(eps=8e-3),
-            # el[:32], method='birch', cls_kwargs=dict(threshold=8e-4),
+            el[:64], method='birch', cls_kwargs=dict(
+                # branching_factor=256,
+                threshold=6e-4),
             plot_dist=True,
             plot_segments=(5, 4),
-            plot_seg_sample=16,
+            plot_seg_sample=64,
             save_fig_=True,
             save=True
         )
