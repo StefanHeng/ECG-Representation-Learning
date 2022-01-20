@@ -159,4 +159,14 @@ if __name__ == '__main__':
     # ic(float(f"{flt:.1g}"), f'{float(f"{flt:.1g}"):g}')
     # ic(sig_d(flt, 2), str(sig_d(flt, 2)))
 
-    pass
+    import numpy as np
+    arr = np.array([1, 2, 3, 4])
+    # ic(np.ndindex([
+    #     [1, 0],
+    #     [3, 2]
+    # ]))
+    idx = np.array([
+        [0, 3],
+        [2, 1]
+    ])
+    ic(arr, arr[idx])

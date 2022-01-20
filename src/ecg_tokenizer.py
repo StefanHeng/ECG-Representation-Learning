@@ -100,6 +100,8 @@ class EcgTokenizer:
         self.centers = None  # of dim (N_cls, k); centers[i] stores the cluster mean for id `i`
         self.lens = None  # of dim (N_cls); cluster sizes
         self.nn: KDTree = None  # Nearest Neighbor for decoding
+        # Customized NN, filtering out centroids by count or relative size
+        self.nns: dict[Union[int, float], EcgTokenizer.CustNN] = {}
 
         self.fit_method = None  # Hyperparameters for the last call to `fit`
         self.n_sig = None
@@ -123,13 +125,44 @@ class EcgTokenizer:
             assert isinstance(tokenizer, cls)
             return tokenizer
 
+    class CustNN:
+        """
+        Nearest neighbor wrapper, with a lowerbound thresholding on allowed points
+        """
+        def __init__(self, data: np.ndarray, lens: np.ndarray, th: Union[int, float]):
+            """
+            :param data: array of clustered centroids, see `EcgTokenizer`
+            :param lens: array of cluster sizes, see `EcgTokenizer`
+            :param th: Lowerbound threshold on lens to remove centroids
+                If int, as absolute threshold
+                If float in range (0, 1), as relative threshold across the total number of points
+            """
+            n = data.shape[0]
+            if isinstance(th, int):
+                self.data = data[lens >= th]
+            else:
+                assert isinstance(th, float) and 0 < th < 1
+                th = round(lens.sum() * th)
+                self.data = data[lens >= th]
+            self.nn = KDTree(self.data)
+            log(f'Custom Nearest Neighbor instantiated '
+                f'with sizes below {th} removed - # cluster {logi(n)} -> {logi(self.data.shape[0])}')
+
+        def __getitem__(self, idx):
+            # ic(type(self.nn.data), )
+            return self.data[idx]
+
+        def query(self, pts: np.ndarray, **kwargs):
+            return self.nn.query(pts, **kwargs)
+
     def __call__(
             self,
-            sig: np.ndarray,
+            sig: Union[int, np.ndarray], th: Union[int, float] = None,
             plot: Union[bool, tuple[int, int]] = False, plot_args: dict = None,
     ):
         """
-        :param sig: Signals or batch of signals to decode, of dim `d_prev::l`, where `l` is the number of samples
+        :param sig: signals or batch of signals to encode, of dim `d_prev::l`, where `l` is the number of samples
+        :param th: Lowerbound threshold for filtering clusters by size; See `EcgTokenizer.CustNN`
         :param plot: If true, the decoded ids are plotted with input signal in grid
         :return: 2-tuple of (Decoded cluster ids, segment means), each of dim `d_pre::n`,
             where `n` is the number of segments
@@ -146,7 +179,13 @@ class EcgTokenizer:
             segs = sig.reshape(-1, self.k)
         means = segs.mean(axis=-1, keepdims=True)
         segs -= means
-        dists, idxs = self.nn.query(segs, k=1, return_distance=True)
+
+        if th is None:
+            dists, idxs = self.nn.query(segs, k=1, return_distance=True)
+        else:
+            if th not in self.nns:
+                self.nns[th] = EcgTokenizer.CustNN(self.centers, self.lens, th)
+            dists, idxs = self.nns[th].query(segs, k=1, return_distance=True)
         ic(dists.max(), dists.min())  # Sanity check
         shape = sp+(-1,)
         ids = idxs.reshape(shape)  # Token ids
@@ -169,7 +208,7 @@ class EcgTokenizer:
                 cs = [cs[2], cs[10], cs[12]]
                 fig = plt.figure(figsize=(n_col*6*scale, n_row*2*scale), constrained_layout=False)
                 n_ = max(n_col, n_row)
-                margin_h, plot_sep = 0.075/n_, 0.075/n_
+                margin_h, plot_sep = 0.1/n_, 0.1/n_
                 bot = 0.025 * n_
                 plt.subplots_adjust(
                     left=margin_h/2, right=1-margin_h/2,
@@ -184,7 +223,9 @@ class EcgTokenizer:
                     idxs_ord = np.arange(sz_bch) + offset
                     idxs_dist = idxs_sort[idxs_ord]
                     sigs_ori = sig_[idxs_dist, :]
-                    sigs_dec = (self.centers[ids_[idxs_dist]] + means_[idxs_dist, :, np.newaxis]).reshape(sz_bch, -1)
+                    # ic(ids_[idxs_dist], ids_[idxs_dist].dtype, ids_[idxs_dist].shape)
+                    # ic(self.centers[ids_[idxs_dist]])
+                    sigs_dec = (self.decode(ids_[idxs_dist], th=th) + means_[idxs_dist, :, np.newaxis]).reshape(sz_bch, -1)
 
                     vals = np.concatenate([sigs_ori[sigs_ori != 0], sigs_dec[sigs_dec != 0]])
                     m, std = vals.mean(), vals.std()
@@ -215,8 +256,11 @@ class EcgTokenizer:
                             f'Signal #{idxs_dist[idx]}, total dist = {round(dists_[idxs_dist[idx]], 2)}',
                             fontdict=dict(fontsize=8)
                         )
-                        ax.axes.xaxis.set_ticklabels([])
-                        ax.axes.yaxis.set_ticklabels([])
+                        if first:
+                            ax.tick_params(axis='x', labelsize=7)
+                            ax.tick_params(axis='y', labelsize=7)
+                        # ax.axes.xaxis.set_ticklabels([])
+                        # ax.axes.yaxis.set_ticklabels([])
                         if first and r == 0 and c == 0:
                             ax.legend()
                 ax_sld = plt.axes([margin_h*2, bot/2, 1-margin_h*4, 0.01])
@@ -229,10 +273,17 @@ class EcgTokenizer:
                 slider.vline._linewidth = 0  # Hides vertical red line marking init value
                 update(init, first=True)
                 slider.on_changed(update)
-                t = 'Decoding plot, by descending fitness'
+                t = rf'Decoded signal plot by descending fitness, with {D_CLS_NM[self.fit_method]} clustering '\
+                    rf'on $k={self.k}$, $n={self.n_sig}$, $\epsilon={self.cls_th}$'
                 plt.suptitle(t)
                 plt.show()
         return ids, means
+
+    def decode(self, idx: Union[int, np.ndarray], th=None) -> np.ndarray:
+        if th is None:
+            return self.centers[idx]
+        else:
+            return self.nns[th][idx]
 
     def pad(self, sig):
         """
@@ -293,10 +344,8 @@ class EcgTokenizer:
         segs -= means  # Set mean of each segment to 0
 
         ic()
-        # ic(segs.shape, segs[0])
         segs_ = segs.copy()
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
-        # ic(segs.shape, segs[0])
         np.testing.assert_array_equal(segs, segs_)
         lbs = cls.labels_  # Treated as the token id
         ic()
@@ -405,7 +454,6 @@ class EcgTokenizer:
                     mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
                     ylim = max(abs(mi), abs(ma)) * 1.25
                     update.ylim = ylim = [-ylim, ylim]
-                    # if not hasattr(update, 'ylim'):
                     it_c = iter(cs)
                     for r, c in iter(
                             (r, c) for r in range(n_row) for c in range(n_col) if r*n_col + c + offset < n_vocab
@@ -471,7 +519,6 @@ class EcgTokenizer:
                     t += rf'with {n_samp} random samples & '
                 t += rf'with $k={self.k}$, $n={self.n_sig}$, $\epsilon={self.cls_th}$'
                 plt.suptitle(t)
-                # ic(plt.gca())
                 if save_fig_:
                     t = t.replace('$', '').replace(r'\epsilon', 'e')
                     save_fig(f'{t}, {now(sep="-")}')
@@ -513,13 +560,13 @@ if __name__ == '__main__':
             save=True
         )
         et.save()
-    train()
+    # train()
 
     def check_save():
-        fnm = 'ecg-tokenizer, 2022-01-19 16-46-46, k=16, cls=birch, n=256, e=0.0006.pickle'
+        fnm = 'ecg-tokenizer, 2022-01-19 20-42-28, k=16, cls=birch, n=256, e=0.0006.pickle'
         et = EcgTokenizer.from_pickle(fnm)
         # ic(et, vars(et))
         ic(len(el))
         # et(el[1020:1024], plot=(2, 3))
-        et(el[400:420], plot=(2, 3), plot_args=dict(scale=2))
-    # check_save()
+        et(el[400:420], th=2, plot=(2, 3), plot_args=dict(scale=2))
+    check_save()
