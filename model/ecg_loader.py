@@ -1,6 +1,6 @@
 from scipy.stats import norm
 
-from util import *
+from util.util import *
 
 
 class EcgLoader:
@@ -25,6 +25,11 @@ class EcgLoader:
         :param normalize: Normalization scheme
             If True, normalize by global minimum and maximum
             If number given, normalize by global mean and multiplied standard deviation as a percentile
+            FYI:
+                pnorm(1) ~= 0.841
+                pnorm(2) ~= 0.977
+                pnorm(3) ~= 0.999
+                pnorm(4) ~= 0.99997
         """
         self.rec = h5py.File(self.get_h5_path(dnm))
         self.dset = self.rec['data']
@@ -43,13 +48,8 @@ class EcgLoader:
         arr = self.dset[self.idxs_processed]
         self.range = arr.min(), arr.max()
         scale = normalize if self.normalize_norm else 4  # For computing `norm_range` anyway
-        # me, ran = arr.mean(), arr.std() * scale
-        # self.norm_range = me-ran, me+ran
         p = norm().cdf(scale) * 100
-        # ic(self.normalize_norm, scale, p)
         self.norm_range = np.percentile(arr, 100-p), np.percentile(arr, p)
-
-        # ic(self.range, self.norm_range)
 
     @property
     def shape(self):
@@ -64,7 +64,6 @@ class EcgLoader:
     def __getitem__(self, idx):
         if self.normalize:
             mi, ma = self.norm_range if self.normalize_norm else self.range
-            # ic(mi, ma)
             return (self.dset[idx] - mi) / (ma - mi)
         else:
             return self.dset[idx]

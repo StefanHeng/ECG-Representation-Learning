@@ -1,6 +1,5 @@
 # import glob
 from pathlib import Path
-from typing import Union
 
 # import h5py
 # import numpy as np
@@ -9,7 +8,7 @@ from typing import Union
 # import wfdb
 import wfdb.processing
 
-from util import *
+from util.util import *
 from data_preprocessor import DataPreprocessor
 
 # pd.set_option('display.width', 200)

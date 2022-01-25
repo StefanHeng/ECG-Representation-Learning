@@ -1,6 +1,6 @@
+import os
 import json
 import math
-import os
 import glob
 from functools import reduce
 import pathlib
@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import seaborn as sns
 
-from data_path import *
+from .data_path import PATH_BASE, DIR_PROJ, DIR_DSET
+
 
 rcParams['figure.constrained_layout.use'] = True
 sns.set_style('darkgrid')
@@ -171,7 +172,8 @@ def config(attr):
     Loads the config file on first call.
     """
     if not hasattr(config, 'config'):
-        with open(f'{PATH_BASE}/{DIR_PROJ}/config.json') as f:
+        # with open(f'{PATH_BASE}/{DIR_PROJ}/config.json') as f:
+        with open(os.path.join(PATH_BASE, DIR_PROJ, 'util', 'config.json')) as f:
             config.config = json.load(f)
     return get(config.config, attr)
 
@@ -179,7 +181,7 @@ def config(attr):
 def save_fig(title, save=True):
     if save:
         fnm = f'{title}.png'
-        plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
+        plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, '../plot', fnm), dpi=300)
 
 
 def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, plot_kwargs=None):

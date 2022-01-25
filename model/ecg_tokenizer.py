@@ -81,25 +81,72 @@ D_CLS_NM = dict(  # Display name of each clustering method
 )
 
 
+class EcgPadder:
+    def __init__(self, k: int = 2**3, pad='shift'):
+        """
+        :param k: Length of each segment
+        :param pad: Signal padding scheme, one of [`zero`, `shift`]
+            If `zero`, the last segment is padded with 0
+            If `shift`, the last segment is padded with the last `k` values
+        .. note:: Signals are padded at the end so that sample length is a multiple of `k`
+            i.e. Pads to the right only
+        """
+        self.k = k
+        self.pad = pad
+
+    def __call__(self, sig):
+        """
+        :param sig: 2D array of shape C x L, or 3D array of shape N x C x L
+
+        The last dimension is padded
+        """
+        sp = sig.shape
+        sp, l = sp[:-1], sp[-1]
+        n_pad = self.k - (l % self.k)
+        w = (0, 0), (0, n_pad)  # TODO: generalize?
+        ic(n_pad, w)
+
+        def pad_shift(  # To preserve as much morphology
+                a: np.ndarray,
+                pad_width: tuple[int, int],
+                iaxis: int,  # per numpy.pad; intended for last axis only
+                kwargs
+        ):
+            # ic(iaxis)
+            strt, end = pad_width
+            if not(strt == 0 and end == 0):  # Omit all but the last axis
+                a[:strt] = a[strt:strt*2]
+                # ic(strt, end)
+                # ic(a[-end:], a[-2*end:-end])
+                a[-end:] = a[-2*end:-end]
+
+        def zero():
+            return np.pad(sig, pad_width=w, mode='constant', constant_values=0)
+
+        def shift():
+            return np.pad(sig, pad_width=w, mode=pad_shift, constant_values=0)
+        d_f = dict(  # TODO: other padding schemes?
+            zero=zero,
+            shift=shift
+        )
+
+        if n_pad == 0:
+            return sig
+        else:
+            sig = sig.reshape(-1, l)  # Enforce 2D mat
+            return d_f[self.pad]().reshape(sp + (l+n_pad,))
+
+
 class EcgTokenizer:
     """
     Tokenize ECG signals into symbols, given normalized signals in range [0, 1]
 
     Distance between segments are computed using l2 norm
     """
-    D_PAD_F = dict(  # TODO: other padding schemes?
-        zero=lambda sig, n_pad: np.pad(sig, ((0, 0), (0, n_pad)), 'constant')  # Defaults to 0, pads to the right only
-    )
 
-    def __init__(self, k: int = 2**3, pad='zero'):
-        """
-        :param k: Length of each segment
-        :param pad: Signal padding scheme
-
-        .. note:: Signals are padded at the end until sample length reaches a multiple of `k`
-        """
+    def __init__(self, k: int = 2**3, pad='shift'):
         self.k = k
-        self.pad_ = pad
+        self.padder = EcgPadder(k, pad)
 
         self.centers = None  # of dim (N_cls, k); centers[i] stores the cluster mean for id `i`
         self.lens = None  # of dim (N_cls); cluster sizes
@@ -175,7 +222,7 @@ class EcgTokenizer:
         # TODO: Generalize: now, works on signals of the same sample length only
         sp = sig.shape
         sp, l = sp[:-1], sp[-1]
-        sig = self.pad(sig)
+        sig = self.padder(sig)
         if plot:
             segs = sig.reshape(-1, self.k).copy()
         else:
@@ -286,26 +333,6 @@ class EcgTokenizer:
         else:
             return self.nns[th][idx]
 
-    def pad(self, sig):
-        """
-        :param sig: 2D array of shape C x L, or 3D array of shape N x C x L
-
-        The last dimension is padded
-        """
-        sp = sig.shape
-        sp, l = sp[:-1], sp[-1]
-        n_pad = self.k - l % self.k
-
-        if n_pad == 0:
-            return sig
-        else:
-            if self.pad_ in EcgTokenizer.D_PAD_F:
-                sig = sig.reshape(-1, l)  # Enforce 2D matrix
-                return EcgTokenizer.D_PAD_F[self.pad_](sig, n_pad).reshape(sp + (l+n_pad,))
-            else:
-                log(f'Invalid padding scheme {self.pad}', 'err')
-                exit(1)
-
     def fit(
             self, sigs: np.ndarray, method='spectral', cls_kwargs=None,
             plot_dist: Union[bool, int] = False,
@@ -333,9 +360,8 @@ class EcgTokenizer:
         self.fit_method = method
         self.n_sig = len(sigs)
         self.cls_th = cls_kwargs[D_CLS_TH[method]]
-        if self.pad_:
-            sigs = self.pad(sigs)
-            assert sigs.shape[-1] % self.k == 0
+        sigs = self.padder(sigs)
+        assert sigs.shape[-1] % self.k == 0
         n_rec = sigs.shape[0]
         segs = sigs.reshape(-1, self.k)
         n_segs = segs.shape[0]
@@ -517,8 +543,6 @@ class EcgTokenizer:
                             y_mi, y_ma = ylim
                             y_mi, y_ma = sig_d(y_mi, n=3), sig_d(y_ma, n=3)
                             plt.figtext(0.8, 0.96, f'Y axis: $[{y_mi}, {y_ma}]$', fontdict=dict(fontsize=10))
-                            # ic(fig.texts, vars(fig.texts[0]))
-                            # ic(fig.texts[0]._text)
                     for idx in range(n_plot, sz_bch):
                         d_axs[idx].set_visible(False)
 
@@ -559,7 +583,7 @@ if __name__ == '__main__':
     def sanity_check():
         s = el[0]
         ic(s.shape)
-        s_p = et.pad(s)
+        s_p = et.padder(s)
         ic(s_p, s_p.shape)
     # sanity_check()
 
@@ -568,10 +592,11 @@ if __name__ == '__main__':
             # el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
             # el[:32], method='dbscan', cls_kwargs=dict(eps=8e-3),
             # el[:16], method='birch', cls_kwargs=dict(threshold=6e-4),
-            el[:64], method='kmeans', cls_kwargs=dict(
-                n_clusters=256 * 4,
+            el[:16], method='kmeans', cls_kwargs=dict(
+                n_clusters=256,
                 verbose=True,
-                random_state=config('random_seed')
+                random_state=config('random_seed'),
+                algorithm='full'
             ),
             plot_dist=True,
             plot_segments=(5, 4),
@@ -583,10 +608,11 @@ if __name__ == '__main__':
     train()
 
     def check_save():
-        fnm = 'ecg-tokenizer, 2022-01-19 20-42-28, k=16, cls=birch, n=256, e=0.0006.pickle'
+        # fnm = 'ecg-tokenizer, 2022-01-19 20-42-28, k=16, cls=birch, n=256, e=0.0006.pickle'
+        fnm = 'ecg-tokenizer, 2022-01-24 22-07-41, k=8, cls=kmeans, n=256, e=1024.pickle'
         et = EcgTokenizer.from_pickle(fnm)
         # ic(et, vars(et))
         ic(len(el))
         # et(el[1020:1024], plot=(2, 3))
-        et(el[400:420], th=5, plot=(2, 3), plot_args=dict(scale=2))
+        et(el[400:420], th=3, plot=(2, 3), plot_args=dict(scale=2))
     # check_save()

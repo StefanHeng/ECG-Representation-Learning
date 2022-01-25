@@ -1,6 +1,6 @@
 from math import isnan
 
-from util import *
+from .util import *
 from data_path import *
 
 

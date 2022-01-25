@@ -3,14 +3,12 @@ Taken from [ECGDenoisingTool](https://github.com/zheng120/ECGDenoisingTool),
 used in paper *Optimal Multi-Stage Arrhythmia Classification Approach*
 """
 
-import math
 import sys
 
-import numpy as np
 from scipy import signal, stats
 from loess import loess_1d
 
-from util import *
+from util.util import *
 
 
 def force_odd(x):
