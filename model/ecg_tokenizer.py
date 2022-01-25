@@ -7,7 +7,7 @@ from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMea
 from matplotlib.widgets import Slider
 
 from util import *
-from ecg_loader import EcgLoader
+from model.ecg_loader import EcgLoader
 
 
 D_EXP = config('path-export')
@@ -104,7 +104,6 @@ class EcgPadder:
         sp, l = sp[:-1], sp[-1]
         n_pad = self.k - (l % self.k)
         w = (0, 0), (0, n_pad)  # TODO: generalize?
-        ic(n_pad, w)
 
         def pad_shift(  # To preserve as much morphology
                 a: np.ndarray,
@@ -112,12 +111,9 @@ class EcgPadder:
                 iaxis: int,  # per numpy.pad; intended for last axis only
                 kwargs
         ):
-            # ic(iaxis)
             strt, end = pad_width
             if not(strt == 0 and end == 0):  # Omit all but the last axis
                 a[:strt] = a[strt:strt*2]
-                # ic(strt, end)
-                # ic(a[-end:], a[-2*end:-end])
                 a[-end:] = a[-2*end:-end]
 
         def zero():
@@ -208,12 +204,14 @@ class EcgTokenizer:
     def __call__(
             self,
             sig: Union[int, np.ndarray], th: Union[int, float] = None,
-            plot: Union[bool, tuple[int, int]] = False, plot_args: dict = None,
+            plot: Union[bool, tuple[int, int]] = False, plot_args: dict = None
     ):
         """
         :param sig: signals or batch of signals to encode, of dim `d_prev::l`, where `l` is the number of samples
         :param th: Lowerbound threshold for filtering clusters by size; See `EcgTokenizer.CustNN`
         :param plot: If true, the decoded ids are plotted with input signal in grid
+        :param plot_args: Sample signal plot arguments
+            Supported keys: [`scale`]
         :return: 2-tuple of (Decoded cluster ids, segment means), each of dim `d_pre::n`,
             where `n` is the number of segments
 
@@ -335,28 +333,42 @@ class EcgTokenizer:
 
     def fit(
             self, sigs: np.ndarray, method='spectral', cls_kwargs=None,
-            plot_dist: Union[bool, int] = False,
-            plot_segments: Union[bool, tuple[int, int]] = False,
-            plot_seg_sample: int = None,
-            save_fig_=False, save=False
+            plot_args: dict[str] = None,
     ):
         """
         :param sigs: Array of shape N x C x L
         :param method: Clustering method
         :param cls_kwargs: Arguments to the clustering method
-        :param plot_dist: If True, the counts for each cluster is plotted, ordered by cluster size
-            If True, cluster size is inferred
-            If integer given, the first most common classes are plotted
-        :param plot_segments: If 2-tuple given, plots the segment centroid for each cluster in grid
-        :param plot_seg_sample: If `plot_segments` and given, samples from each cluster are plotted
-        :param save: If true, the trained tokenizer is saved as pickle
-        :param save_fig_: If true, plots are saved as png
+        :param plot_args: Plotting keyword arguments
+            plot_dist - Union[bool, int]: If True, the counts for each cluster is plotted, ordered by cluster size
+                If True, cluster size is inferred
+                If integer given, the first most common classes are plotted
+            plot_segments - Union[bool, tuple[int, int]]: If 2-tuple given, plots the segment centroid for each cluster in grid
+            plot_seg_sample - int: If `plot_segments` and given, samples from each cluster are plotted
+            seed - int: Random sampling seed in segment cluster plot
+            scale - Union[int, float]: Plotting scale
+            save_pickle - bool: If true, the trained tokenizer is saved as pickle
+            save_fig_ - bool: If true, plots are saved as png
 
         Symbols for each signal channel learned separately
             Clustering labels are assigned for each channel, for N x C labels in total, in the input order
 
         TODO: Learn symbol across all channels
         """
+
+        # plot_dist = False,
+        # plot_segments:  = False,
+        # plot_seg_sample:  = None, seed: int = None,
+        # scale:  = 1,
+        # save_fig_ = False, save_pickle = False
+        plot_dist, plot_segments, plot_seg_sample, seed, scale, save_fig_, save_pickle = (
+            plot_args.get(k, False) for k in [
+                'plot_dist', 'plot_segments', 'plot_seg_sample', 'seed', 'scale', 'save_fig_', 'save_pickle'
+            ]
+        )
+        if scale is False:
+            scale = 1
+
         self.fit_method = method
         self.n_sig = len(sigs)
         self.cls_th = cls_kwargs[D_CLS_TH[method]]
@@ -370,26 +382,27 @@ class EcgTokenizer:
         means = segs.mean(axis=-1, keepdims=True)
         segs -= means  # Set mean of each segment to 0
 
-        ic()
         segs_ = segs.copy()
+        log('Begin clustering... ')
+        strt = datetime.datetime.now()
         # cls_2nd = cluster(method=method, cls_kwargs=cls_kwargs, fit=False)
         # cls = cluster(segs, method=method, cls_kwargs=(cls_kwargs | dict(n_clusters=cls_2nd)))
 
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
         np.testing.assert_array_equal(segs, segs_)
         lbs = cls.labels_  # Treated as the token id
-        ic()
+        log(f'Clustering completed in {logi(fmt_dt(datetime.datetime.now()-strt))}')
 
         ids_vocab, counts = np.unique(cls.labels_, return_counts=True)  # `ids_vocab` sorted ascending
         msk_cls = ids_vocab != -1  # For `DBSCAN`, points with labels -1 are outliers
         count_out = None
-        if msk_cls.size != ids_vocab.size:  # Outlier label available
+        if not np.all(msk_cls):  # Outlier label available
             idx_out = np_index(ids_vocab, -1)
             count_out = counts[idx_out]
             ids_vocab, counts = ids_vocab[msk_cls], counts[msk_cls]
         idxs_sort = np.argsort(-counts)
         s = f'{logi(ids_vocab.size)} clusters produced, with counts {counts[idxs_sort][:64]} '
-        log(s + f'... and outlier size {logi(count_out)}' if count_out else s)
+        log((s + f'... and outlier size {logi(count_out)}') if count_out is not None else s)
 
         if plot_dist:
             counts_sort = counts[idxs_sort]
@@ -412,13 +425,13 @@ class EcgTokenizer:
             y = counts_sort[:n]
             rank = (np.arange(counts.size) + 1)[:n]
 
-            plt.figure(figsize=(18, 6))
+            plt.figure(figsize=(18*scale, 6*scale))
             plt.plot(rank, y, marker='o', lw=0.5, ms=1, label='# sample')
 
-            scale = 10
-            (a_, b_), (x_, y_) = fit_power_law(rank, y, return_fit=scale)
+            precision = 10
+            (a_, b_), (x_, y_) = fit_power_law(rank, y, return_fit=precision)
             a_, b_ = round(a_, 2), round(b_, 2)
-            n_ = n*scale
+            n_ = n*precision
             plt.plot(x_[:n_], y_[:n_], lw=0.4, ls='-', label=fr'Fitted power law: ${a_} x^{{{b_}}}$')
             r2_ = round(r2(y, a_ * np.power(rank, b_)), 5)
             ax_ = plt.gca()
@@ -458,6 +471,8 @@ class EcgTokenizer:
             np.testing.assert_array_equal(np.unique(lbs), ids_vocab)
 
         if plot_segments:
+            rng = default_rng() if seed is None else default_rng(seed)
+
             with sns.axes_style('whitegrid', {'grid.linestyle': ':'}):
                 n_col, n_row = plot_segments
                 sz_bch = n_row * n_col
@@ -466,7 +481,8 @@ class EcgTokenizer:
                 n_bch = math.ceil(self.centers.shape[0] / sz_bch)
 
                 cs = sns.color_palette(palette='husl', n_colors=sz_bch)
-                fig = plt.figure(figsize=(n_col * 3, n_row * 2), constrained_layout=False)
+                # ic(scale, n_col*3*scale, n_row*2*scale)
+                fig = plt.figure(figsize=(n_col*3*scale, n_row*2*scale), constrained_layout=False)
                 n = max(n_col, n_row)
                 margin_h, plot_sep = 0.125/n, 0.125/n
                 bot = 0.0125 * n
@@ -531,7 +547,7 @@ class EcgTokenizer:
                                     ax.plot(next(ys), **kwargs)
                             assert len(ax.lines) == n_new + 1
                             np.testing.assert_array_equal(ax.lines[0].get_ydata(), self.centers[idx_sz])
-                        ax.set_title(f'Seg #{idx_ord+offset+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8))
+                        ax.set_title(f'Seg #{idx_ord+offset+1}, sz {counts[idx_sz]}', fontdict=dict(fontsize=8*scale))
                         ax.set_ylim(ylim)
                         ax.axes.xaxis.set_ticklabels([])
                         ax.axes.yaxis.set_ticklabels([])
@@ -542,8 +558,8 @@ class EcgTokenizer:
                                 del fig.texts[i]
                             y_mi, y_ma = ylim
                             y_mi, y_ma = sig_d(y_mi, n=3), sig_d(y_ma, n=3)
-                            plt.figtext(0.8, 0.96, f'Y axis: $[{y_mi}, {y_ma}]$', fontdict=dict(fontsize=10))
-                    for idx in range(n_plot, sz_bch):
+                            plt.figtext(0.8, 0.96, f'Y axis: $[{y_mi}, {y_ma}]$', fontdict=dict(fontsize=10*scale))
+                    for idx in range(n_plot, min(sz_bch, n_vocab)):
                         d_axs[idx].set_visible(False)
 
                 init = 0
@@ -564,18 +580,19 @@ class EcgTokenizer:
                 plt.suptitle(t)
                 if save_fig_:
                     t = t.replace('$', '').replace(r'\epsilon', 'e')
-                    save_fig(f'{t}, {now(sep="-")}')
+                    save_fig(f'{t}, 1st frame, {now(sep="-")}')  # Save both frames
+                    update(n_bch-1)
+                    save_fig(f'{t}, last frame, {now(sep="-")}')  # Save both frames
                 else:
                     plt.show()
-        if save:
+        if save_pickle:
             self.save()
 
 
 if __name__ == '__main__':
     from icecream import ic
 
-    # random.seed(config('random_seed'))
-    rng = default_rng(config('random_seed'))
+    seed_ = config('random_seed')
 
     el = EcgLoader('CHAP_SHAO')  # TODO: Generalize to multiple datasets
     et = EcgTokenizer(k=8)
@@ -590,21 +607,23 @@ if __name__ == '__main__':
     def train():
         et.fit(
             # el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
-            # el[:32], method='dbscan', cls_kwargs=dict(eps=8e-3),
+            el[:2], method='dbscan', cls_kwargs=dict(eps=8e-3),
             # el[:16], method='birch', cls_kwargs=dict(threshold=6e-4),
-            el[:16], method='kmeans', cls_kwargs=dict(
-                n_clusters=256,
-                verbose=True,
-                random_state=config('random_seed'),
-                algorithm='full'
-            ),
-            plot_dist=True,
-            plot_segments=(5, 4),
-            plot_seg_sample=64,
+            # el[:2], method='kmeans', cls_kwargs=dict(
+            #     n_clusters=256,
+            #     # verbose=True,
+            #     random_state=config('random_seed'),
+            #     algorithm='full'
+            # ),
+            plot_args=dict(
+                plot_dist=True,
+                plot_segments=(5, 4),
+                plot_seg_sample=64,
+                seed=seed_
+            )
             # save_fig_=True,
             # save=True
         )
-        et.save()
     train()
 
     def check_save():

@@ -5,7 +5,7 @@ import glob
 from functools import reduce
 import pathlib
 import concurrent.futures
-from datetime import datetime
+import datetime
 from typing import Union, Callable, Iterable
 
 import colorama
@@ -74,7 +74,7 @@ def conc_map(fn: Callable, it: Iterable):
 
 
 def now(as_str=True, sep=':'):
-    d = datetime.now()
+    d = datetime.datetime.now()
     return d.strftime(f'%Y-%m-%d %H{sep}%M{sep}%S') if as_str else d  # Considering file output path
 
 
@@ -87,6 +87,22 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
+def fmt_dt(secs: Union[int, float, datetime.timedelta]):
+    if isinstance(secs, datetime.timedelta):
+        secs = secs.seconds + (secs.microseconds/1e6)
+    if secs >= 86400:
+        d = secs // 86400  # // floor division
+        return f'{round(d)}d{fmt_dt(secs-d*86400)}'
+    elif secs >= 3600:
+        h = secs // 3600
+        return f'{round(h)}h{fmt_dt(secs-h*3600)}'
+    elif secs >= 60:
+        m = secs // 60
+        return f'{round(m)}m{fmt_dt(secs-m*60)}'
+    else:
+        return f'{round(secs)}s'
+
+
 def sig_d(flt: float, n: int = 1):
     """
     :return: first n-th significant digit of `sig_d`
@@ -94,7 +110,7 @@ def sig_d(flt: float, n: int = 1):
     return float('{:.{p}g}'.format(flt, p=n))
 
 
-def log(s, c: str = 'log', as_str=False):
+def log(s, c: str = 'log', c_time='green', as_str=False):
     """
     Prints `s` to console with color `c`
     """
@@ -126,7 +142,7 @@ def log(s, c: str = 'log', as_str=False):
     if as_str:
         return f'{c}{s}{log.reset}'
     else:
-        print(f'{c}{now()}| {s}{log.reset}')
+        print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{log.reset}')
 
 
 def logs(s, c='log'):
@@ -181,7 +197,7 @@ def config(attr):
 def save_fig(title, save=True):
     if save:
         fnm = f'{title}.png'
-        plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, '../plot', fnm), dpi=300)
+        plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
 
 
 def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, plot_kwargs=None):
