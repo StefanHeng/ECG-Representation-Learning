@@ -18,5 +18,5 @@ as instructed.
 
 A `datasets` folder should be kept at the same level as
 this repository, with dataset folder names specified as
-in [`config.json`](https://github.com/StefanHeng/Symbolic-Music-Generation/blob/master/config.json).
+in [`config.json`](https://github.com/StefanHeng/ECG-Representation-Learning/blob/master/util/config.json).
 
