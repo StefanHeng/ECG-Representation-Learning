@@ -355,12 +355,6 @@ class EcgTokenizer:
 
         TODO: Learn symbol across all channels
         """
-
-        # plot_dist = False,
-        # plot_segments:  = False,
-        # plot_seg_sample:  = None, seed: int = None,
-        # scale:  = 1,
-        # save_fig_ = False, save_pickle = False
         plot_dist, plot_segments, plot_seg_sample, seed, scale, save_fig_, save_pickle = (
             plot_args.get(k, False) for k in [
                 'plot_dist', 'plot_segments', 'plot_seg_sample', 'seed', 'scale', 'save_fig_', 'save_pickle'
@@ -481,7 +475,6 @@ class EcgTokenizer:
                 n_bch = math.ceil(self.centers.shape[0] / sz_bch)
 
                 cs = sns.color_palette(palette='husl', n_colors=sz_bch)
-                # ic(scale, n_col*3*scale, n_row*2*scale)
                 fig = plt.figure(figsize=(n_col*3*scale, n_row*2*scale), constrained_layout=False)
                 n = max(n_col, n_row)
                 margin_h, plot_sep = 0.125/n, 0.125/n
@@ -607,8 +600,8 @@ if __name__ == '__main__':
     def train():
         et.fit(
             # el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
-            el[:2], method='dbscan', cls_kwargs=dict(eps=8e-3),
-            # el[:16], method='birch', cls_kwargs=dict(threshold=6e-4),
+            # el[:2], method='dbscan', cls_kwargs=dict(eps=8e-3),
+            el[:16], method='birch', cls_kwargs=dict(threshold=6e-4),
             # el[:2], method='kmeans', cls_kwargs=dict(
             #     n_clusters=256,
             #     # verbose=True,
@@ -619,10 +612,10 @@ if __name__ == '__main__':
                 plot_dist=True,
                 plot_segments=(5, 4),
                 plot_seg_sample=64,
-                seed=seed_
+                seed=seed_,
+                # save_fig_=True,
+                # save=True
             )
-            # save_fig_=True,
-            # save=True
         )
     train()
 
