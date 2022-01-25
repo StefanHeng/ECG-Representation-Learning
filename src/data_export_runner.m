@@ -3,13 +3,13 @@
 addpath('..')
 
 %try_resample()
-denoise_acc_check()
+%denoise_acc_check()
 
 %Util.config
 dnm = 'CHAP_SHAO';
 de = DataExport;
 %de.run(dnm, 'ori')
-%de.run(dnm, 'data')
+de.run(dnm, 'data')
 
 function try_resample()
     % Python counterpart is faster, probably for concurrency

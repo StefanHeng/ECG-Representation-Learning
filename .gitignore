@@ -1,5 +1,6 @@
 .DS_Store
 .idea/
+test_lang*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

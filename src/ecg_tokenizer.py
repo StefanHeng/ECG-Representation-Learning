@@ -1,11 +1,9 @@
-# import random
 import pickle
 
 
-# import numpy as np
 from numpy.random import default_rng
 from sklearn.neighbors import KDTree
-from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch
+from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMeans
 from matplotlib.widgets import Slider
 
 from util import *
@@ -23,19 +21,18 @@ def cluster_args(method, cls_kwargs=None):
         hierarchical=dict(n_clusters=None, linkage='average'),
         dbscan=dict(min_samples=5),
         optics=dict(min_samples=5),
-        birch=dict(
-            n_clusters=None
-        )
+        birch=dict(n_clusters=None),
+        kmeans=dict()
     )
     return d_kwargs[method] | cls_kwargs
 
 
-def cluster(data: np.ndarray, method='spectral', cls_kwargs=None):
+def cluster(data: np.ndarray = None, method='spectral', cls_kwargs=None, fit=True):
     """
     :param data: Data points to cluster, in N x D
     :param method: Clustering method
     :param cls_kwargs: Arguments to the clustering method
-    :return:
+    :param fit: If True, the clustering object is fit on `data`
     """
     kwargs = cluster_args(method, cls_kwargs)
 
@@ -54,26 +51,33 @@ def cluster(data: np.ndarray, method='spectral', cls_kwargs=None):
     def birch():
         assert 'threshold' in kwargs
         return Birch(**kwargs)
+
+    def kmeans():
+        assert 'n_clusters' in kwargs
+        return KMeans(**kwargs)
     d_f = dict(
         hierarchical=hierarchical,
         dbscan=dbscan,
         optics=optics,
-        birch=birch
+        birch=birch,
+        kmeans=kmeans
     )
-    return d_f[method]().fit(data)
+    return d_f[method]().fit(data) if fit else d_f[method]()
 
 
 D_CLS_TH = dict(  # Mapping from clustering method to threshold keyword
     hierarchical='distance_threshold',
     dbscan='eps',
     optics='max_eps',
-    birch='threshold'
+    birch='threshold',
+    kmeans='n_clusters'
 )
 D_CLS_NM = dict(  # Display name of each clustering method
     hierarchical='Agglomerative',
     dbscan='DBSCAN',
     optics='OPTICS',
-    birch='Birch'
+    birch='Birch',
+    kmeans='K-means'
 )
 
 
@@ -139,17 +143,16 @@ class EcgTokenizer:
             """
             n = data.shape[0]
             if isinstance(th, int):
-                self.data = data[lens >= th]
+                self.th = th
             else:
                 assert isinstance(th, float) and 0 < th < 1
-                th = round(lens.sum() * th)
-                self.data = data[lens >= th]
+                self.th = round(lens.sum() * th)
+            self.data = data[lens >= th]
             self.nn = KDTree(self.data)
             log(f'Custom Nearest Neighbor instantiated '
                 f'with sizes below {th} removed - # cluster {logi(n)} -> {logi(self.data.shape[0])}')
 
         def __getitem__(self, idx):
-            # ic(type(self.nn.data), )
             return self.data[idx]
 
         def query(self, pts: np.ndarray, **kwargs):
@@ -223,8 +226,6 @@ class EcgTokenizer:
                     idxs_ord = np.arange(sz_bch) + offset
                     idxs_dist = idxs_sort[idxs_ord]
                     sigs_ori = sig_[idxs_dist, :]
-                    # ic(ids_[idxs_dist], ids_[idxs_dist].dtype, ids_[idxs_dist].shape)
-                    # ic(self.centers[ids_[idxs_dist]])
                     sigs_dec = (self.decode(ids_[idxs_dist], th=th) + means_[idxs_dist, :, np.newaxis]).reshape(sz_bch, -1)
 
                     vals = np.concatenate([sigs_ori[sigs_ori != 0], sigs_dec[sigs_dec != 0]])
@@ -259,8 +260,6 @@ class EcgTokenizer:
                         if first:
                             ax.tick_params(axis='x', labelsize=7)
                             ax.tick_params(axis='y', labelsize=7)
-                        # ax.axes.xaxis.set_ticklabels([])
-                        # ax.axes.yaxis.set_ticklabels([])
                         if first and r == 0 and c == 0:
                             ax.legend()
                 ax_sld = plt.axes([margin_h*2, bot/2, 1-margin_h*4, 0.01])
@@ -275,6 +274,8 @@ class EcgTokenizer:
                 slider.on_changed(update)
                 t = rf'Decoded signal plot by descending fitness, with {D_CLS_NM[self.fit_method]} clustering '\
                     rf'on $k={self.k}$, $n={self.n_sig}$, $\epsilon={self.cls_th}$'
+                if th is not None:
+                    t += f', th={self.nns[th].th}'
                 plt.suptitle(t)
                 plt.show()
         return ids, means
@@ -345,6 +346,9 @@ class EcgTokenizer:
 
         ic()
         segs_ = segs.copy()
+        # cls_2nd = cluster(method=method, cls_kwargs=cls_kwargs, fit=False)
+        # cls = cluster(segs, method=method, cls_kwargs=(cls_kwargs | dict(n_clusters=cls_2nd)))
+
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
         np.testing.assert_array_equal(segs, segs_)
         lbs = cls.labels_  # Treated as the token id
@@ -433,6 +437,7 @@ class EcgTokenizer:
                 sz_bch = n_row * n_col
                 n_samp = plot_seg_sample
                 n_vocab = ids_vocab.size
+                n_bch = math.ceil(self.centers.shape[0] / sz_bch)
 
                 cs = sns.color_palette(palette='husl', n_colors=sz_bch)
                 fig = plt.figure(figsize=(n_col * 3, n_row * 2), constrained_layout=False)
@@ -449,7 +454,14 @@ class EcgTokenizer:
                 def update(idx, first=False):
                     i_bch = idx  # Batch
                     offset = i_bch * sz_bch
-                    idxs_ord = np.arange(min(sz_bch, n_vocab)) + offset  # Ordering for display
+
+                    if i_bch == n_bch-1:  # Last batch
+                        n_plot = n_vocab % sz_bch
+                        if n_plot == 0:
+                            n_plot = sz_bch
+                    else:
+                        n_plot = min(sz_bch, n_vocab)
+                    idxs_ord = np.arange(n_plot) + offset  # Ordering for display
                     idxs_sz = idxs_sort[idxs_ord]  # Internal ordering based on counts
                     mi, ma = self.centers[idxs_sz].min(), self.centers[idxs_sz].max()
                     ylim = max(abs(mi), abs(ma)) * 1.25
@@ -498,13 +510,20 @@ class EcgTokenizer:
                         ax.axes.xaxis.set_ticklabels([])
                         ax.axes.yaxis.set_ticklabels([])
 
-                        y_mi, y_ma = ylim
-                        y_mi, y_ma = sig_d(y_mi, n=3), sig_d(y_ma, n=3)
-                        plt.figtext(0.8, 0.96, f'Y axis: $[{y_mi}, {y_ma}]$', fontdict=dict(fontsize=10))
+                        if r == 0 and c == 0:  # Set only once
+                            idxs = [idx for idx, txt in enumerate(fig.texts) if ('Y axis' in txt._text)]
+                            for i in reversed(idxs):
+                                del fig.texts[i]
+                            y_mi, y_ma = ylim
+                            y_mi, y_ma = sig_d(y_mi, n=3), sig_d(y_ma, n=3)
+                            plt.figtext(0.8, 0.96, f'Y axis: $[{y_mi}, {y_ma}]$', fontdict=dict(fontsize=10))
+                            # ic(fig.texts, vars(fig.texts[0]))
+                            # ic(fig.texts[0]._text)
+                    for idx in range(n_plot, sz_bch):
+                        d_axs[idx].set_visible(False)
 
                 init = 0
                 update(init, first=True)
-                n_bch = math.ceil(self.centers.shape[0] / sz_bch)
                 if n_bch > 1:
                     ax_sld = plt.axes([margin_h * 4, bot / 2, 1 - margin_h * 8, 0.01])
 
@@ -532,10 +551,10 @@ if __name__ == '__main__':
     from icecream import ic
 
     # random.seed(config('random_seed'))
-    rng = default_rng(77)
+    rng = default_rng(config('random_seed'))
 
     el = EcgLoader('CHAP_SHAO')  # TODO: Generalize to multiple datasets
-    et = EcgTokenizer(k=16)
+    et = EcgTokenizer(k=8)
 
     def sanity_check():
         s = el[0]
@@ -548,19 +567,20 @@ if __name__ == '__main__':
         et.fit(
             # el[:16], method='hierarchical', cls_kwargs=dict(distance_threshold=4e-4),
             # el[:32], method='dbscan', cls_kwargs=dict(eps=8e-3),
-            el[:256], method='birch', cls_kwargs=dict(
-                # branching_factor=256,
-                threshold=6e-4,
-                # n_clusters=4096
+            # el[:16], method='birch', cls_kwargs=dict(threshold=6e-4),
+            el[:64], method='kmeans', cls_kwargs=dict(
+                n_clusters=256 * 4,
+                verbose=True,
+                random_state=config('random_seed')
             ),
             plot_dist=True,
             plot_segments=(5, 4),
             plot_seg_sample=64,
-            save_fig_=True,
-            save=True
+            # save_fig_=True,
+            # save=True
         )
         et.save()
-    # train()
+    train()
 
     def check_save():
         fnm = 'ecg-tokenizer, 2022-01-19 20-42-28, k=16, cls=birch, n=256, e=0.0006.pickle'
@@ -568,5 +588,5 @@ if __name__ == '__main__':
         # ic(et, vars(et))
         ic(len(el))
         # et(el[1020:1024], plot=(2, 3))
-        et(el[400:420], th=2, plot=(2, 3), plot_args=dict(scale=2))
-    check_save()
+        et(el[400:420], th=5, plot=(2, 3), plot_args=dict(scale=2))
+    # check_save()

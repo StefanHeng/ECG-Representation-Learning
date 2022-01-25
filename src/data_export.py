@@ -214,6 +214,8 @@ class RecDataExport:
 
 
 if __name__ == '__main__':
+    from icecream import ic
+
     np.random.seed(config('random_seed'))
     # fix_g12ec_headers()
 

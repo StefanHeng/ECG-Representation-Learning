@@ -6,7 +6,7 @@ from functools import reduce
 import pathlib
 import concurrent.futures
 from datetime import datetime
-from typing import Union
+from typing import Union, Callable, Iterable
 
 import colorama
 import h5py
@@ -60,7 +60,7 @@ def keys(dic, prefix=''):
             yield _full(k)
 
 
-def conc_map(fn, it):
+def conc_map(fn: Callable, it: Iterable):
     """
     Wrapper for `concurrent.futures.map`
 
@@ -134,7 +134,7 @@ def logs(s, c='log'):
 
 def logi(s):
     """
-    Syntactic sugar for logging `info`
+    Syntactic sugar for logging `info` as string
     """
     return logs(s, c='i')
 
@@ -182,31 +182,37 @@ def save_fig(title, save=True):
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
 
 
-def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, show=True, plot_kwargs=None):
+def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, plot_kwargs=None):
     """ Plot potentially multiple 1D signals """
     kwargs = LN_KWARGS
     if plot_kwargs is not None:
         kwargs |= plot_kwargs
 
-    def _plot(a, lb):
-        a = a[s:e]
-        plt.plot(np.arange(a.size), a, label=lb, **kwargs)
     if new_fig:
         plt.figure(figsize=(18, 6))
     if not isinstance(arr, list):
-        arr = [arr]
+        arr = list(arr) if isinstance(arr, np.ndarray) else arr[arr]
+    # cs = iter(sns.color_palette(palette='husl', n_colors=len(arr)))
     if not isinstance(label, list):
-        label = [label]
+        label = [label] * len(arr)
     lbl = [None for _ in arr] if label is None else label
-    _ = [_plot(a, lb) for a, lb in zip(arr, lbl)]  # Execute
+
+    def _plot(a_, lb_):
+        a_ = a_[s:e]
+        # plt.plot(np.arange(a_.size), a_, label=lb_, c=next(cs), **kwargs)
+        plt.plot(np.arange(a_.size), a_, label=lb_, **kwargs)
+    for a, lb in zip(arr, lbl):
+        _plot(a, lb)
 
     if label:
-        plt.legend()
+        handles, labels = plt.gca().get_legend_handles_labels()  # Distinct labels
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys())
     if title:
         plt.title(title)
     if new_fig:
         save_fig(title, save)
-    if show:
+    else:
         plt.show()
 
 
