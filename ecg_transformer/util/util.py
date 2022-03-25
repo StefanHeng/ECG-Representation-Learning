@@ -28,6 +28,11 @@ import seaborn as sns
 from .data_path import PATH_BASE, DIR_PROJ, DIR_DSET, PKG_NM
 
 
+pd.set_option('expand_frame_repr', False)
+pd.set_option('display.precision', 2)
+pd.set_option('max_colwidth', 40)
+
+
 plt.rcParams['figure.constrained_layout.use'] = True
 sns.set_style('darkgrid')
 sns.set_context(rc={'grid.linewidth': 0.5})

@@ -1,9 +1,17 @@
-from math import isnan
+# import os
+# import math
+# import glob
+# from typing import List, Dict, Tuple, Optional
+#
+# import pandas as pd
+# import wfdb
 
 from ecg_transformer.util import *
+# from ecg_transformer.util import PATH_BASE, DIR_PROJ, DIR_DSET
+# from ecg_transformer.util import get, set_, keys, get_my_rec_labels  # TODO
 
 
-config = {
+config_dict = {
     'meta': dict(
         path_base=PATH_BASE,
         dir_proj=DIR_PROJ,
@@ -94,37 +102,76 @@ config = {
 }
 
 
-df = get_my_rec_labels()
-sup = config['datasets_export']['support_wfdb']
-for dnm in config['datasets_export']['total']:
-    df_ = df[df['dataset'] == dnm]
-    d_dset = config[DIR_DSET][dnm]
+def extract_ptb_codes():
+    # Set supervised downstream task, PTB-XL, label information
+    def is_nan(x) -> bool:
+        return not isinstance(x, str) and math.isnan(x)
 
-    d_dset['n_rec'] = df_.shape[0]
-
-    uniqs = df_['patient_name'].unique()
-    d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and isnan(uniqs[0]) else len(uniqs)
-
-    if dnm in sup:
-        path = f'{PATH_BASE}/{DIR_DSET}/{d_dset["dir_nm"]}'
-        rec_path = next(glob.iglob(f'{path}/{d_dset["rec_fmt"]}', recursive=True))
-        d_dset['fqs'] = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1).fs
-
-
-for k in keys(config):  # Accommodate other OS
-    val = get(config, k)
-    if k[k.rfind('.')+1:] == 'dir_nm':
-        set_(config, k, os.path.join(*val.split('/')))
-
-
-for dnm, d in config[DIR_DSET].items():
-    if 'rec_fmt' in d:
-        fmt = d['rec_fmt']
-        d['rec_ext'] = fmt[fmt.index('.'):]
+    def map_row(row: pd.Series) -> Dict:
+        return dict(
+            aspects=[k for k, v in row.iteritems() if k in ('diagnostic', 'form', 'rhythm') and v == 1],
+            diagnostic_class=row.diagnostic_class if not is_nan(row.diagnostic_class) else None,
+            diagnostic_subclass=row.diagnostic_subclass if not is_nan(row.diagnostic_subclass) else None
+        )
+    path_ptb = os.path.join(PATH_BASE, DIR_DSET, get(config_dict, f'{DIR_DSET}.PTB_XL.dir_nm'))
+    df_ptb = pd.read_csv(
+        os.path.join(path_ptb, 'scp_statements.csv'),
+        usecols=['Unnamed: 0', 'diagnostic', 'form', 'rhythm', 'diagnostic_class', 'diagnostic_subclass'],
+        index_col=0
+    )
+    codes = {code: map_row(row) for code, row in df_ptb.iterrows()}
+    id2code = list(df_ptb.index)  # Stick to the same ordering
+    assert len(id2code) == 71
+    code2id = {c: i for i, c in enumerate(id2code)}
+    # from icecream import ic  # TODO: remove
+    # ic(codes, code2id)
+    set_(config_dict, 'datasets.PTB_XL.code', dict(codes=codes, code2id=code2id, id2code=id2code))
+    # exit(1)
 
 
-d_my = config['datasets']['my']
-config['path-export'] = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'])
+def extract_datasets_meta():
+    # Extract more metadata per dataset
+    df_label = get_my_rec_labels()
+    sup = config_dict['datasets_export']['support_wfdb']
+    for dnm in config_dict['datasets_export']['total']:
+        df_ = df_label[df_label['dataset'] == dnm]
+        d_dset = config_dict[DIR_DSET][dnm]
+
+        d_dset['n_rec'] = df_.shape[0]
+
+        uniqs = df_['patient_name'].unique()
+        d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and math.isnan(uniqs[0]) else len(uniqs)
+
+        if dnm in sup:
+            path_ = f'{PATH_BASE}/{DIR_DSET}/{d_dset["dir_nm"]}'
+            rec_path = next(glob.iglob(f'{path_}/{d_dset["rec_fmt"]}', recursive=True))
+            d_dset['fqs'] = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1).fs
+
+
+def set_paths():
+    # Accommodate other OS
+    for key in keys(config_dict):
+        from icecream import ic
+        ic(key)
+        val = get(config_dict, key)
+        if key[key.rfind('.')+1:] == 'dir_nm':
+            set_(config_dict, key, os.path.join(*val.split('/')))
+
+
+def wrap_config():
+    for dnm, d in config_dict[DIR_DSET].items():
+        if 'rec_fmt' in d:
+            fmt = d['rec_fmt']
+            d['rec_ext'] = fmt[fmt.index('.'):]
+
+
+extract_ptb_codes()
+extract_datasets_meta()
+set_paths()
+wrap_config()
+config_dict: Dict
+d_my = config_dict['datasets']['my']
+config_dict['path-export']: str = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'])
 
 
 if __name__ == '__main__':
@@ -133,6 +180,6 @@ if __name__ == '__main__':
     from icecream import ic
 
     fl_nm = 'config.json'
-    ic(config)
+    ic(config_dict)
     with open(f'{PATH_BASE}/{DIR_PROJ}/{fl_nm}', 'w') as f:
-        json.dump(config, f, indent=4)
+        json.dump(config_dict, f, indent=4)

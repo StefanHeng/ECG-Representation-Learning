@@ -2,7 +2,6 @@
 Credit: https://github.com/hhi-aml/ecg-selfsupervised
 """
 
-
 from pathlib import Path
 import pickle
 
@@ -35,46 +34,48 @@ def dataset_add_length_col(df, col="data", data_folder=None):
 
 
 def dataset_get_stats(df, col="data", simple=True):
-    '''creates (weighted) means and stds from mean, std and length cols of the df'''
-    if(simple):
-        return df[col+"_mean"].mean(), df[col+"_std"].mean()
+    """creates (weighted) means and stds from mean, std and length cols of the df"""
+    if simple:
+        return df[col + "_mean"].mean(), df[col + "_std"].mean()
     else:
-        #https://notmatthancock.github.io/2017/03/23/simple-batch-stat-updates.html
-        #or https://gist.github.com/thomasbrandon/ad5b1218fc573c10ea4e1f0c63658469
-        def combine_two_means_vars(x1,x2):
-            (mean1,var1,n1) = x1
-            (mean2,var2,n2) = x2
-            mean = mean1*n1/(n1+n2)+ mean2*n2/(n1+n2)
-            var = var1*n1/(n1+n2)+ var2*n2/(n1+n2)+n1*n2/(n1+n2)/(n1+n2)*np.power(mean1-mean2,2)
-            return (mean, var, (n1+n2))
+        # https://notmatthancock.github.io/2017/03/23/simple-batch-stat-updates.html
+        # or https://gist.github.com/thomasbrandon/ad5b1218fc573c10ea4e1f0c63658469
+        def combine_two_means_vars(x1, x2):
+            (mean1, var1, n1) = x1
+            (mean2, var2, n2) = x2
+            mean = mean1 * n1 / (n1 + n2) + mean2 * n2 / (n1 + n2)
+            var = var1 * n1 / (n1 + n2) + var2 * n2 / (n1 + n2) + n1 * n2 / (n1 + n2) / (n1 + n2) * np.power(
+                mean1 - mean2, 2)
+            return (mean, var, (n1 + n2))
 
-        def combine_all_means_vars(means,vars,lengths):
-            inputs = list(zip(means,vars,lengths))
+        def combine_all_means_vars(means, vars, lengths):
+            inputs = list(zip(means, vars, lengths))
             result = inputs[0]
 
             for inputs2 in inputs[1:]:
-                result= combine_two_means_vars(result,inputs2)
+                result = combine_two_means_vars(result, inputs2)
             return result
 
-        means = list(df[col+"_mean"])
-        vars = np.power(list(df[col+"_std"]),2)
-        lengths = list(df[col+"_length"])
-        mean,var,length = combine_all_means_vars(means,vars,lengths)
+        means = list(df[col + "_mean"])
+        vars = np.power(list(df[col + "_std"]), 2)
+        lengths = list(df[col + "_length"])
+        mean, var, length = combine_all_means_vars(means, vars, lengths)
         return mean, np.sqrt(var)
 
-def save_dataset(df,lbl_itos,mean,std,target_root,filename_postfix="",protocol=4):
-    target_root = Path(target_root)
-    df.to_pickle(target_root/("df"+filename_postfix+".pkl"), protocol=protocol)
 
-    if(isinstance(lbl_itos,dict)):#dict as pickle
-        outfile = open(target_root/("lbl_itos"+filename_postfix+".pkl"), "wb")
+def save_dataset(df, lbl_itos, mean, std, target_root, filename_postfix="", protocol=4):
+    target_root = Path(target_root)
+    df.to_pickle(target_root / ("df" + filename_postfix + ".pkl"), protocol=protocol)
+
+    if (isinstance(lbl_itos, dict)):  # dict as pickle
+        outfile = open(target_root / ("lbl_itos" + filename_postfix + ".pkl"), "wb")
         pickle.dump(lbl_itos, outfile, protocol=protocol)
         outfile.close()
-    else:#array
-        np.save(target_root/("lbl_itos"+filename_postfix+".npy"),lbl_itos)
+    else:  # array
+        np.save(target_root / ("lbl_itos" + filename_postfix + ".npy"), lbl_itos)
 
-    np.save(target_root/("mean"+filename_postfix+".npy"),mean)
-    np.save(target_root/("std"+filename_postfix+".npy"),std)
+    np.save(target_root / ("mean" + filename_postfix + ".npy"), mean)
+    np.save(target_root / ("std" + filename_postfix + ".npy"), std)
 
 
 def filter_ptb_xl(
@@ -177,6 +178,7 @@ def prepare_data_ptb_xl(
 
         df_ptb_xl["dataset"] = "ptb_xl"
         # filter (can be reapplied at any time)
+        df_ptb_xl = df_ptb_xl[:128]
         df_ptb_xl, lbl_itos_ptb_xl = filter_ptb_xl(df_ptb_xl, min_cnt=min_cnt)
 
         filenames = []
@@ -204,8 +206,10 @@ def prepare_data_ptb_xl(
         mean_ptb_xl, std_ptb_xl = dataset_get_stats(df_ptb_xl)
 
         # save
-        save_dataset(df_ptb_xl, lbl_itos_ptb_xl, mean_ptb_xl,
+        ic(df_ptb_xl, lbl_itos_ptb_xl, mean_ptb_xl,
                      std_ptb_xl, target_root_ptb_xl)
+        # save_dataset(df_ptb_xl, lbl_itos_ptb_xl, mean_ptb_xl,
+        #              std_ptb_xl, target_root_ptb_xl)
     else:
         df_ptb_xl, lbl_itos_ptb_xl, mean_ptb_xl, std_ptb_xl = load_dataset(
             target_root_ptb_xl, df_mapped=False)
@@ -213,10 +217,13 @@ def prepare_data_ptb_xl(
 
 
 if __name__ == '__main__':
+    from icecream import ic
+
     path_ptb_xl = os.path.join(PATH_BASE, DIR_DSET, config('datasets.PTB_XL.dir_nm'))
     # data_folder_ptb_xl = data_root / "ptb_xl/"
     # target_folder_ptb_xl = target_root / ("ptb_xl_fs" + str(target_fs))
     path_target = os.path.join(PATH_BASE, DIR_DSET, config('datasets.PTB_XL.dir_nm')) + '_temp'
+    path_ptb_xl, path_target = Path(path_ptb_xl), Path(path_target)
     df_ptb_xl, lbl_itos_ptb_xl, mean_ptb_xl, std_ptb_xl = prepare_data_ptb_xl(
         path_ptb_xl, min_cnt=0,
         target_fs=500,

@@ -1,0 +1,787 @@
+{
+    "meta": {
+        "path_base": "/Users/stefanh/Documents/UMich/Research/ECG Classification",
+        "dir_proj": "ECG-Representation-Learning",
+        "dir_dset": "datasets"
+    },
+    "datasets": {
+        "BIH_MVED": {
+            "nm": "MIT-BIH Malignant Ventricular Ectopy Database",
+            "dir_nm": "MIT-BIH-MVED"
+        },
+        "INCART": {
+            "dir_nm": "St-Petersburg-INCART",
+            "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
+            "rec_fmt": "*.dat",
+            "n_rec": 10,
+            "n_pat": 5,
+            "fqs": 257,
+            "rec_ext": ".dat"
+        },
+        "PTB_XL": {
+            "nm": "PTB-XL, a large publicly available electrocardiography dataset",
+            "dir_nm": "PTB-XL",
+            "rec_fmt": "records500/**/*.dat",
+            "code": {
+                "codes": {
+                    "NDT": {
+                        "aspects": [
+                            "diagnostic",
+                            "form"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "STTC"
+                    },
+                    "NST_": {
+                        "aspects": [
+                            "diagnostic",
+                            "form"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "NST_"
+                    },
+                    "DIG": {
+                        "aspects": [
+                            "diagnostic",
+                            "form"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "STTC"
+                    },
+                    "LNGQT": {
+                        "aspects": [
+                            "diagnostic",
+                            "form"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "STTC"
+                    },
+                    "NORM": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "NORM",
+                        "diagnostic_subclass": "NORM"
+                    },
+                    "IMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "IMI"
+                    },
+                    "ASMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "AMI"
+                    },
+                    "LVH": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "HYP",
+                        "diagnostic_subclass": "LVH"
+                    },
+                    "LAFB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "LAFB/LPFB"
+                    },
+                    "ISC_": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISC_"
+                    },
+                    "IRBBB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "IRBBB"
+                    },
+                    "1AVB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "_AVB"
+                    },
+                    "IVCD": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "IVCD"
+                    },
+                    "ISCAL": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISCA"
+                    },
+                    "CRBBB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "CRBBB"
+                    },
+                    "CLBBB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "CLBBB"
+                    },
+                    "ILMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "IMI"
+                    },
+                    "LAO/LAE": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "HYP",
+                        "diagnostic_subclass": "LAO/LAE"
+                    },
+                    "AMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "AMI"
+                    },
+                    "ALMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "AMI"
+                    },
+                    "ISCIN": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISCI"
+                    },
+                    "INJAS": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "AMI"
+                    },
+                    "LMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "LMI"
+                    },
+                    "ISCIL": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISCI"
+                    },
+                    "LPFB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "LAFB/LPFB"
+                    },
+                    "ISCAS": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISCA"
+                    },
+                    "INJAL": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "AMI"
+                    },
+                    "ISCLA": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISCA"
+                    },
+                    "RVH": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "HYP",
+                        "diagnostic_subclass": "RVH"
+                    },
+                    "ANEUR": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "STTC"
+                    },
+                    "RAO/RAE": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "HYP",
+                        "diagnostic_subclass": "RAO/RAE"
+                    },
+                    "EL": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "STTC"
+                    },
+                    "WPW": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "WPW"
+                    },
+                    "ILBBB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "ILBBB"
+                    },
+                    "IPLMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "IMI"
+                    },
+                    "ISCAN": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "STTC",
+                        "diagnostic_subclass": "ISCA"
+                    },
+                    "IPMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "IMI"
+                    },
+                    "SEHYP": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "HYP",
+                        "diagnostic_subclass": "SEHYP"
+                    },
+                    "INJIN": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "IMI"
+                    },
+                    "INJLA": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "AMI"
+                    },
+                    "PMI": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "PMI"
+                    },
+                    "3AVB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "_AVB"
+                    },
+                    "INJIL": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "MI",
+                        "diagnostic_subclass": "IMI"
+                    },
+                    "2AVB": {
+                        "aspects": [
+                            "diagnostic"
+                        ],
+                        "diagnostic_class": "CD",
+                        "diagnostic_subclass": "_AVB"
+                    },
+                    "ABQRS": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "PVC": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "STD_": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "VCLVH": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "QWAVE": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "LOWT": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "NT_": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "PAC": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "LPR": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "INVT": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "LVOLT": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "HVOLT": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "TAB_": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "STE_": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "PRC(S)": {
+                        "aspects": [
+                            "form"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "SR": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "AFIB": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "STACH": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "SARRH": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "SBRAD": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "PACE": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "SVARR": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "BIGU": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "AFLT": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "SVTAC": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "PSVT": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    },
+                    "TRIGU": {
+                        "aspects": [
+                            "rhythm"
+                        ],
+                        "diagnostic_class": null,
+                        "diagnostic_subclass": null
+                    }
+                },
+                "code2id": {
+                    "NDT": 0,
+                    "NST_": 1,
+                    "DIG": 2,
+                    "LNGQT": 3,
+                    "NORM": 4,
+                    "IMI": 5,
+                    "ASMI": 6,
+                    "LVH": 7,
+                    "LAFB": 8,
+                    "ISC_": 9,
+                    "IRBBB": 10,
+                    "1AVB": 11,
+                    "IVCD": 12,
+                    "ISCAL": 13,
+                    "CRBBB": 14,
+                    "CLBBB": 15,
+                    "ILMI": 16,
+                    "LAO/LAE": 17,
+                    "AMI": 18,
+                    "ALMI": 19,
+                    "ISCIN": 20,
+                    "INJAS": 21,
+                    "LMI": 22,
+                    "ISCIL": 23,
+                    "LPFB": 24,
+                    "ISCAS": 25,
+                    "INJAL": 26,
+                    "ISCLA": 27,
+                    "RVH": 28,
+                    "ANEUR": 29,
+                    "RAO/RAE": 30,
+                    "EL": 31,
+                    "WPW": 32,
+                    "ILBBB": 33,
+                    "IPLMI": 34,
+                    "ISCAN": 35,
+                    "IPMI": 36,
+                    "SEHYP": 37,
+                    "INJIN": 38,
+                    "INJLA": 39,
+                    "PMI": 40,
+                    "3AVB": 41,
+                    "INJIL": 42,
+                    "2AVB": 43,
+                    "ABQRS": 44,
+                    "PVC": 45,
+                    "STD_": 46,
+                    "VCLVH": 47,
+                    "QWAVE": 48,
+                    "LOWT": 49,
+                    "NT_": 50,
+                    "PAC": 51,
+                    "LPR": 52,
+                    "INVT": 53,
+                    "LVOLT": 54,
+                    "HVOLT": 55,
+                    "TAB_": 56,
+                    "STE_": 57,
+                    "PRC(S)": 58,
+                    "SR": 59,
+                    "AFIB": 60,
+                    "STACH": 61,
+                    "SARRH": 62,
+                    "SBRAD": 63,
+                    "PACE": 64,
+                    "SVARR": 65,
+                    "BIGU": 66,
+                    "AFLT": 67,
+                    "SVTAC": 68,
+                    "PSVT": 69,
+                    "TRIGU": 70
+                },
+                "id2code": [
+                    "NDT",
+                    "NST_",
+                    "DIG",
+                    "LNGQT",
+                    "NORM",
+                    "IMI",
+                    "ASMI",
+                    "LVH",
+                    "LAFB",
+                    "ISC_",
+                    "IRBBB",
+                    "1AVB",
+                    "IVCD",
+                    "ISCAL",
+                    "CRBBB",
+                    "CLBBB",
+                    "ILMI",
+                    "LAO/LAE",
+                    "AMI",
+                    "ALMI",
+                    "ISCIN",
+                    "INJAS",
+                    "LMI",
+                    "ISCIL",
+                    "LPFB",
+                    "ISCAS",
+                    "INJAL",
+                    "ISCLA",
+                    "RVH",
+                    "ANEUR",
+                    "RAO/RAE",
+                    "EL",
+                    "WPW",
+                    "ILBBB",
+                    "IPLMI",
+                    "ISCAN",
+                    "IPMI",
+                    "SEHYP",
+                    "INJIN",
+                    "INJLA",
+                    "PMI",
+                    "3AVB",
+                    "INJIL",
+                    "2AVB",
+                    "ABQRS",
+                    "PVC",
+                    "STD_",
+                    "VCLVH",
+                    "QWAVE",
+                    "LOWT",
+                    "NT_",
+                    "PAC",
+                    "LPR",
+                    "INVT",
+                    "LVOLT",
+                    "HVOLT",
+                    "TAB_",
+                    "STE_",
+                    "PRC(S)",
+                    "SR",
+                    "AFIB",
+                    "STACH",
+                    "SARRH",
+                    "SBRAD",
+                    "PACE",
+                    "SVARR",
+                    "BIGU",
+                    "AFLT",
+                    "SVTAC",
+                    "PSVT",
+                    "TRIGU"
+                ]
+            },
+            "n_rec": 10,
+            "n_pat": 10,
+            "fqs": 500,
+            "rec_ext": ".dat"
+        },
+        "PTB_Diagnostic": {
+            "nm": "PTB Diagnostic ECG Database",
+            "dir_nm": "PTB-Diagnostic",
+            "rec_fmt": "**/*.dat",
+            "path_label": "RECORDS",
+            "n_rec": 10,
+            "n_pat": 5,
+            "fqs": 1000,
+            "rec_ext": ".dat"
+        },
+        "CSPC": {
+            "nm": "China Physiological Signal Challenge 2018",
+            "dir_nm": "CSPC-2018",
+            "rec_fmt": "*.mat",
+            "rec_ext": ".mat"
+        },
+        "CSPC_CinC": {
+            "nm": "China Physiological Signal Challenge 2018 - from CinC",
+            "dir_nm": "CSPC-2018-CinC",
+            "rec_fmt": "*.mat",
+            "n_rec": 10,
+            "n_pat": 10,
+            "fqs": 500,
+            "rec_ext": ".mat"
+        },
+        "CSPC_Extra_CinC": {
+            "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
+            "dir_nm": "CSPC-2018-Extra-CinC",
+            "rec_fmt": "*.mat",
+            "n_rec": 10,
+            "n_pat": "Unknown",
+            "fqs": 500,
+            "rec_ext": ".mat"
+        },
+        "G12EC": {
+            "nm": "Georgia 12-lead ECG Challenge (G12EC) Database",
+            "dir_nm": "Georgia-12-Lead",
+            "rec_fmt": "*.mat",
+            "n_rec": 10,
+            "n_pat": "Unknown",
+            "fqs": 500,
+            "rec_ext": ".mat"
+        },
+        "CHAP_SHAO": {
+            "nm": "Chapman University, Shaoxing People\u2019s Hospital 12-lead ECG Database",
+            "dir_nm": "Chapman-Shaoxing",
+            "rec_fmt": "ECGData/*.csv",
+            "fqs": 500,
+            "n_rec": 10,
+            "n_pat": 10,
+            "rec_ext": ".csv"
+        },
+        "CODE_TEST": {
+            "nm": "CODE-test: An annotated 12-lead ECG dataset",
+            "dir_nm": "CODE-test",
+            "rec_fmt": "ecg_tracings.hdf5",
+            "fqs": 400,
+            "n_rec": 827,
+            "n_pat": 827,
+            "rec_ext": ".hdf5"
+        },
+        "my": {
+            "nm": "Stefan-12-Lead-Combined",
+            "dir_nm": "Stef-Combined",
+            "fnm_labels": "records.csv",
+            "rec_fmt": "%s-combined.hdf5",
+            "rec_fmt_denoised": "%s-denoised.hdf5",
+            "rec_ext": ".hdf5"
+        }
+    },
+    "datasets_export": {
+        "total": [
+            "INCART",
+            "PTB_XL",
+            "PTB_Diagnostic",
+            "CSPC_CinC",
+            "CSPC_Extra_CinC",
+            "G12EC",
+            "CHAP_SHAO",
+            "CODE_TEST"
+        ],
+        "support_wfdb": [
+            "INCART",
+            "PTB_XL",
+            "PTB_Diagnostic",
+            "CSPC_CinC",
+            "CSPC_Extra_CinC",
+            "G12EC"
+        ]
+    },
+    "random_seed": 77,
+    "pre_processing": {
+        "zheng": {
+            "low_pass": {
+                "passband": 50,
+                "stopband": 60,
+                "passband_ripple": 1,
+                "stopband_attenuation": 2.5
+            },
+            "nlm": {
+                "smooth_factor": 1.5,
+                "window_size": 10
+            }
+        }
+    },
+    "path-export": "/Users/stefanh/Documents/UMich/Research/ECG Classification/datasets/Stef-Combined"
+}
