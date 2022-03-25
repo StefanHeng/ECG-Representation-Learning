@@ -117,3 +117,9 @@ if __name__ == '__main__':
         plot_1d(sigs, label='Normalized signal', new_fig=False, plot_kwargs=dict(lw=0.1, ms=0.11))
         plt.show()
     # check_normalize()
+
+    def check_extracted_dataset():
+        for dnm in config('datasets_export.total'):
+            el_ = EcgLoader(dnm, normalize=3.5)
+            ic(el_.dset.shape)
+    check_extracted_dataset()

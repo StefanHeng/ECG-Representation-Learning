@@ -1,7 +1,6 @@
 from math import isnan
 
-from .util import *
-from data_path import *
+from ecg_transformer.util import *
 
 
 config = {
@@ -23,7 +22,7 @@ config = {
         PTB_XL=dict(
             nm='PTB-XL, a large publicly available electrocardiography dataset',
             dir_nm='PTB-XL',
-            rec_fmt='records500/**/*.dat',
+            rec_fmt='records500/**/*.dat',  # the 500Hz signals
         ),
         PTB_Diagnostic=dict(
             nm='PTB Diagnostic ECG Database',

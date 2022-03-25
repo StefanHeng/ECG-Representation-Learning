@@ -557,6 +557,10 @@ def fnm2sigs(fnm, dnm):
 
         return fnm2sigs.ct_tracings['tracings'][fnm]
     else:
+        # from icecream import ic
+        # rec = wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext']))  # TODO; debugging
+        # ic(rec, vars(rec))
+        # exit(1)
         return wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext'])).p_signal.T
 
 

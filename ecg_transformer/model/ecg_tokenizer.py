@@ -1,13 +1,12 @@
 import pickle
 
-
 from numpy.random import default_rng
 from sklearn.neighbors import KDTree
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMeans
 from matplotlib.widgets import Slider
 
 from ecg_transformer.util import *
-from ecg_transformer.model.ecg_loader import EcgLoader
+from ecg_transformer.preprocess import EcgLoader
 
 
 D_EXP = config('path-export')

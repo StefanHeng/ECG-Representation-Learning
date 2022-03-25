@@ -47,10 +47,10 @@ class RecDataExport:
         dnms = self.dsets_exp["total"]
         self._log_info(f'Exporting ECG records on datasets {logi(dnms)}... ')
         # self.export_record_info()
-        # for dnm in dnms:
-        #     self.export_record_data(dnm)
-        ic(resample)
-        self.export_record_data('CHAP_SHAO', resample)  # TODO: debugging
+        # for dnm in dnms[1:2]:
+        for dnm in dnms:
+            self.export_record_data(dnm, resample=resample)
+        # self.export_record_data('CHAP_SHAO', resample)  # TODO: debugging
 
     def get_rec_nms(self, dnm):
         d_dset = self.d_dsets[dnm]
@@ -181,9 +181,9 @@ class RecDataExport:
         assert dnm in self.dsets_exp['total']
         d_dset = self.d_dsets[dnm]
 
-        # rec_nms = self.get_rec_nms(dnm)[:128]  # TODO: debugging
         rec_nms = self.get_rec_nms(dnm)
-        # ic(rec_nms)
+        # for rnm in rec_nms:
+        #     ic(fnm2sigs(rnm, dnm).shape)
         sigs = np.stack(batched_conc_map(lambda fnms_, s_, e_: [fnm2sigs(nm_, dnm) for nm_ in fnms_[s_:e_]], rec_nms))
         fqs = d_dset['fqs']
         d_rec = dict(n=len(rec_nms), shape=sigs.shape, frequency=fqs)
@@ -207,20 +207,20 @@ class RecDataExport:
             sigs_ = np.stack(lst_sigs)
             fqs = self.fqs
         dsets = dict(data=sigs_ if resample else sigs)
-        ic(resample)
         if _resample and resample != 'single':
             dsets['ori'] = sigs
         attrs = dict(dnm=dnm, fqs=fqs, resampled=resample)
 
         fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
-        self._log_info(f'Writing processed signals to [{logi(fnm)}]...')
+        self._log_info(f'Writing processed signals to {logi(fnm)}...')
         open(fnm, 'a').close()  # Create file in OS
         fl = h5py.File(fnm, 'w')
         fl.attrs['meta'] = json.dumps(attrs)
-        self._log_info(f'{now()}| Metadata attributes {logi(list(fl.attrs.keys()))} added')
+        # TODO: reduce memory usage
+        self._log_info(f'Metadata attributes {logi(list(fl.attrs.keys()))} added')
         for nm, data in dsets.items():
             fl.create_dataset(nm, data=data)
-        self._log_info(f'{now()}| HDF5 dataset on {logi(dnm)} with splits {logi([nm for nm in fl])} written to file ')
+        self._log_info(f'HDF5 dataset on {logi(dnm)} with splits {logi([nm for nm in fl])} written to file ')
 
 
 if __name__ == '__main__':
@@ -337,3 +337,5 @@ if __name__ == '__main__':
         _step(77, 0)
         plt.show()
     # check_matlab_out()
+
+
