@@ -1,18 +1,10 @@
-# import glob
 from pathlib import Path
 
-# import h5py
-# import numpy as np
-# import pandas as pd
-# from icecream import ic
-# import wfdb
 import wfdb.processing
+from tqdm import tqdm, trange
 
 from util.util import *
 from data_preprocessor import DataPreprocessor
-
-# pd.set_option('display.width', 200)
-# pd.set_option('display.max_columns', 7)
 
 
 def fix_g12ec_headers():
@@ -51,12 +43,18 @@ class RecDataExport:
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
         self.fqs = fqs
 
+        self.logger = None
+
     def __call__(self, resample: Union[str, bool] = False):
-        # self.export_labels()
-        # for dnm in self.dsets_exp['total']:
-        #     self.export_dset(dnm)
+        self.logger: logging.Logger = get_logger('ECG Record Export')
+        dnms = self.dsets_exp["total"]
+        self.logger.info(f'Began exporting ECG records with dataset names {logi(dnms)}... ')
+        self.export_record_info()
+        exit(1)
+        for dnm in dnms:
+            self.export_dset(dnm)
         # TODO: Test run
-        self.export_dset('CHAP_SHAO', resample)
+        # self.export_dset('CHAP_SHAO', resample)
 
     def rec_nms(self, dnm):
         d_dset = self.d_dsets[dnm]
@@ -64,7 +62,7 @@ class RecDataExport:
             glob.iglob(os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'], d_dset['rec_fmt']), recursive=True)
         )
 
-    def get_label_df(self, dnm):
+    def get_dset_record_info(self, dnm, return_df=True) -> Union[pd.DataFrame, List[List]]:
         d_dset = self.d_dsets[dnm]
         dir_nm = d_dset['dir_nm']
         path_ = os.path.join(PATH_BASE, DIR_DSET, dir_nm)
@@ -142,30 +140,47 @@ class RecDataExport:
 
         def get_row_code_test(rec_nms_):
             assert len(rec_nms_) == 1  # Only 1 hdf5 file
-            fnm = rec_nms_[0]
-            path_r, rec_nm = get_relative_path_n_name(fnm)
-            n_pat = h5py.File(fnm, 'r')['tracings'].shape[0]
-            return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
+            fnm_ = rec_nms_[0]
+            path_r, rec_nm = get_relative_path_n_name(fnm_)
+            n_pat = h5py.File(fnm_, 'r')['tracings'].shape[0]
+            rows_ = []
+            for i in trange(n_pat, desc='CODE_TEST', unit='rec'):
+                rows_.append([dnm, i, rec_nm, path_r])
+            # return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
+            return rows_
 
-        rec_nms = self.rec_nms(dnm)[:5]
+        if self.logger is not None:
+            self.logger.info(f'Getting record info for dataset {logi(dnm)}... ')
+        rec_nms = self.rec_nms(dnm)
         if dnm == 'CODE_TEST':
             rows = get_row_code_test(rec_nms)
         else:
-            rows = [get_row(fnm) for fnm in rec_nms]
-        df = pd.concat([pd.DataFrame([r], columns=self.lbl_cols) for r in rows], ignore_index=True)
-        ic(df)
-        return df
+            rows = []
+            for fnm in tqdm(rec_nms, desc=dnm, unit='rec'):
+                rows.append(get_row(fnm))
+        # df = pd.concat([pd.DataFrame([r], columns=self.lbl_cols) for r in rows], ignore_index=True)
+        return pd.DataFrame(rows, columns=self.lbl_cols) if return_df else rows
 
-    def export_labels(self):
-        df = pd.concat([self.get_label_df(dnm) for dnm in self.dsets_exp['total']], ignore_index=True)
+    def export_record_info(self):
+        if self.logger is not None:
+            self.logger.info(f'Began exporting dataset record info... ')
+        # df = pd.concat([self._get_dset_labels(dnm) for dnm in self.dsets_exp['total']], ignore_index=True)
+        rows = sum([self.get_dset_record_info(dnm, return_df=False) for dnm in self.dsets_exp['total']], start=[])
+        # ic(rows)
+        # exit(1)
+        df = pd.DataFrame(
+            sum([self.get_dset_record_info(dnm, return_df=False) for dnm in self.dsets_exp['total']], start=[]),
+            columns=self.lbl_cols
+        )
         df = df.apply(lambda x: x.astype('category'))
-        ic(df)
+        # ic(df)
+        # exit(1)
 
         fnm = os.path.join(self.path_exp, self.d_my['fnm_labels'])
         df.to_csv(fnm)
-        print(f'Exported to {fnm}')
+        self.logger.info(f'ECG record info exported to {logi(fnm}')
 
-    def export_dset(self, dnm, resample):
+    def export_dset(self, dnm, resample: Union[bool, str] = True):
         """
         :param dnm: Dataset name
         :param resample: If true, resample to export `fqs`
@@ -222,7 +237,7 @@ if __name__ == '__main__':
         de = RecDataExport(fqs=250)
         de(resample='single')
         # de(resample=True)
-    # export()
+    export()
 
     def sanity_check():
         """
@@ -325,4 +340,4 @@ if __name__ == '__main__':
         # _step(pf.i_s, pf.i_c)
         _step(77, 0)
         plt.show()
-    check_matlab_out()
+    # check_matlab_out()

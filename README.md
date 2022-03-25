@@ -16,7 +16,7 @@ Modify the `DIR_DSET` variable in file [`data_path.py`](https://github.com/Stefa
 as instructed.
 
 
-A `datasets` folder should be kept at the same level as
+A folder named as `DIR_DSET` should be kept at the same level as
 this repository, with dataset folder names specified as
 in [`config.json`](https://github.com/StefanHeng/ECG-Representation-Learning/blob/master/util/config.json).
 

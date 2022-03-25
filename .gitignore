@@ -1,6 +1,7 @@
 .DS_Store
 .idea/
 test_lang*
+plot/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

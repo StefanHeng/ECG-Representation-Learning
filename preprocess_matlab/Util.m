@@ -10,7 +10,7 @@ classdef Util
 
     methods (Static)
         function ret = get_config()
-            fid = fopen('config.json');
+            fid = fopen('../util/config.json');
             ret = jsondecode(char(fread(fid, inf)'));
             fclose(fid);
         end
