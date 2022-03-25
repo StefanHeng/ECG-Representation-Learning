@@ -6,8 +6,8 @@ from sklearn.neighbors import KDTree
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMeans
 from matplotlib.widgets import Slider
 
-from util import *
-from model.ecg_loader import EcgLoader
+from ecg_transformer.util import *
+from ecg_transformer.model.ecg_loader import EcgLoader
 
 
 D_EXP = config('path-export')

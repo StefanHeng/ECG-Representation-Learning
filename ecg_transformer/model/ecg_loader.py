@@ -1,6 +1,6 @@
 from scipy.stats import norm
 
-from util.util import *
+from ecg_transformer.util.util import *
 
 
 class EcgLoader:

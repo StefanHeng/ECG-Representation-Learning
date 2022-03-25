@@ -25,7 +25,7 @@ from wfdb import processing
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .data_path import PATH_BASE, DIR_PROJ, DIR_DSET
+from .data_path import PATH_BASE, DIR_PROJ, DIR_DSET, PKG_NM
 
 
 plt.rcParams['figure.constrained_layout.use'] = True
@@ -102,10 +102,10 @@ def batched_conc_map(
     :param n_worker: Number of concurrent workers
     """
     n: int = len(lst)
+    # from icecream import ic
+    # ic(n, n_worker)
     if n_worker > 1 and n > n_worker * 4:  # factor of 4 is arbitrary, otherwise not worse the overhead
         preprocess_batch = round(n / n_worker / 2)
-        # from icecream import ic
-        # ic(n, n_worker, preprocess_batch)
         strts: List[int] = list(range(0, n, preprocess_batch))
         ends: List[int] = strts[1:] + [n]  # inclusive begin, exclusive end
         lst_out = []
@@ -114,7 +114,7 @@ def batched_conc_map(
         return lst_out
     else:
         args = lst, 0, n
-        return fn(args)
+        return fn(*args)
 
 
 def now(as_str=True, for_path=False) -> Union[datetime.datetime, str]:
@@ -387,7 +387,7 @@ def config(attr):
     Loads the config file on first call.
     """
     if not hasattr(config, 'config'):
-        with open(os.path.join(PATH_BASE, DIR_PROJ, 'util', 'config.json'), 'r') as f:
+        with open(os.path.join(PATH_BASE, DIR_PROJ, PKG_NM, 'util', 'config.json'), 'r') as f:
             config.config = json.load(f)
     return get(config.config, attr)
 
