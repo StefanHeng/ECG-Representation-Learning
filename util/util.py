@@ -90,9 +90,42 @@ def conc_map(fn: Callable[[T], K], it: Iterable[T]) -> Iterable[K]:
         return executor.map(fn, it)
 
 
-def now(as_str=True, sep=':'):
+def batched_conc_map(
+        fn: Callable[[Tuple[List[T], int, int]], K], lst: List[T], n_worker: int = os.cpu_count()
+) -> List[K]:
+    """
+    Batched concurrent mapping, map elements in list in batches
+
+    :param fn: A map function that operates on a batch/subset of `lst` elements,
+        given inclusive begin & exclusive end indices
+    :param lst: A list of elements to map
+    :param n_worker: Number of concurrent workers
+    """
+    n: int = len(lst)
+    if n_worker > 1 and n > n_worker * 4:  # factor of 4 is arbitrary, otherwise not worse the overhead
+        preprocess_batch = round(n / n_worker / 2)
+        # from icecream import ic
+        # ic(n, n_worker, preprocess_batch)
+        strts: List[int] = list(range(0, n, preprocess_batch))
+        ends: List[int] = strts[1:] + [n]  # inclusive begin, exclusive end
+        lst_out = []
+        for lst_ in conc_map(lambda args_: fn(*args_), [(lst, s, e) for s, e in zip(strts, ends)]):  # Expand the args
+            lst_out.extend(lst_)
+        return lst_out
+    else:
+        args = lst, 0, n
+        return fn(args)
+
+
+def now(as_str=True, for_path=False) -> Union[datetime.datetime, str]:
+    """
+    # Considering file output path
+    :param as_str: If true, returns string; otherwise, returns datetime object
+    :param for_path: If true, the string returned is formatted as intended for file system path
+    """
     d = datetime.datetime.now()
-    return d.strftime(f'%Y-%m-%d %H{sep}%M{sep}%S') if as_str else d  # Considering file output path
+    fmt = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S'
+    return d.strftime(fmt) if as_str else d
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -153,6 +186,8 @@ def log(s, c: str = 'log', c_time='green', as_str=False):
             g=colorama.Fore.GREEN,
             blue=colorama.Fore.BLUE,
             b=colorama.Fore.BLUE,
+
+            m=colorama.Fore.MAGENTA
         )
     if c in log.d:
         c = log.d[c]

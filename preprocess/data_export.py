@@ -48,13 +48,11 @@ class RecDataExport:
     def __call__(self, resample: Union[str, bool] = False):
         self.logger: logging.Logger = get_logger('ECG Record Export')
         dnms = self.dsets_exp["total"]
-        self.logger.info(f'Began exporting ECG records with dataset names {logi(dnms)}... ')
-        self.export_record_info()
-        exit(1)
-        for dnm in dnms:
-            self.export_dset(dnm)
-        # TODO: Test run
-        # self.export_dset('CHAP_SHAO', resample)
+        self.logger.info(f'Exporting ECG records on datasets {logi(dnms)}... ')
+        # self.export_record_info()
+        # for dnm in dnms:
+        #     self.export_record_data(dnm)
+        self.export_record_data('CHAP_SHAO', resample)  # TODO: debugging
 
     def rec_nms(self, dnm):
         d_dset = self.d_dsets[dnm]
@@ -117,12 +115,12 @@ class RecDataExport:
 
         get_pat_num = get_get_pat_num()
 
-        def get_relative_path_n_name(fnm):
+        def get_relative_path_n_name(fnm_):
             """
             :return: 2-tuple of from (`datasets` to record file name], and file name without extension
             """
-            path_r = fnm.split('/')
-            return '/'.join(path_r[path_r.index(dir_nm):-1]), Path(fnm).stem
+            path_r = fnm_.split('/')
+            return '/'.join(path_r[path_r.index(dir_nm):-1]), Path(fnm_).stem
 
         def get_row(fnm_):
             path_r, rec_nm = get_relative_path_n_name(fnm_)
@@ -146,69 +144,85 @@ class RecDataExport:
             rows_ = []
             for i in trange(n_pat, desc='CODE_TEST', unit='rec'):
                 rows_.append([dnm, i, rec_nm, path_r])
-            # return [[dnm, i, rec_nm, path_r] for i in range(n_pat)]
             return rows_
 
         if self.logger is not None:
-            self.logger.info(f'Getting record info for dataset {logi(dnm)}... ')
-        rec_nms = self.rec_nms(dnm)
+            self.logger.info(f'Getting record info for {logi(dnm)}... ')
+        rec_nms = self.rec_nms(dnm)[:10]
         if dnm == 'CODE_TEST':
             rows = get_row_code_test(rec_nms)
         else:
             rows = []
             for fnm in tqdm(rec_nms, desc=dnm, unit='rec'):
                 rows.append(get_row(fnm))
-        # df = pd.concat([pd.DataFrame([r], columns=self.lbl_cols) for r in rows], ignore_index=True)
         return pd.DataFrame(rows, columns=self.lbl_cols) if return_df else rows
 
     def export_record_info(self):
         if self.logger is not None:
-            self.logger.info(f'Began exporting dataset record info... ')
-        # df = pd.concat([self._get_dset_labels(dnm) for dnm in self.dsets_exp['total']], ignore_index=True)
-        rows = sum([self.get_dset_record_info(dnm, return_df=False) for dnm in self.dsets_exp['total']], start=[])
-        # ic(rows)
-        # exit(1)
+            self.logger.info(f'Exporting dataset record info... ')
         df = pd.DataFrame(
             sum([self.get_dset_record_info(dnm, return_df=False) for dnm in self.dsets_exp['total']], start=[]),
             columns=self.lbl_cols
         )
         df = df.apply(lambda x: x.astype('category'))
-        # ic(df)
-        # exit(1)
 
         fnm = os.path.join(self.path_exp, self.d_my['fnm_labels'])
         df.to_csv(fnm)
-        self.logger.info(f'ECG record info exported to {logi(fnm}')
+        self.logger.info(f'ECG record info exported to {logi(fnm)}')
 
-    def export_dset(self, dnm, resample: Union[bool, str] = True):
+    def export_record_data(self, dnm, resample: Union[bool, str] = True):
         """
         :param dnm: Dataset name
         :param resample: If true, resample to export `fqs`
             If `single`, keep *only* the resampled copy
         """
-
+        if self.logger is not None:
+            self.logger.info(f'Exporting {logi(dnm)} data... ')
         assert dnm in self.dsets_exp['total']
         d_dset = self.d_dsets[dnm]
 
         rec_nms = self.rec_nms(dnm)
-        print(f'{now()}| Reading in {len(rec_nms)} records of [{dnm}]... ')
-        sigs = np.stack(list(conc_map(lambda nm_: fnm2sigs(nm_, dnm), rec_nms)))  # Concurrency
+        # ic()
+        # sigs = np.stack(list(conc_map(lambda nm_: fnm2sigs(nm_, dnm), rec_nms)))  # Concurrency
+        # sigs = np.stack([fnm2sigs(nm, dnm) for nm in rec_nms])  # Concurrency
+
+        # def fnms2sigs(fnms_, s, e):
+        #     return [fnm2sigs(nm_, dnm) for nm_ in fnms_[s:e]]
+        # sigs = np.stack(batched_conc_map(fnms2sigs, rec_nms))
+        sigs = np.stack(batched_conc_map(lambda fnms_, s, e: [fnm2sigs(nm_, dnm) for nm_ in fnms_[s:e]], rec_nms))
+        # ic()
+        # exit(1)
         fqs = d_dset['fqs']
-        print(f'{now()}|     ... of shape {sigs.shape} and frequency {fqs}Hz')
+        if self.logger is not None:
+            d_rec = dict(n=len(rec_nms), shape=sigs.shape, frequency=fqs)
+            self.logger.info(f'Loaded record data: {log_dict(d_rec)}')
         shape = sigs.shape
         assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
         assert not np.isnan(sigs).any()
 
         resample = resample and self.fqs != fqs
-        sigs_ = None
+        sigs_ = []
         if resample:
-            def resampler(s):
+            def _resampler(s):  # `resample_sig` seems to work with 1D signal only
                 return wfdb.processing.resample_sig(s, fqs, self.fqs)[0]
+
+            def resampler(sigs__):
+                return np.stack([_resampler(s) for s in sigs__])
             # ic()
-            print(f'{now()}| Resampling signals to {self.fqs}Hz... ')
-            sigs_ = np.stack(list(conc_map(  # `resample_sig` seems to work with 1D signal only
-                lambda sig: np.stack([resampler(s) for s in sig]), sigs)
-            ))
+            if self.logger is not None:
+                self.logger.info(f'Resampling to {logi(self.fqs)}Hz... ')
+            ic()
+            # sigs_ = np.stack(list(conc_map(resampler, sigs)))
+            sigs_ = np.stack([resampler(s) for s in sigs])
+            # sigs_ = np.stack(sum(list(conc_map(
+            #         resampler, sigs)
+            #     ), start=[])
+            # ).reshape((len(rec_nms), 12, -1))  # cos after stacking, channel dimension is flattened
+            # sigs_ = np.stack(
+            #     batched_conc_map(lambda lst_sigs, s, e: [resampler(s) for s in lst_sigs[s:e]], sigs)
+            # ).reshape((len(rec_nms), 12, -1))
+            ic()
+            exit(1)
             fqs = self.fqs
             # ic()
         dsets = dict(data=sigs_ if resample else sigs)
