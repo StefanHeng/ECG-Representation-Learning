@@ -7,7 +7,8 @@ addpath('..')
 %denoise_acc_check()
 
 %Util.config
-dnm = 'CHAP_SHAO';
+%dnm = 'CHAP_SHAO';
+dnm = 'PTB_XL';
 de = DataExport;
 %de.run(dnm, 'ori')
 de.run(dnm, 'data')

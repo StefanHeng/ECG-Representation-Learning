@@ -413,8 +413,6 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
         plt.figure(figsize=(18, 6))
     if not isinstance(arr, list):
         arr = list(arr) if isinstance(arr, np.ndarray) else arr[arr]
-    # from icecream import ic
-    # ic(arr)
     if not isinstance(label, list):
         label = [label] * len(arr)
     lbl = [None for _ in arr] if label is None else label

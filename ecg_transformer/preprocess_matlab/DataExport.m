@@ -31,7 +31,8 @@ classdef DataExport
                 sigs_den = zeros(size(sigs));
             end
 %            for i = 1:n_rec
-            for i = 1:3328
+%            for i = 1:3328
+            for i = 1:2048+256
                 if ~any(sigs_den(:, :, i), 'all')
                     sigs_ = squeeze(sigs(:, :, i));
                     disp([Util.now() '| Denosing file #' pad(i) '... '])

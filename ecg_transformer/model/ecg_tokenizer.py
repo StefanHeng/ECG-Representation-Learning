@@ -6,7 +6,7 @@ from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMea
 from matplotlib.widgets import Slider
 
 from ecg_transformer.util import *
-from ecg_transformer.preprocess import EcgLoader
+from ecg_transformer.preprocess import EcgDataset
 
 
 D_EXP = config('path-export')
@@ -626,7 +626,7 @@ if __name__ == '__main__':
 
     seed_ = config('random_seed')
 
-    el = EcgLoader(dataset_name='CHAP_SHAO', normalize=3.5)  # TODO: Generalize to multiple datasets
+    el = EcgDataset(dataset_name='CHAP_SHAO', normalize=3.5)  # TODO: Generalize to multiple datasets
     et = EcgTokenizer(k=8)
     # et = EcgTokenizer(k=8, backend='nex')
 
