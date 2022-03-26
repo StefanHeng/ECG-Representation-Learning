@@ -413,14 +413,14 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
         plt.figure(figsize=(18, 6))
     if not isinstance(arr, list):
         arr = list(arr) if isinstance(arr, np.ndarray) else arr[arr]
-    # cs = iter(sns.color_palette(palette='husl', n_colors=len(arr)))
+    # from icecream import ic
+    # ic(arr)
     if not isinstance(label, list):
         label = [label] * len(arr)
     lbl = [None for _ in arr] if label is None else label
 
     def _plot(a_, lb_):
         a_ = a_[s:e]
-        # plt.plot(np.arange(a_.size), a_, label=lb_, c=next(cs), **kwargs)
         plt.plot(np.arange(a_.size), a_, label=lb_, **kwargs)
     for a, lb in zip(arr, lbl):
         _plot(a, lb)
@@ -626,6 +626,16 @@ def get_nlm_denoise_truth(verbose=False):
         pd.read_csv(fnm_localres, header=None).iloc[:, 0].to_numpy(),
         pd.read_csv(fnm_after2nd, header=None).iloc[:, 0].to_numpy()
     )
+
+
+def get_denoised_h5_path(dnm):
+    if not hasattr(get_denoised_h5_path, 'd_dset'):
+        get_denoised_h5_path.d_dset = config(f'datasets.my')
+    d_dset = get_denoised_h5_path.d_dset
+    if not hasattr(get_denoised_h5_path, 'path_exp'):
+        # Path where the processed records are stored
+        get_denoised_h5_path.path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
+    return os.path.join(get_denoised_h5_path.path_exp, d_dset['rec_fmt_denoised'] % dnm)
 
 
 if __name__ == '__main__':

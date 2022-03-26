@@ -1,14 +1,4 @@
-# import os
-# import math
-# import glob
-# from typing import List, Dict, Tuple, Optional
-#
-# import pandas as pd
-# import wfdb
-
 from ecg_transformer.util import *
-# from ecg_transformer.util import PATH_BASE, DIR_PROJ, DIR_DSET
-# from ecg_transformer.util import get, set_, keys, get_my_rec_labels  # TODO
 
 
 config_dict = {
@@ -123,10 +113,7 @@ def extract_ptb_codes():
     id2code = list(df_ptb.index)  # Stick to the same ordering
     assert len(id2code) == 71
     code2id = {c: i for i, c in enumerate(id2code)}
-    # from icecream import ic  # TODO: remove
-    # ic(codes, code2id)
     set_(config_dict, 'datasets.PTB_XL.code', dict(codes=codes, code2id=code2id, id2code=id2code))
-    # exit(1)
 
 
 def extract_datasets_meta():
@@ -181,5 +168,5 @@ if __name__ == '__main__':
 
     fl_nm = 'config.json'
     ic(config_dict)
-    with open(f'{PATH_BASE}/{DIR_PROJ}/{fl_nm}', 'w') as f:
+    with open(os.path.join(PATH_BASE, DIR_PROJ, PKG_NM, 'util', fl_nm), 'w') as f:
         json.dump(config_dict, f, indent=4)
