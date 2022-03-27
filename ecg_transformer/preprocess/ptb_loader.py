@@ -16,6 +16,33 @@ import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import EcgDataset
 
 
+def export_ptbxl_labels():
+    """
+    Export PTB-XL dataset labels
+
+    All keys in the `scp_code` are considered ground truth binary labels
+        Downside: the likelihood are ignored, effectively treating each key as 100% confidence
+    """
+    from icecream import ic
+
+    path = os.path.join(PATH_BASE, DIR_DSET, config('datasets.PTB_XL.dir_nm'), 'ptbxl_database.csv')
+    df = pd.read_csv(path, usecols=['ecg_id', 'patient_id', 'scp_codes', 'strat_fold'], index_col=0)
+    df.patient_id = df.patient_id.astype(int)
+    df.scp_codes = df.scp_codes.apply(literal_eval)
+    _d_codes = config('datasets.PTB_XL.code')
+    d_codes, code2id = _d_codes['codes'], _d_codes['code2id']
+
+    def map_row(row: pd.Series):
+        codes = list(row.scp_codes.keys())
+        assert all(c in d_codes for c in codes)
+        return sorted(code2id[c] for c in codes)
+
+    df['labels'] = df.apply(map_row, axis=1)
+    ic(df)
+
+    df.to_csv(os.path.join(config('path-export'), 'ptb-xl-labels.csv'))
+
+
 class PtbxlDataset(EcgDataset):
     DNM = 'PTB_XL'
     N_CLASS = 71
@@ -48,18 +75,19 @@ class PtbxlDataset(EcgDataset):
         return multi_hot
 
     def __getitem__(self, idx):
+        # from icecream import ic
+        # ic(idx, self.labels)
+        # ic(self.labels[idx])
         return dict(
             sample_values=super().__getitem__(idx),
             labels=PtbxlDataset.lbs2multi_hot(self.labels[idx])
         )
 
 
-def get_ptbxl_splits() -> Tuple[PtbxlDataset, ...]:
+def get_ptbxl_splits(n_sample: int = None) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
     logger = get_logger('Get PTB-XL splits')
     idxs_processed = list(range(4096))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
-    # pdset = PtbxlDataset()
-    # ic(pdset[0], pdset.dset.shape)
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
     df = pd.read_csv(os.path.join(config('path-export'), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
@@ -67,19 +95,18 @@ def get_ptbxl_splits() -> Tuple[PtbxlDataset, ...]:
     df.labels = df.labels.apply(literal_eval)
     # `strat_fold`s are in [1, 10]
     df_tr, df_vl, df_ts = df[df.strat_fold < 9], df[df.strat_fold == 9], df[df.strat_fold == 10]
+    if n_sample is not None:
+        df_tr, df_vl, df_ts = df_tr.iloc[:n_sample], df_vl.iloc[:n_sample], df_ts.iloc[:n_sample]
+    # ic(df_tr, df_vl, df_ts)
     n_tr, n_vl, n_ts = len(df_tr), len(df_vl), len(df_ts)
-    assert n_tr + n_vl + n_ts == len(df)
-    # ic(df, df_tr, df_vl, df_ts)
+    if n_sample is None:
+        assert n_tr + n_vl + n_ts == len(df)
     logger.info(f'Splits created with sizes {log_dict(dict(train=n_tr, eval=n_vl, test=n_ts))}... ')
-    ic(df_tr.labels[0])
-    ic(type(df_tr.labels[0]), type(df_tr.labels))
-    ic(df_tr.index)
-    # dset_tr = PtbxlDataset(df_tr.index.to_numpy(), df_tr.labels)
-    # ic(dset_tr)
-    # ic(dset_tr[0])
-    return tuple(
-        PtbxlDataset(dset.index.to_numpy(), dset.labels) for dset in (df_tr, df_vl, df_ts)
-    )
+
+    def get_dset(df_) -> PtbxlDataset:
+        # so that indexing into `labels` is 0-indexed
+        return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels)
+    return get_dset(df_tr), get_dset(df_vl), get_dset(df_ts)
 
 
 if __name__ == '__main__':
@@ -96,5 +123,10 @@ if __name__ == '__main__':
             ic(rec.shape, rec[0, :4])
     # check_ptb_denoise_progress()
 
-    dest_tr, dset_vl, dset_ts = get_ptbxl_splits()
-    ic(dest_tr[0])
+    def check_split_dataset():
+        dest_tr, dset_vl, dset_ts = get_ptbxl_splits()
+        ic(dest_tr, dset_vl, dset_ts)
+        batch = dest_tr[0]
+        sv, lbs = batch['sample_values'], batch['labels']
+        ic(sv, lbs, sv.shape, lbs.shape)
+    check_split_dataset()

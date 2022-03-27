@@ -9,6 +9,7 @@ import itertools
 import concurrent.futures
 from typing import List, Dict, Tuple
 from typing import Union, Callable, Iterable, TypeVar
+from pygments import highlight, lexers, formatters
 from functools import reduce
 from collections import OrderedDict
 
@@ -19,7 +20,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .data_path import PATH_BASE, DIR_PROJ, DIR_DSET, PKG_NM
+from .data_path import PATH_BASE, DIR_PROJ, PKG_NM, DIR_DSET, DIR_MDL
 
 
 pd.set_option('expand_frame_repr', False)
@@ -207,7 +208,7 @@ def logi(s):
     return log_s(s, c='i')
 
 
-def log_dict(d: Dict = None, with_color=True, **kwargs) -> str:
+def log_dict(d: Dict, with_color=True, **kwargs) -> str:
     """
     Syntactic sugar for logging dict with coloring for console output
     """
@@ -219,7 +220,15 @@ def log_dict(d: Dict = None, with_color=True, **kwargs) -> str:
     return pref + ', '.join(pairs) + post
 
 
-def log_dict_nc(d: Dict = None, **kwargs) -> str:
+def log_dict_id(d: Dict) -> str:
+    return json.dumps(d, indent=2)
+
+
+def log_dict_pg(d: Dict) -> str:
+    return highlight(log_dict_id(d), lexers.JsonLexer(), formatters.TerminalFormatter())
+
+
+def log_dict_nc(d: Dict, **kwargs) -> str:
     return log_dict(d, with_color=False, **kwargs)
 
 

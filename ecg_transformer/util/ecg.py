@@ -9,7 +9,7 @@ from wfdb import processing
 from .util import *
 
 
-def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, plot_kwargs=None):
+def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, plot_kwargs=None, show=True):
     """ Plot potentially multiple 1D signals """
     kwargs = LN_KWARGS
     if plot_kwargs is not None:
@@ -25,7 +25,7 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
 
     def _plot(a_, lb_):
         a_ = a_[s:e]
-        plt.plot(np.arange(a_.size), a_, label=lb_, **kwargs)
+        plt.gca().plot(np.arange(a_.size), a_, label=lb_, **kwargs)
     for a, lb in zip(arr, lbl):
         _plot(a, lb)
 
@@ -37,7 +37,7 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
         plt.title(title)
     if new_fig:
         save_fig(title, save)
-    else:
+    if show:
         plt.show()
 
 
