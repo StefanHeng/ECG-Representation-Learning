@@ -21,7 +21,7 @@ class PtbxlDataset(EcgDataset):
         dset = rec['data']
         attrs = json.loads(rec.attrs['meta'])
         assert attrs['fqs'] == 250  # TODO: generalize?
-        self.dset = dset[idxs]
+        self.dset = dset[idxs]  # All data stored in memory; TODO: optimization?
 
         super()._post_init(self.dset, normalize, norm_arg)
 
@@ -29,7 +29,7 @@ class PtbxlDataset(EcgDataset):
 if __name__ == '__main__':
     from icecream import ic
 
-    def check_ptb_denise_progress():
+    def check_ptb_denoise_progress():
         from ecg_transformer.preprocess import NamedDataset
 
         dnm = 'PTB_XL'
@@ -38,7 +38,7 @@ if __name__ == '__main__':
         ic(nd.norm_meta)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    check_ptb_denise_progress()
+    # check_ptb_denoise_progress()
 
-    # pdset = PtbxlDataset(list(range(10)))
-    # ic(pdset[0])
+    pdset = PtbxlDataset(list(range(2304)))  # TODO: the amount of denoised data
+    ic(pdset[0], pdset.dset.shape)

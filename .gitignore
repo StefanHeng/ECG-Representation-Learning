@@ -1,6 +1,6 @@
 .DS_Store
 .idea/
-test_lang*
+test-lang.py
 plot/
 
 # Byte-compiled / optimized / DLL files
