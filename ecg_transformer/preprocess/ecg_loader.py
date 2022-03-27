@@ -13,6 +13,71 @@ from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
 
 
+_NormArg = Union[str, Tuple[str, Union[float, int]]]
+NormArg = Union[_NormArg, List[_NormArg]]
+
+
+class NormTransform:
+    def __init__(self, arr, scheme: str = 'std', arg: Union[float, int] = None):
+        assert scheme in ['global', 'std', 'norm', 'none']
+        self.norm_meta = None
+        self.scheme = scheme
+        # TODO: not sure why many functions return nan, even when no nan elements are present
+        if scheme in ['std', 'norm']:
+            if arg is None:
+                arg = 3
+            else:
+                assert isinstance(arg, (float, int))
+            self.arg = arg
+        else:
+            self.arg = None
+
+        # shapes are (1, 12, 1)
+        if scheme == 'global':
+            self.norm_meta = (
+                np.nanmin(arr, axis=(0, -1), keepdims=True),
+                np.nanmax(arr, axis=(0, -1), keepdims=True)
+            )
+        elif scheme == 'std':
+            self.norm_meta = (
+                np.nanmean(arr, axis=(0, -1), keepdims=True),
+                np.nanstd(arr, axis=(0, -1), keepdims=True) * arg
+            )
+        elif scheme == 'norm':
+            p = norm().cdf(arg) * 100
+            self.norm_meta = (
+                np.nanpercentile(arr, 100-p, axis=(0, -1), keepdims=True),
+                np.nanpercentile(arr, p, axis=(0, -1), keepdims=True)
+            )
+
+    def __call__(self, arr, squeeze_1st=False):
+        if self.scheme == 'none':
+            return arr
+        else:
+            if self.scheme in ['global', 'norm']:
+                mi, ma = self.norm_meta
+                sub, div = mi, (ma - mi)
+            else:  # normalize == 'std'
+                sub, div = self.norm_meta
+            if squeeze_1st:
+                sub, div = sub[0], div[0]  # (1, 12, 1) -> (12, 1)
+            return (arr - sub) / div
+
+    @staticmethod
+    def _a2s(arr):
+        return np.array2string(arr.flatten(), precision=2, separator=',', suppress_small=True, max_line_width=256)
+
+    def __repr__(self):
+        # if self.scheme != 'none':
+        #     a, b = self.norm_meta
+        #     a, b = NormTransform._a2s(a), NormTransform._a2s(b)
+        #     str_meta = f'meta=({a}, {b})'
+        # else:
+        #     str_meta = ''
+        str_arg = f'arg={self.arg}' if self.arg is not None else ''
+        return f'<{self.__class__.__qualname__} {self.scheme} {str_arg}>'
+
+
 class EcgDataset(Dataset):
     """
     Load pre-processed (de-noised) heartbeat records given a single dataset
@@ -26,43 +91,33 @@ class EcgDataset(Dataset):
 
     Children should define an index-able `dset` field
     """
-    def _post_init(self, arr, normalize: str = 'std', norm_arg: Union[float, int] = 4, return_type='pt'):
+    def _post_init(self, arr, normalize: NormArg = (('norm', 3), ('std', 1)), return_type: str = 'pt'):
         """
-        :param normalize: Normalization scheme, one of [`global`, `std`, `norm`, `none`]
-            Normalization is done per channel/lead
-            If `global`, normalize by global minimum and maximum
-            If `std`, normalize by subtracting mean & dividing 1 standard deviation
-            If `norm`, normalize by subtracting mean & dividing range based on standard deviation percentile
-        :param norm_arg: Intended for `norm` or `std` scheme
-            FYI:
-                pnorm(1) ~= 0.841
-                pnorm(2) ~= 0.977
-                pnorm(3) ~= 0.999
-                pnorm(4) ~= 0.99997
+        :param normalize: Normalization or a sequence of normalizations, as 2-tuples of
+            normalize scheme: one of [`global`, `std`, `norm`, `none`]
+                Normalization is done per channel/lead
+                If `global`, normalize by global minimum and maximum
+                If `std`, normalize by subtracting mean & dividing 1 standard deviation
+                If `norm`, normalize by subtracting mean & dividing range based on standard deviation percentile
+            normalize argument: Intended for `norm` or `std` scheme
+                FYI:
+                    pnorm(1) ~= 0.841
+                    pnorm(2) ~= 0.977
+                    pnorm(3) ~= 0.999
+                    pnorm(4) ~= 0.99997
         """
-        assert normalize in ['global', 'std', 'norm', 'none']
-        self.norm_meta = None
-        self.normalize = normalize
-        # TODO: not sure why many functions return nan, even when no nan elements are present
-        # shapes are (1, 12, 1)
-        if normalize == 'global':
-            self.norm_meta = (
-                np.nanmin(arr, axis=(0, -1), keepdims=True),
-                np.nanmax(arr, axis=(0, -1), keepdims=True)
-            )
-        elif normalize == 'std':
-            assert isinstance(norm_arg, (float, int))
-            self.norm_meta = (
-                np.nanmean(arr, axis=(0, -1), keepdims=True),
-                np.nanstd(arr, axis=(0, -1), keepdims=True) * norm_arg
-            )
-        elif normalize == 'norm':
-            assert isinstance(norm_arg, (float, int))
-            p = norm().cdf(norm_arg) * 100
-            self.norm_meta = (
-                np.nanpercentile(arr, 100-p, axis=(0, -1), keepdims=True),
-                np.nanpercentile(arr, p, axis=(0, -1), keepdims=True)
-            )
+        if isinstance(normalize, str) or isinstance(normalize, (tuple, list)) and not isinstance(normalize[0], tuple):
+            norm_args = [normalize]
+        else:
+            norm_args = normalize
+        norm_args = [(pr if isinstance(pr, tuple) else (pr,)) for pr in norm_args]
+        assert all((isinstance(pr, tuple) and len(pr) in [1, 2]) for pr in norm_args)
+        self.normalizers = []
+        for pr in norm_args:
+            normzer = NormTransform(arr, *pr)
+            self.normalizers.append(normzer)
+            arr = normzer(arr, squeeze_1st=False)  # the normalizations are done sequentially
+
         assert return_type in ['pt', 'np']
         self.return_type = return_type
 
@@ -72,26 +127,11 @@ class EcgDataset(Dataset):
         """
         return self.dset.shape[0] if self.is_full else self.idxs_processed.size
 
-    def __getitem__(self, idx, normalize: str = None) -> torch.FloatTensor:
-        normalize = self.normalize if normalize is None else normalize
-        if normalize == 'none':
-            arr = self.dset[idx]
-        else:
-            if normalize in ['global', 'norm']:
-                mi, ma = self.norm_meta
-                sub, div = mi, (ma - mi)
-            else:   # normalize == 'std'
-                sub, div = self.norm_meta
-                # from icecream import ic
-                # ic(mu.shape, sigma.shape, self.dset[idx].shape)
-            assert sub.shape[0] == 1 and div.shape[0] == 1
-            # from icecream import ic
-            # ic(idx)
-            if isinstance(idx, int):  # not slice
-                sub, div = sub[0], div[0]  # (1, 12, 1) -> (12, 1)
-            arr = (self.dset[idx] - sub) / div
-        from icecream import ic
-        ic(idx, arr.shape, self.dset[idx].shape)
+    def __getitem__(self, idx) -> torch.FloatTensor:
+        lst_squeeze_1st = [isinstance(idx, int)] * len(self.normalizers)  # if `idx` is slice
+        arr = self.dset[idx]
+        for normalizer, squeeze_1st in zip(self.normalizers, lst_squeeze_1st):
+            arr = normalizer(arr, squeeze_1st)
         if self.return_type == 'pt':
             return torch.from_numpy(arr).float()  # cos the h5py stores float64
         else:
@@ -128,36 +168,49 @@ if __name__ == '__main__':
     def sanity_check():
         nd = NamedDataset(dnm, normalize='global')
         ic(len(nd), nd[0].shape)
-        ic(nd.norm_meta)
+        ic(nd.normalizers)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
     # sanity_check()
 
+    def check_norm_meta():
+        ic(NamedDataset(dnm, normalize='global').normalizers)
+        ic(NamedDataset(dnm, normalize=('std', 3)).normalizers)
+        ic(NamedDataset(dnm, normalize=('norm', 3)).normalizers)
+    # check_norm_meta()
+
     def check_normalize(n: int = 128):
         # el = EcgLoader(dnm, normalize='global')
-        nd = NamedDataset(dnm, normalize='std', norm_arg=3, return_type='np')
-        # el = EcgLoader(dnm, normalize='norm', norm_arg=3)
+        # nd = NamedDataset(dnm, normalize='std', return_type='np')
+        # el = EcgLoader(dnm, normalize='norm')
+        # increase the 1st stage norm, to clip as many signals to [0, 1]
+        # nd = NamedDataset(dnm, return_type='np', normalize=[('norm', 3)])
+        nd = NamedDataset(dnm, return_type='np', normalize=[('norm', 3), ('std', 1)])  # default 2-stage normalization
+        ic(nd.normalizers)
         n_sig, (n_ch, l) = len(nd), nd.dset.shape[1:]
         idxs_sig = np.sort(np.random.choice(n_sig, size=n, replace=False))
         idxs_ch = np.random.randint(n_ch, size=n)
         sigs = nd[idxs_sig][range(n), idxs_ch]
 
-        ratio_oor = np.any((0 > sigs) | (sigs > 1), axis=-1).sum() / n  # Fraction of points that go beyond range 0, 1
-        ic(ratio_oor)
+        # Fraction of signals, points that go beyond range 0, 1
+        oor = (0 > sigs) | (sigs > 1)
+        oor = dict(signal=np.any(oor, axis=-1).sum() / n, sample=oor.sum() / oor.size)
+        ic(oor)
 
         plt.figure(figsize=(18, 6))
         plt.hlines([-1, 0, 1], xmin=0, xmax=sigs.shape[-1], lw=0.25)
         ecg_util.plot_1d(sigs, label='Normalized signal', new_fig=False, plot_kwargs=dict(lw=0.1, ms=0.11))
         plt.show()
-    # check_normalize()
+    check_normalize()
 
     def check_normalize_channel(n: int = 128):
-        nd = NamedDataset(dnm, normalize='std', norm_arg=3, return_type='np')
+        nd = NamedDataset(dnm, return_type='np', normalize=[('norm', 3), ('std', 1)])
+        nd_n = NamedDataset(dnm, return_type='np', normalize='none')
         n_sig, (n_ch, l) = len(nd), nd.dset.shape[1:]
         for i in range(n_ch):
             idxs_sig = np.sort(np.random.choice(n_sig, size=n, replace=False))
             sigs = nd[idxs_sig][:, i, :]
-            sigs_ori = nd.__getitem__(idxs_sig, normalize='none')[:, i, :]
+            sigs_ori = nd_n[idxs_sig][:, i, :]
 
             ratio_oor = np.any((0 > sigs) | (sigs > 1), axis=-1).sum() / n
             ic(ratio_oor)
@@ -170,9 +223,9 @@ if __name__ == '__main__':
             ecg_util.plot_1d(
                 sigs, label='Normalized signal', new_fig=False, plot_kwargs=dict(lw=0.1, ms=0.11, c='m'), show=False
             )
-            plt.title(f'Normalize sanity check for channel {i}')
+            plt.title(f'Normalize sanity check for channel {i+1}')
             plt.show()
-    check_normalize_channel(n=32)
+    # check_normalize_channel(n=32)
 
     def check_extracted_dataset():
         for dnm in config('datasets_export.total'):

@@ -13,7 +13,7 @@ import torch
 
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
-from ecg_transformer.preprocess import EcgDataset
+from ecg_transformer.preprocess import NormArg, EcgDataset
 
 
 def export_ptbxl_labels():
@@ -47,7 +47,9 @@ class PtbxlDataset(EcgDataset):
     DNM = 'PTB_XL'
     N_CLASS = 71
 
-    def __init__(self, idxs: List[int], labels: Sequence[List[int]], normalize='std', norm_arg=3):
+    def __init__(
+            self, idxs: List[int], labels: Sequence[List[int]],
+            normalize: NormArg = (('norm', 3), ('std', 1)), return_type: str = 'pt'):
         """
         :param idxs: Indices into the original PTB-XL csv rows
             Intended for selecting rows in the original dataset to create splits
@@ -60,13 +62,11 @@ class PtbxlDataset(EcgDataset):
         self.labels = labels
 
         self.is_full = True  # Assume user passed in processed data; Fit with `EcgDataset.__len__` API
+        super()._post_init(self.dset, normalize=normalize, return_type=return_type)
         self.meta = OrderedDict([
             ('frequency', fqs),
-            ('normalization-scheme', normalize),
-            ('normalization-arg', norm_arg)
+            ('normalization', self.normalizers.__repr__()),
         ])
-
-        super()._post_init(self.dset, normalize, norm_arg)
 
     @staticmethod
     def lbs2multi_hot(lbs: List[int]) -> torch.LongTensor:
@@ -75,9 +75,6 @@ class PtbxlDataset(EcgDataset):
         return multi_hot
 
     def __getitem__(self, idx):
-        # from icecream import ic
-        # ic(idx, self.labels)
-        # ic(self.labels[idx])
         return dict(
             sample_values=super().__getitem__(idx),
             labels=PtbxlDataset.lbs2multi_hot(self.labels[idx])
@@ -97,7 +94,6 @@ def get_ptbxl_splits(n_sample: int = None) -> Tuple[PtbxlDataset, PtbxlDataset, 
     df_tr, df_vl, df_ts = df[df.strat_fold < 9], df[df.strat_fold == 9], df[df.strat_fold == 10]
     if n_sample is not None:
         df_tr, df_vl, df_ts = df_tr.iloc[:n_sample], df_vl.iloc[:n_sample], df_ts.iloc[:n_sample]
-    # ic(df_tr, df_vl, df_ts)
     n_tr, n_vl, n_ts = len(df_tr), len(df_vl), len(df_ts)
     if n_sample is None:
         assert n_tr + n_vl + n_ts == len(df)
