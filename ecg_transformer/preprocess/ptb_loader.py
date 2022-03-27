@@ -47,41 +47,44 @@ class PtbxlDataset(EcgDataset):
     DNM = 'PTB_XL'
     N_CLASS = 71
 
-    def __init__(
-            self, idxs: List[int], labels: Sequence[List[int]],
-            normalize: NormArg = (('norm', 3), ('std', 1)), return_type: str = 'pt'):
+    def __init__(self, idxs: List[int], labels: Sequence[List[int]], init_kwargs=None, post_init_kwargs=None):
         """
         :param idxs: Indices into the original PTB-XL csv rows
             Intended for selecting rows in the original dataset to create splits
         """
+        if init_kwargs is None:
+            init_kwargs = dict()
+        if post_init_kwargs is None:
+            post_init_kwargs = dict()
+        super().__init__(**init_kwargs)
         rec = h5py.File(ecg_util.get_denoised_h5_path(PtbxlDataset.DNM))
         dset = rec['data']
         fqs = json.loads(rec.attrs['meta'])['fqs']
         assert fqs == 250  # TODO: generalize?
-        self.dset = dset[idxs]  # All data stored in memory; TODO: optimization?
+        self.dset: np.ndarray = dset[idxs]  # All data stored in memory; TODO: optimization?
         self.labels = labels
 
         self.is_full = True  # Assume user passed in processed data; Fit with `EcgDataset.__len__` API
-        super()._post_init(self.dset, normalize=normalize, return_type=return_type)
+        super()._post_init(self.dset, **post_init_kwargs)
         self.meta = OrderedDict([
             ('frequency', fqs),
             ('normalization', self.normalizers.__repr__()),
         ])
 
     @staticmethod
-    def lbs2multi_hot(lbs: List[int]) -> torch.LongTensor:
-        multi_hot: torch.LongTensor = torch.zeros(PtbxlDataset.N_CLASS, dtype=torch.long, device='cpu')
+    def lbs2multi_hot(lbs: List[int], return_float=False) -> torch.Tensor:
+        multi_hot = torch.zeros(PtbxlDataset.N_CLASS, dtype=torch.float32 if return_float else torch.long, device='cpu')
         multi_hot[lbs] = 1
         return multi_hot
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Dict[str, torch.FloatTensor]:
         return dict(
             sample_values=super().__getitem__(idx),
-            labels=PtbxlDataset.lbs2multi_hot(self.labels[idx])
+            labels=PtbxlDataset.lbs2multi_hot(self.labels[idx], return_float=True)
         )
 
 
-def get_ptbxl_splits(n_sample: int = None) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
+def get_ptbxl_splits(n_sample: int = None, dataset_args: Dict = None) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
     logger = get_logger('Get PTB-XL splits')
     idxs_processed = list(range(4096))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
@@ -99,9 +102,12 @@ def get_ptbxl_splits(n_sample: int = None) -> Tuple[PtbxlDataset, PtbxlDataset, 
         assert n_tr + n_vl + n_ts == len(df)
     logger.info(f'Splits created with sizes {log_dict(dict(train=n_tr, eval=n_vl, test=n_ts))}... ')
 
+    if dataset_args is None:
+        dataset_args = dict()
+
     def get_dset(df_) -> PtbxlDataset:
         # so that indexing into `labels` is 0-indexed
-        return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels)
+        return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels, **dataset_args)
     return get_dset(df_tr), get_dset(df_vl), get_dset(df_ts)
 
 

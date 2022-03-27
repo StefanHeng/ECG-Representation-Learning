@@ -91,7 +91,10 @@ class EcgDataset(Dataset):
 
     Children should define an index-able `dset` field
     """
-    def _post_init(self, arr, normalize: NormArg = (('norm', 3), ('std', 1)), return_type: str = 'pt'):
+    def __init__(self, patch_size: int = 64, pad: bool = True):
+        self.patch_size, self.pad = patch_size, pad
+
+    def _post_init(self, arr: np.ndarray, normalize: NormArg = (('norm', 3), ('std', 1)), return_type: str = 'pt'):
         """
         :param normalize: Normalization or a sequence of normalizations, as 2-tuples of
             normalize scheme: one of [`global`, `std`, `norm`, `none`]
@@ -132,6 +135,13 @@ class EcgDataset(Dataset):
         arr = self.dset[idx]
         for normalizer, squeeze_1st in zip(self.normalizers, lst_squeeze_1st):
             arr = normalizer(arr, squeeze_1st)
+        if self.pad:  # pad along the last dimension, in the end
+            l = arr.shape[-1]
+            n_pad = self.patch_size - (l % self.patch_size)
+            if n_pad != 0:
+                pad_width = [(0, 0)] * arr.ndim
+                pad_width[-1] = (0, n_pad)
+                arr = np.pad(arr, pad_width, mode='constant', constant_values=0)
         if self.return_type == 'pt':
             return torch.from_numpy(arr).float()  # cos the h5py stores float64
         else:
@@ -142,7 +152,8 @@ class NamedDataset(EcgDataset):
     """
     Data samples are from a single H5 file
     """
-    def __init__(self, dataset_name, fqs=250, **kwargs):
+    def __init__(self, dataset_name, fqs=250, init_kwargs=None, post_init_kwargs=None):
+        super().__init__(**init_kwargs)
         self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset_name))
         self.dset = self.rec['data']
         self.attrs = json.loads(self.rec.attrs['meta'])
@@ -157,7 +168,7 @@ class NamedDataset(EcgDataset):
             arr = self.dset[:]
         assert not np.all(np.isnan(arr))
 
-        super()._post_init(arr, **kwargs)
+        super()._post_init(arr, **post_init_kwargs)
 
 
 if __name__ == '__main__':

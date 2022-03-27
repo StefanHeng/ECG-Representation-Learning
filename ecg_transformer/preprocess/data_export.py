@@ -1,16 +1,19 @@
+import glob
 from pathlib import Path
 
+import h5py
 import wfdb.processing
 from tqdm import tqdm, trange
 
 from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 
 
 def fix_g12ec_headers():
     """
     The 1st row of header files in G12EC datasets has an extra `.mat` in the record name
     """
-    recs = get_rec_paths('G12EC')
+    recs = ecg_util.get_rec_paths('G12EC')
     ic(recs[:5], len(recs))
     for r in recs:
         r = r.removesuffix('.mat') + '.hea'
@@ -184,7 +187,7 @@ class RecDataExport:
         rec_nms = self.get_rec_nms(dnm)
         # for rnm in rec_nms:
         #     ic(fnm2sigs(rnm, dnm).shape)
-        sigs = np.stack(batched_conc_map(lambda fnms_, s_, e_: [fnm2sigs(nm_, dnm) for nm_ in fnms_[s_:e_]], rec_nms))
+        sigs = np.stack(batched_conc_map(lambda fnms_, s_, e_: [ecg_util.fnm2sigs(nm_, dnm) for nm_ in fnms_[s_:e_]], rec_nms))
         fqs = d_dset['fqs']
         d_rec = dict(n=len(rec_nms), shape=sigs.shape, frequency=fqs)
         self._log_info(f'Loaded record data: {log_dict(d_rec)}')
@@ -272,9 +275,9 @@ if __name__ == '__main__':
         ic(data_ori.shape)
         n_sig, n_ch, l_ch = data_ori.shape
 
-        sig, truth_denoised = get_nlm_denoise_truth(verbose=False)[:2]
+        sig, truth_denoised = ecg_util.get_nlm_denoise_truth(verbose=False)[:2]
         ic(sig[:10], truth_denoised[:10], sig.shape)
-        plot_1d(
+        ecg_util.plot_1d(
             [sig, truth_denoised],
             label=['Original, resampled', 'Denoised'],
             title=f'[{dnm}] output generated from dataset',
@@ -284,7 +287,7 @@ if __name__ == '__main__':
         # Pick a channel randomly
         def _step(s, c):
             plt.cla()
-            plot_1d(
+            ecg_util.plot_1d(
                 [data_ori[s, c], data_den[s, c]],
                 label=['Original, resampled', 'Denoised'],
                 title=f'[{dnm}] Processed Signal random plot: signal {s + 1} channel {c + 1}',

@@ -1,4 +1,10 @@
+import glob
+import math
+
+import wfdb
+
 from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 
 
 config_dict = {
@@ -74,7 +80,7 @@ config_dict = {
         total=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC', 'CHAP_SHAO', 'CODE_TEST'],
         support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
     ),
-    'random_seed': 77,
+    'random-seed': 77,
     'pre_processing': dict(
         zheng=dict(
             low_pass=dict(
@@ -118,7 +124,10 @@ def extract_ptb_codes():
 
 def extract_datasets_meta():
     # Extract more metadata per dataset
-    df_label = get_my_rec_labels()
+    # 1) this script without this function
+    # 2) run `ecg_transformer.preprocess.data_export.py`
+    # 3) run the script with function
+    df_label = ecg_util.get_my_rec_labels()
     sup = config_dict['datasets_export']['support_wfdb']
     for dnm in config_dict['datasets_export']['total']:
         df_ = df_label[df_label['dataset'] == dnm]

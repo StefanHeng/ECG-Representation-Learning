@@ -20,7 +20,7 @@ class EcgVitConfig(PretrainedConfig):
     def __init__(
             self,
             max_signal_length: int = 2560,
-            chunk_size: int = 64,
+            patch_size: int = 64,
             num_channels: int = 12,
             hidden_size: int = 512,  # Default parameters are 2/3 of ViT base model sizes
             num_hidden_layers: int = 12,
@@ -31,7 +31,7 @@ class EcgVitConfig(PretrainedConfig):
             **kwargs
     ):
         self.max_signal_length = max_signal_length
-        self.chunk_size = chunk_size
+        self.patch_size = patch_size
         self.num_channels = num_channels
         self.num_class = num_channels
         self.hidden_size = hidden_size
@@ -53,8 +53,8 @@ class EcgVit(pl.LightningModule):
         dim_head = hd_sz // n_head
         self.config = model_config
         _md_args = dict(
-            image_size=(self.config.max_signal_length, 1),  # height is 1
-            patch_size=(self.config.chunk_size, 1),
+            image_size=(1, self.config.max_signal_length),  # height is 1
+            patch_size=(1, self.config.patch_size),
             num_classes=num_class,
             dim=self.config.hidden_size,
             depth=self.config.num_hidden_layers,
@@ -72,23 +72,27 @@ class EcgVit(pl.LightningModule):
         self.train_args = train_args
 
     def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
-        ic(sample_values.shape)
-        ic(sample_values.unsqueeze(-1).shape)
-        logits = self.vit(sample_values.unsqueeze(-1))
+        logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
         loss = None
         if labels is not None:
             loss = self.loss_fn(input=logits, target=labels)
         return ModelOutput(loss=loss, logits=logits)
 
     def training_step(self, batch, batch_idx):
-        ic(batch)
-        return self(**batch)
+        loss, logits = self(**batch)
+        logits = logits.detach()
+        # ic(logits.shape)
+        preds = (torch.sigmoid(logits) >= 0.5).int()  # for binary classifications per class
+        # ic(preds)
+        return dict(loss=loss, pred=preds)
 
     def validation_step(self, batch, batch_idx):
-        # ic(batch)
-        lb, sv = batch['labels'], batch['sample_values']
-        ic(lb.shape, sv.shape)
-        return self(**batch)
+        loss, logits = self(**batch)
+        logits = logits.detach()
+        # ic(logits.shape)
+        preds = (torch.sigmoid(logits) >= 0.5).int()
+        # ic(preds)
+        return dict(loss=loss, pred=preds)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
@@ -98,10 +102,12 @@ class EcgVit(pl.LightningModule):
 
 
 class PtbxlDataModule(pl.LightningDataModule):
-    def __init__(self, train_args: Dict = None, **kwargs):
+    def __init__(self, train_args: Dict = None, dataset_args: Dict = None, **kwargs):
         super().__init__(**kwargs)
         self.train_args = train_args
-        self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(self.train_args['n_sample'])
+        self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
+            self.train_args['n_sample'], dataset_args=dataset_args
+        )
 
     def train_dataloader(self):
         # TODO: signal transforms
@@ -133,8 +139,12 @@ class MyTrainer:
             self.train_args.update(train_args)
         self.logger = None
 
-        self.data_module = PtbxlDataModule(self.train_args)
         self.model = EcgVit(train_args=self.train_args)
+        self.data_module = PtbxlDataModule(
+            train_args=self.train_args, dataset_args=dict(
+                init_kwargs=dict(patch_size=self.model.config.patch_size)
+            )
+        )
         output_dir = self.train_args['output_dir']
         self.trainer = pl.Trainer(
             default_root_dir=output_dir,
@@ -158,12 +168,17 @@ class MyTrainer:
 
 
 if __name__ == '__main__':
+    from pytorch_lightning.utilities.seed import seed_everything
     from icecream import ic
+
+    seed_everything(config('random-seed'))
 
     def check_forward_pass():
         ev = EcgVit()
         # ic(ev)
-        sigs = torch.randn(4, 12, 2560, 1)
+        sigs = torch.randn(4, 12, 2560)
+        ic(ev.vit.to_patch_embedding(torch.randn(4, 12, 1, 2560)).shape)
+
         labels_ = torch.zeros(4, 71)
         labels_[[0, 0, 1, 2, 3, 3, 3], [0, 1, 2, 3, 4, 5, 6]] = 1
         ic(labels_)
@@ -171,5 +186,12 @@ if __name__ == '__main__':
         ic(sigs.shape, loss_, logits_.shape)
     # check_forward_pass()
 
-    trainer = MyTrainer(train_args=dict(n_sample=128, precision=16))
-    trainer.train()
+    def train():
+        trainer = MyTrainer(train_args=dict(
+            train_batch_size=2,
+            eval_batch_size=2,
+            n_sample=4,
+            precision=16
+        ))
+        trainer.train()
+    train()

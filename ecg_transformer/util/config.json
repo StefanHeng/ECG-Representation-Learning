@@ -768,7 +768,7 @@
             "G12EC"
         ]
     },
-    "random_seed": 77,
+    "random-seed": 77,
     "pre_processing": {
         "zheng": {
             "low_pass": {
