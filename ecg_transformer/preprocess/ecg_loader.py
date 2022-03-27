@@ -3,11 +3,14 @@ ECG signal loading
 
 Intended for self-supervised ECG representation pretraining
 """
+import h5py
 
+import torch
 from scipy.stats import norm
 from torch.utils.data import Dataset
 
-from ecg_transformer.util.util import *
+from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 
 
 class EcgDataset(Dataset):
@@ -64,17 +67,18 @@ class EcgDataset(Dataset):
         """
         :return: Number of records
         """
-        return self.dset.shape[0] if self.is_full else len(self.set_processed)
+        return self.dset.shape[0] if self.is_full else self.idxs_processed.sum()
 
     def __getitem__(self, idx):
         if self.normalize in ['global', 'norm']:
             mi, ma = self.norm_meta
-            return (self.dset[idx] - mi) / (ma - mi)
+            arr = (self.dset[idx] - mi) / (ma - mi)
         elif self.normalize == 'std':
             mu, sigma = self.norm_meta
-            return (self.dset[idx] - mu) / sigma
+            arr = (self.dset[idx] - mu) / sigma
         else:
-            return self.dset[idx]
+            arr = self.dset[idx]
+        return torch.from_numpy(arr).float()  # cos the h5py stores float64
 
 
 class NamedDataset(EcgDataset):
@@ -82,7 +86,7 @@ class NamedDataset(EcgDataset):
     Data samples are from a single H5 file
     """
     def __init__(self, dataset_name, fqs=250, normalize='std', norm_arg=3):
-        self.rec = h5py.File(get_denoised_h5_path(dataset_name))
+        self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset_name))
         self.dset = self.rec['data']
         self.attrs = json.loads(self.rec.attrs['meta'])
         assert self.attrs['fqs'] == fqs  # Sanity check
@@ -91,11 +95,9 @@ class NamedDataset(EcgDataset):
         self.is_full = all(np.any(d != 0) for d in self.dset)  # cos potentially costly to load entire data
         if not self.is_full:
             self.idxs_processed = np.array([idx for idx, d in enumerate(self.dset) if np.any(d != 0)])
-            self.set_processed = set(self.idxs_processed)
             arr = self.dset[self.idxs_processed]
         else:
             arr = self.dset[:]
-        # ic(sizeof_fmt(arr.nbytes))
         assert not np.all(np.isnan(arr))
 
         super()._post_init(arr, normalize, norm_arg)
@@ -130,12 +132,12 @@ if __name__ == '__main__':
 
         plt.figure(figsize=(18, 6))
         plt.hlines([-1, 0, 1], xmin=0, xmax=sigs.shape[-1], lw=0.25)
-        plot_1d(sigs, label='Normalized signal', new_fig=False, plot_kwargs=dict(lw=0.1, ms=0.11))
+        ecg_util.plot_1d(sigs, label='Normalized signal', new_fig=False, plot_kwargs=dict(lw=0.1, ms=0.11))
         plt.show()
     check_normalize()
 
     def check_extracted_dataset():
         for dnm in config('datasets_export.total'):
-            el_ = EcgDataset(dnm)
+            el_ = NamedDataset(dnm)
             ic(el_.dset.shape)
     # check_extracted_dataset()

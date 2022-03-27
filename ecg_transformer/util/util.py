@@ -2,8 +2,6 @@ import os
 import re
 import sys
 import json
-import math
-import glob
 import pathlib
 import logging
 import datetime
@@ -18,10 +16,6 @@ import sty
 import colorama
 import numpy as np
 import pandas as pd
-import h5py
-import scipy.optimize
-import wfdb
-from wfdb import processing
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -407,6 +401,6 @@ if __name__ == '__main__':
     from icecream import ic
     np.random.seed(config('random_seed'))
 
-    # ic(config('datasets.BIH_MVED'))
+    ic(config('datasets.BIH_MVED'))
 
     # ic(remove_1st_occurrence('E00002.mat 12 500 5000 05-May-2020 14:50:55', '.mat'))
