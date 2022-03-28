@@ -126,8 +126,6 @@ class EcgVit(pl.LightningModule):
         self._log_info(d_log)
 
     def _log_info(self, x):
-        # ic(self.parent_trainer.logger_tb)
-        # ic(self.trainer.logger)
         if self.parent_trainer is not None:
             self.parent_trainer.log(x)
 
@@ -185,7 +183,12 @@ class MyTrainer:
             )
         )
         n_step = len(self.data_module.train_dataloader()) * num_train_epoch  # TODO: gradient accumulation not supported
-        self.train_meta = {'#step': n_step, '#epoch': num_train_epoch}
+        B, C, L = next(iter(DataLoader(self.data_module.dset_tr, batch_size=2)))['sample_values'].shape
+        assert L % conf.patch_size == 0
+        self.train_meta = {
+            '#step': n_step, '#epoch': num_train_epoch,
+            'model input shape': f'B x {C} x {L}', '#patch': L // conf.patch_size
+        }
         self.model = EcgVit(train_kwargs=dict(args=self.train_args, meta=self.train_meta, parent=self), **model_args)
         self.log_fnm = f'{self.model.__class__.__qualname__}, ' \
                        f'n={len(self.data_module.dset_tr)}, a={learning_rate}, dc={weight_decay}, ' \
@@ -243,11 +246,7 @@ class MyTrainer:
                 del msg['step']
             else:
                 step = msg.pop('step')
-            # from icecream import ic
-            # ic(step, is_eval)
-
             msg = {k: v for k, v in msg.items() if ('per_class_auc' not in k and 'epoch' not in k and bool(v))}
-            # ic(msg)
             self.logger_tb.log_metrics(msg, step=step)
 
 

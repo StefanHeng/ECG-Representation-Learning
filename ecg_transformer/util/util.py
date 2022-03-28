@@ -219,14 +219,6 @@ def is_float(x: Any, no_int=False, no_sci=False) -> bool:
         if no_sci:
             out = out & (not is_sci)
         return out
-        # from icecream import ic
-        # if any((no_int, no_sci)):
-        #     ic(x, is_sci, is_int)
-        #     ic((no_int and not is_int), (no_sci and not is_sci))
-        #     ic((no_int and not is_int) or (no_sci and not is_sci))
-        #     return (no_int and not is_int) or (no_sci and not is_sci)
-        # else:
-        #     return True
     except ValueError:
         return False
 
@@ -240,8 +232,6 @@ def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
             return log_dict(v, with_color=with_color)
         else:
             if is_float(v):  # Pad only normal, expected floats, intended for metric logging
-                # from icecream import ic
-                # ic(v, is_float(v), is_float(v, no_int=True, no_sci=True))
                 if is_float(v, no_int=True, no_sci=True):
                     v = float(v)
                     return log(v, c='i', as_str=True, pad=pad_float) if with_color else f'{v:>{pad_float}}'

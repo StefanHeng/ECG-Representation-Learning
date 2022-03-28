@@ -20,21 +20,16 @@ def get_accuracy(
     macro_auc, code2auroc = None, dict()
     if return_auc:
         # which of the 71 classes in this batch/entire dataset of labels, has both positive and negative samples
+        # filter out those with only pos/neg labels, otherwise AUROC breaks
         msk_2_class = torch.any(labels != labels[0], dim=0)
         if msk_2_class.sum() > 0:
-            # from icecream import ic
-            # ic(msk_2_class.shape, msk_2_class)
             idxs_2_class = msk_2_class.nonzero().flatten().tolist()
             labels, preds_prob = labels.float().cpu().numpy(), preds.float().cpu().numpy()
             # macro-average auroc, as in *Self-supervised representation learning from 12-lead ECG data*
-            # filter out those with only pos/neg labels, otherwise AUROC breaks
-            # ic(labels, labels[:, msk_2_class], labels[:, msk_2_class].shape, idxs_2_class)
-            # macro_auc = metrics.roc_auc_score(labels[:, msk_2_class], preds_prob[:, msk_2_class], average='macro')
             aucs: List[float] = metrics.roc_auc_score(labels[:, msk_2_class], preds_prob[:, msk_2_class], average=None)
             code2auroc = {get_accuracy.id2code[idx]: auc for idx, auc in zip(idxs_2_class, aucs)}
             macro_auc = np.array(list(code2auroc.values())).mean()
         # should rarely be not the case, unless, the positive labels for all samples is exactly the same
-            # ic(aucs.shape, aucs, aucs.mean(), macro_auc)
 
     preds_bin, labels = preds_bin.flatten(), labels.flatten()  # aggregate all classes
     report = metrics.classification_report(  # suppresses the warning
@@ -68,8 +63,6 @@ def _pretty_single(key: str, val, ref: Dict = None):
         else:
             return _single(val)
     elif 'learning_rate' in key or 'lr' in key:
-        # from icecream import ic
-        # ic('in learning rate', key, val, f'{round(val, 7):.3e}')
         return f'{round(val, 7):.3e}'
     else:
         return val

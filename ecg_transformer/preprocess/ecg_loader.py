@@ -142,8 +142,8 @@ class EcgDataset(Dataset):
                 pad_width = [(0, 0)] * arr.ndim
                 pad_width[-1] = (0, n_pad)
                 arr = np.pad(arr, pad_width, mode='constant', constant_values=0)
-        if self.return_type == 'pt':  # TODO: debugging
-            return torch.from_numpy(arr).float()[:128]  # cos the h5py stores float64
+        if self.return_type == 'pt':
+            return torch.from_numpy(arr).float()  # cos the h5py stores float64
         else:
             return arr
 

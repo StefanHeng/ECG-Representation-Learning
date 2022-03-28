@@ -79,7 +79,7 @@ class PtbxlDataset(EcgDataset):
 
     def __getitem__(self, idx) -> Dict[str, torch.FloatTensor]:
         return dict(
-            sample_values=super().__getitem__(idx)[:, :256],  # TODO: debugging
+            sample_values=super().__getitem__(idx),
             labels=PtbxlDataset.lbs2multi_hot(self.labels[idx], return_float=True)
         )
 
