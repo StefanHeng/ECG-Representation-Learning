@@ -68,6 +68,8 @@ def _pretty_single(key: str, val, ref: Dict = None):
         else:
             return _single(val)
     elif 'learning_rate' in key or 'lr' in key:
+        # from icecream import ic
+        # ic('in learning rate', key, val, f'{round(val, 7):.3e}')
         return f'{round(val, 7):.3e}'
     else:
         return val

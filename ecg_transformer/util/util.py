@@ -208,10 +208,25 @@ def logi(s):
     return log_s(s, c='i')
 
 
-def is_float(x: str, strict=False) -> bool:
+def is_float(x: Any, no_int=False, no_sci=False) -> bool:
     try:
+        is_sci = isinstance(x, str) and 'e' in x.lower()
         f = float(x)
-        return (not f.is_integer()) if strict else True
+        is_int = f.is_integer()
+        out = True
+        if no_int:
+            out = out & (not is_int)
+        if no_sci:
+            out = out & (not is_sci)
+        return out
+        # from icecream import ic
+        # if any((no_int, no_sci)):
+        #     ic(x, is_sci, is_int)
+        #     ic((no_int and not is_int), (no_sci and not is_sci))
+        #     ic((no_int and not is_int) or (no_sci and not is_sci))
+        #     return (no_int and not is_int) or (no_sci and not is_sci)
+        # else:
+        #     return True
     except ValueError:
         return False
 
@@ -224,14 +239,19 @@ def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
         if isinstance(v, dict):
             return log_dict(v, with_color=with_color)
         else:
-            if is_float(v, strict=True):
-                v = float(v)
-                return log(v, c='i', as_str=True, pad=pad_float) if with_color else f'{v:>{pad_float}}'
+            if is_float(v):  # Pad only normal, expected floats, intended for metric logging
+                # from icecream import ic
+                # ic(v, is_float(v), is_float(v, no_int=True, no_sci=True))
+                if is_float(v, no_int=True, no_sci=True):
+                    v = float(v)
+                    return log(v, c='i', as_str=True, pad=pad_float) if with_color else f'{v:>{pad_float}}'
+                else:
+                    return logi(v) if with_color else v
             else:
                 return logi(v) if with_color else v
     if d is None:
         d = dict()
-    pairs = (f'{k}: {_log_val(v) if with_color else v}' for k, v in d.items())
+    pairs = (f'{k}: {_log_val(v)}' for k, v in d.items())
     pref = log_s('{', c='m') if with_color else '{'
     post = log_s('}', c='m') if with_color else '}'
     return pref + ', '.join(pairs) + post

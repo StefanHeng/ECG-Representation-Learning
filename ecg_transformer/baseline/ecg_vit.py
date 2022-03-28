@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.loggers import TensorBoardLogger
 from transformers import PretrainedConfig
 from transformers import get_cosine_schedule_with_warmup
 from vit_pytorch import ViT
@@ -77,16 +77,22 @@ class EcgVit(pl.LightningModule):
             train_kwargs['args'], train_kwargs['meta'], train_kwargs['parent']
         )
 
-    def _log_info(self, x):
-        if self.parent_trainer is not None:
-            self.parent_trainer.log(x)
-
     def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
         logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
         loss = None
         if labels is not None:
             loss = self.loss_fn(input=logits, target=labels)
         return ModelOutput(loss=loss, logits=logits)
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.train_args['learning_rate'], weight_decay=self.train_args['weight_decay']
+        )
+        warmup_ratio, n_step = self.train_args['warmup_ratio'], self.train_meta['#step']
+        scheduler = get_cosine_schedule_with_warmup(
+            optimizer, num_warmup_steps=round(n_step * warmup_ratio), num_training_steps=n_step
+        )
+        return [optimizer], [dict(scheduler=scheduler, interval='step', frequency=1)]
 
     def training_step(self, batch, batch_idx):
         loss, logits = self(**batch)
@@ -97,46 +103,33 @@ class EcgVit(pl.LightningModule):
         return dict(loss=loss, logits=logits.detach(), labels=batch['labels'].detach())
 
     def training_step_end(self, step_output):
-        # ic(self.current_epoch, self.global_step, step_output)
         loss, logits, labels = step_output['loss'], step_output['logits'], step_output['labels']
-        d_log = dict(
-            epoch=self.current_epoch, step=self.global_step,
-            learning_rate=self.parent_trainer.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0],
-            train_loss=loss.detach().item()
-        )
-        d_log.update({
-            f'train_{k}': v for k, v in train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=False).items()
-        })
-        # ic(type(self.lr_schedulers))
-        # ic(self.parent_trainer.trainer.lr_schedulers)
-        # ic(self.parent_trainer.trainer.lr_schedulers[0])
-        # for e in self.lr_schedulers:
-        #     ic(e)
-        # ic(self.lr_schedulers[0])
-        # raise ValueError('where\'s step info?')
+        d_log = dict(epoch=self.current_epoch+1, step=self.global_step+1)  # 1-indexed
+        lr = self.parent_trainer.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+        d_update = {  # colab compatibility
+            **dict(learning_rate=lr, loss=loss.detach().item()),
+            **train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=False)
+        }
+        d_log.update({f'train/{k}': v for k, v in d_update.items()})
         self._log_info(d_log)
 
     def validation_epoch_end(self, outputs):
-        # from icecream import ic
         loss = np.array([d['loss'].detach().item() for d in outputs]).mean()
         logits, labels = torch.cat([d['logits'] for d in outputs]), torch.cat([d['labels'] for d in outputs])
-        # ic(logits, labels, logits.shape, labels.shape)
         preds_prob = torch.sigmoid(logits)
-        # ic(preds_prob)
-        d_log = dict(epoch=self.current_epoch, step=self.global_step, eval_loss=loss)
-        d_log.update({f'eval_{k}': v for k, v in train_util.get_accuracy(preds_prob, labels).items()})
-        # raise ValueError('where\'s step info?')
+        d_log = dict(epoch=self.current_epoch+1, step=self.global_step+1)
+        d_update = {
+            **dict(loss=loss),
+            **train_util.get_accuracy(preds_prob, labels)
+        }
+        d_log.update({f'eval/{k}': v for k, v in d_update.items()})
         self._log_info(d_log)
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.train_args['learning_rate'], weight_decay=self.train_args['weight_decay']
-        )
-        warmup_ratio, n_step = self.train_args['warmup_ratio'], self.train_meta['#step']
-        scheduler = get_cosine_schedule_with_warmup(
-            optimizer, num_warmup_steps=round(n_step * warmup_ratio), num_training_steps=n_step
-        )
-        return [optimizer], [scheduler]
+    def _log_info(self, x):
+        # ic(self.parent_trainer.logger_tb)
+        # ic(self.trainer.logger)
+        if self.parent_trainer is not None:
+            self.parent_trainer.log(x)
 
 
 class PtbxlDataModule(pl.LightningDataModule):
@@ -146,7 +139,7 @@ class PtbxlDataModule(pl.LightningDataModule):
         self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
             self.train_args['n_sample'], dataset_args=dataset_args
         )
-        # self.n_worker = os.cpu_count()
+        # self.n_worker = os.cpu_count()  # this seems to slow-down training
         self.n_worker = 1
 
     def train_dataloader(self):
@@ -161,7 +154,7 @@ class PtbxlDataModule(pl.LightningDataModule):
 
 
 class MyTrainer:
-    def __init__(self, name='EcgVit Train', model_args: Dict = None, train_args: Dict = None):
+    def __init__(self, name='EcgVit Train', model_args: Dict = None, train_args: Dict = None, log2console=True):
         self.name = name
         self.save_time = now(for_path=True)
 
@@ -180,7 +173,9 @@ class MyTrainer:
         self.train_args = default_args
         if train_args is not None:
             self.train_args.update(train_args)
-        output_dir, n_ep = self.train_args['output_dir'], self.train_args['num_train_epoch']
+        output_dir, learning_rate, weight_decay, train_batch_size, num_train_epoch = (self.train_args[k] for k in (
+            'output_dir', 'learning_rate', 'weight_decay', 'train_batch_size', 'num_train_epoch'
+        ))
         if model_args is None:
             model_args = dict()
         conf = EcgVitConfig()
@@ -189,13 +184,31 @@ class MyTrainer:
                 init_kwargs=dict(patch_size=conf.patch_size)
             )
         )
-        n_step = len(self.data_module.train_dataloader()) * n_ep  # TODO: gradient accumulation not supported
-        # ic(type(n_ep), n_ep, type(n_step), n_step)
-        self.train_meta = {'#step': n_step, '#epoch': n_ep}
+        n_step = len(self.data_module.train_dataloader()) * num_train_epoch  # TODO: gradient accumulation not supported
+        self.train_meta = {'#step': n_step, '#epoch': num_train_epoch}
         self.model = EcgVit(train_kwargs=dict(args=self.train_args, meta=self.train_meta, parent=self), **model_args)
+        self.log_fnm = f'{self.model.__class__.__qualname__}, ' \
+                       f'n={len(self.data_module.dset_tr)}, a={learning_rate}, dc={weight_decay}, ' \
+                       f'bsz={train_batch_size}, n_ep={num_train_epoch}'
 
-        self.logger = None
+        self.log2console = log2console
+        self.logger, self.logger_fl, self.logger_tb, self.trainer = None, None, None, None
+        # cos the internal epoch for sanity check eval is always 0
+        self._ran_sanity_check_eval, self._eval_epoch_count = False, 1
+
+    def train(self):
+        output_dir, n_ep = self.train_args['output_dir'], self.train_args['num_train_epoch']
+        self.logger: logging.Logger = get_logger(self.name)
+        self.logger_fl = get_logger(
+            name=self.name, typ='file-write', file_path=os.path.join(output_dir, f'{self.log_fnm}.log')
+        )
+        self.logger.info(f'Launched training model {logi(self.model.config)} '
+                         f'with args {log_dict_pg(self.train_args)} and {log_dict(self.train_meta)}... ')
+        self.logger_fl.info(f'Launched training model {self.model.config} '
+                            f'with args {log_dict_id(self.train_args)} and {log_dict_nc(self.train_meta)}... ')
+        self.logger_tb = TensorBoardLogger(output_dir, name=f'{self.save_time} - {self.log_fnm}')
         self.trainer = pl.Trainer(
+            logger=self.logger_tb,
             default_root_dir=output_dir,
             gradient_clip_val=1,
             check_val_every_n_epoch=1,
@@ -203,26 +216,39 @@ class MyTrainer:
             log_every_n_steps=1,
             precision=self.train_args['precision'],
             weights_save_path=os.path.join(output_dir, 'weights'),
-            num_sanity_val_steps=-1,
+            num_sanity_val_steps=-1,  # Runs & logs eval before training starts
             deterministic=True,
             detect_anomaly=True,
             move_metrics_to_cpu=True,
-            callbacks=[LearningRateMonitor(logging_interval='step')]
         )
-
-    def train(self):
-        self.logger: logging.Logger = get_logger(self.name)
-        self.logger.info(f'Launched training model {logi(self.model.config)} '
-                         f'with args {log_dict_pg(self.train_args)} and {log_dict(self.train_meta)}... ')
         self.trainer.fit(self.model, self.data_module)
 
-    def log(self, x):
-        if self.logger is not None:
-            if isinstance(x, dict):
-                str_log = log_dict(train_util.pretty_log_dict(x, ref=self.train_meta))
+    def log(self, msg):
+        is_dict = isinstance(msg, dict)
+        msg_ = train_util.pretty_log_dict(msg, ref=self.train_meta) if is_dict else msg
+        if self.logger is not None and self.log2console:
+            self.logger.info(log_dict(msg_) if is_dict else msg_)
+        if self.logger_fl is not None:
+            self.logger_fl.info(log_dict_nc(msg_) if is_dict else msg_)
+        if self.logger_tb is not None and is_dict:
+            is_eval = not any('learning_rate' in k for k in msg.keys())  # heuristics to detect eval
+            if is_eval:
+                step = msg.pop('epoch')
+                assert step == self._eval_epoch_count
+                if not self._ran_sanity_check_eval:
+                    self._ran_sanity_check_eval = True
+                    step -= 1  # effectively, eval "step" is for eval and 0-indexed, unlike train logging
+                    self._eval_epoch_count -= 1
+                self._eval_epoch_count += 1
+                del msg['step']
             else:
-                str_log = logi(x)
-            self.logger.info(str_log)
+                step = msg.pop('step')
+            # from icecream import ic
+            # ic(step, is_eval)
+
+            msg = {k: v for k, v in msg.items() if ('per_class_auc' not in k and 'epoch' not in k and bool(v))}
+            # ic(msg)
+            self.logger_tb.log_metrics(msg, step=step)
 
 
 if __name__ == '__main__':
