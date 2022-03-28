@@ -8,7 +8,7 @@ import datetime
 import itertools
 import concurrent.futures
 from typing import List, Dict, Tuple
-from typing import Union, Callable, Iterable, TypeVar
+from typing import Union, Any, Callable, Iterable, TypeVar
 from pygments import highlight, lexers, formatters
 from functools import reduce
 from collections import OrderedDict
@@ -160,7 +160,7 @@ def sig_d(flt: float, n: int = 1):
     return float('{:.{p}g}'.format(flt, p=n))
 
 
-def log(s, c: str = 'log', c_time='green', as_str=False):
+def log(s, c: str = 'log', c_time='green', as_str=False, pad: int = None):
     """
     Prints `s` to console with color `c`
     """
@@ -192,7 +192,7 @@ def log(s, c: str = 'log', c_time='green', as_str=False):
     if c in log.d:
         c = log.d[c]
     if as_str:
-        return f'{c}{s}{log.reset}'
+        return f'{c}{s:>{pad}}{log.reset}' if pad is not None else f'{c}{s}{log.reset}'
     else:
         print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{log.reset}')
 
@@ -208,13 +208,30 @@ def logi(s):
     return log_s(s, c='i')
 
 
-def log_dict(d: Dict, with_color=True, **kwargs) -> str:
+def is_float(x: str, strict=False) -> bool:
+    try:
+        f = float(x)
+        return (not f.is_integer()) if strict else True
+    except ValueError:
+        return False
+
+
+def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
     """
     Syntactic sugar for logging dict with coloring for console output
     """
+    def _log_val(v):
+        if isinstance(v, dict):
+            return log_dict(v, with_color=with_color)
+        else:
+            if is_float(v, strict=True):
+                v = float(v)
+                return log(v, c='i', as_str=True, pad=pad_float) if with_color else f'{v:>{pad_float}}'
+            else:
+                return logi(v) if with_color else v
     if d is None:
-        d = kwargs
-    pairs = (f'{k}: {logi(v) if with_color else v}' for k, v in d.items())
+        d = dict()
+    pairs = (f'{k}: {_log_val(v) if with_color else v}' for k, v in d.items())
     pref = log_s('{', c='m') if with_color else '{'
     post = log_s('}', c='m') if with_color else '}'
     return pref + ', '.join(pairs) + post

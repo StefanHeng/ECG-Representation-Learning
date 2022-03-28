@@ -79,14 +79,18 @@ class PtbxlDataset(EcgDataset):
 
     def __getitem__(self, idx) -> Dict[str, torch.FloatTensor]:
         return dict(
-            sample_values=super().__getitem__(idx),
+            sample_values=super().__getitem__(idx)[:, :256],  # TODO: debugging
             labels=PtbxlDataset.lbs2multi_hot(self.labels[idx], return_float=True)
         )
 
 
-def get_ptbxl_splits(n_sample: int = None, dataset_args: Dict = None) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
+def get_ptbxl_splits(
+        n_sample: int = None, dataset_args: Dict = None
+) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
+    from icecream import ic
+    ic(n_sample)
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(4096))  # TODO: the amount of denoised data
+    idxs_processed = list(range(4224))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
@@ -118,12 +122,12 @@ if __name__ == '__main__':
         from ecg_transformer.preprocess import NamedDataset
 
         dnm = 'PTB_XL'
-        nd = NamedDataset(dnm, normalize='std')
+        nd = NamedDataset(dnm, post_init_kwargs=dict(normalize='std'))
         ic(len(nd), nd.dset.shape, nd[0].shape)
-        ic(nd.norm_meta)
+        ic(nd.normalizers)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    # check_ptb_denoise_progress()
+    check_ptb_denoise_progress()
 
     def check_split_dataset():
         dest_tr, dset_vl, dset_ts = get_ptbxl_splits()

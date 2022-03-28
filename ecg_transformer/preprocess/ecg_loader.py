@@ -142,8 +142,8 @@ class EcgDataset(Dataset):
                 pad_width = [(0, 0)] * arr.ndim
                 pad_width[-1] = (0, n_pad)
                 arr = np.pad(arr, pad_width, mode='constant', constant_values=0)
-        if self.return_type == 'pt':
-            return torch.from_numpy(arr).float()  # cos the h5py stores float64
+        if self.return_type == 'pt':  # TODO: debugging
+            return torch.from_numpy(arr).float()[:128]  # cos the h5py stores float64
         else:
             return arr
 
@@ -153,6 +153,8 @@ class NamedDataset(EcgDataset):
     Data samples are from a single H5 file
     """
     def __init__(self, dataset_name, fqs=250, init_kwargs=None, post_init_kwargs=None):
+        if init_kwargs is None:
+            init_kwargs = dict()
         super().__init__(**init_kwargs)
         self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset_name))
         self.dset = self.rec['data']
