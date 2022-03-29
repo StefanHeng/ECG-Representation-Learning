@@ -165,9 +165,6 @@ extract_ptb_codes()
 extract_datasets_meta()
 set_paths()
 wrap_config()
-config_dict: Dict
-d_my = config_dict['datasets']['my']
-config_dict['path-export']: str = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'])
 
 
 if __name__ == '__main__':

@@ -25,12 +25,15 @@ def get_accuracy(
         if msk_2_class.sum() > 0:
             idxs_2_class = msk_2_class.nonzero().flatten().tolist()
             labels, preds_prob = labels.float().cpu().numpy(), preds.float().cpu().numpy()
+            msk_2_class = msk_2_class.cpu().numpy()
             # macro-average auroc, as in *Self-supervised representation learning from 12-lead ECG data*
             aucs: List[float] = metrics.roc_auc_score(labels[:, msk_2_class], preds_prob[:, msk_2_class], average=None)
             code2auroc = {get_accuracy.id2code[idx]: auc for idx, auc in zip(idxs_2_class, aucs)}
             macro_auc = np.array(list(code2auroc.values())).mean()
-        # should rarely be not the case, unless, the positive labels for all samples is exactly the same
-
+    # should rarely be not the case, unless, the positive labels for all samples is exactly the same
+    if isinstance(labels, torch.Tensor):  # must be that `preds_bin` is also a tensor
+        labels = labels.cpu().numpy()
+    preds_bin = preds_bin.cpu().numpy()
     preds_bin, labels = preds_bin.flatten(), labels.flatten()  # aggregate all classes
     report = metrics.classification_report(  # suppresses the warning
         preds_bin, labels, labels=[0, 1], target_names=['neg', 'pos'], output_dict=True, zero_division=0

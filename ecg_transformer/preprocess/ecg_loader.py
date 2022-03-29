@@ -19,6 +19,19 @@ NormArg = Union[_NormArg, List[_NormArg]]
 
 class NormTransform:
     def __init__(self, arr, scheme: str = 'std', arg: Union[float, int] = None):
+        """
+        :param scheme: normalize scheme: one of [`global`, `std`, `norm`, `none`]
+            Normalization is done per channel/lead
+            If `global`, normalize by global minimum and maximum
+            If `std`, normalize by subtracting mean & dividing 1 standard deviation
+            If `norm`, normalize by subtracting mean & dividing range based on standard deviation percentile
+        :param arg:  Intended for `norm` or `std` scheme
+            FYI for `norm`:
+                pnorm(1) ~= 0.841
+                pnorm(2) ~= 0.977
+                pnorm(3) ~= 0.999
+                pnorm(4) ~= 0.99997
+        """
         assert scheme in ['global', 'std', 'norm', 'none']
         self.norm_meta = None
         self.scheme = scheme
@@ -96,18 +109,7 @@ class EcgDataset(Dataset):
 
     def _post_init(self, arr: np.ndarray, normalize: NormArg = (('norm', 3), ('std', 1)), return_type: str = 'pt'):
         """
-        :param normalize: Normalization or a sequence of normalizations, as 2-tuples of
-            normalize scheme: one of [`global`, `std`, `norm`, `none`]
-                Normalization is done per channel/lead
-                If `global`, normalize by global minimum and maximum
-                If `std`, normalize by subtracting mean & dividing 1 standard deviation
-                If `norm`, normalize by subtracting mean & dividing range based on standard deviation percentile
-            normalize argument: Intended for `norm` or `std` scheme
-                FYI:
-                    pnorm(1) ~= 0.841
-                    pnorm(2) ~= 0.977
-                    pnorm(3) ~= 0.999
-                    pnorm(4) ~= 0.99997
+        :param normalize: Normalization or a sequence of normalizations, as 2-tuples of (scheme, arg)
         """
         if isinstance(normalize, str) or isinstance(normalize, (tuple, list)) and not isinstance(normalize[0], tuple):
             norm_args = [normalize]
@@ -179,7 +181,7 @@ if __name__ == '__main__':
     dnm = 'CHAP_SHAO'
 
     def sanity_check():
-        nd = NamedDataset(dnm, normalize='global')
+        nd = NamedDataset(dnm, post_init_kwargs=dict(normalize='global'))
         ic(len(nd), nd[0].shape)
         ic(nd.normalizers)
         for i, rec in enumerate(nd[:8]):
@@ -187,9 +189,9 @@ if __name__ == '__main__':
     # sanity_check()
 
     def check_norm_meta():
-        ic(NamedDataset(dnm, normalize='global').normalizers)
-        ic(NamedDataset(dnm, normalize=('std', 3)).normalizers)
-        ic(NamedDataset(dnm, normalize=('norm', 3)).normalizers)
+        ic(NamedDataset(dnm, post_init_kwargs=dict(normalize='global')).normalizers)
+        ic(NamedDataset(dnm, post_init_kwargs=dict(normalize=('std', 3))).normalizers)
+        ic(NamedDataset(dnm, post_init_kwargs=dict(normalize=('norm', 3))).normalizers)
     # check_norm_meta()
 
     def check_normalize(n: int = 128):
@@ -198,7 +200,9 @@ if __name__ == '__main__':
         # el = EcgLoader(dnm, normalize='norm')
         # increase the 1st stage norm, to clip as many signals to [0, 1]
         # nd = NamedDataset(dnm, return_type='np', normalize=[('norm', 3)])
-        nd = NamedDataset(dnm, return_type='np', normalize=[('norm', 3), ('std', 1)])  # default 2-stage normalization
+        nd = NamedDataset(dnm, post_init_kwargs=dict(
+            return_type='np', normalize=[('norm', 3), ('std', 1)]  # default 2-stage normalization
+        ))
         ic(nd.normalizers)
         n_sig, (n_ch, l) = len(nd), nd.dset.shape[1:]
         idxs_sig = np.sort(np.random.choice(n_sig, size=n, replace=False))
@@ -217,8 +221,8 @@ if __name__ == '__main__':
     check_normalize()
 
     def check_normalize_channel(n: int = 128):
-        nd = NamedDataset(dnm, return_type='np', normalize=[('norm', 3), ('std', 1)])
-        nd_n = NamedDataset(dnm, return_type='np', normalize='none')
+        nd = NamedDataset(dnm, post_init_kwargs=dict(return_type='np', normalize=[('norm', 3), ('std', 1)]))
+        nd_n = NamedDataset(dnm, post_init_kwargs=dict(return_type='np', normalize='none'))
         n_sig, (n_ch, l) = len(nd), nd.dset.shape[1:]
         for i in range(n_ch):
             idxs_sig = np.sort(np.random.choice(n_sig, size=n, replace=False))

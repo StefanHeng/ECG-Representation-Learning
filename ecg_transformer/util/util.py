@@ -67,6 +67,22 @@ def keys(dic, prefix=''):
             yield _full(k)
 
 
+def config(attr):
+    """
+    Retrieves the queried attribute value from the config file.
+
+    Loads the config file on first call.
+    """
+    if not hasattr(config, 'config'):
+        with open(os.path.join(PATH_BASE, DIR_PROJ, PKG_NM, 'util', 'config.json'), 'r') as f:
+            config.config = json.load(f)
+    return get(config.config, attr)
+
+
+def get_processed_path():
+    return os.path.join(PATH_BASE, DIR_DSET, config('datasets.my.dir_nm'))
+
+
 T = TypeVar('T')
 K = TypeVar('K')
 
@@ -102,8 +118,6 @@ def batched_conc_map(
     :param n_worker: Number of concurrent workers
     """
     n: int = len(lst)
-    # from icecream import ic
-    # ic(n, n_worker)
     if n_worker > 1 and n > n_worker * 4:  # factor of 4 is arbitrary, otherwise not worse the overhead
         preprocess_batch = round(n / n_worker / 2)
         strts: List[int] = list(range(0, n, preprocess_batch))
@@ -413,18 +427,6 @@ def stem(path_, ext=False):
 def remove_1st_occurrence(str_, str_sub):
     idx = str_.find(str_sub)
     return str_[:idx] + str_[idx+len(str_sub):]
-
-
-def config(attr):
-    """
-    Retrieves the queried attribute value from the config file.
-
-    Loads the config file on first call.
-    """
-    if not hasattr(config, 'config'):
-        with open(os.path.join(PATH_BASE, DIR_PROJ, PKG_NM, 'util', 'config.json'), 'r') as f:
-            config.config = json.load(f)
-    return get(config.config, attr)
 
 
 def save_fig(title, save=True):

@@ -94,7 +94,7 @@ def get_ptbxl_splits(
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
-    df = pd.read_csv(os.path.join(config('path-export'), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
+    df = pd.read_csv(os.path.join(get_processed_path(), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
     df = df.iloc[idxs_processed]
     df.labels = df.labels.apply(literal_eval)
     # `strat_fold`s are in [1, 10]

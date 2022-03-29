@@ -45,6 +45,15 @@ class EcgVitConfig(PretrainedConfig):
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
         super().__init__(**kwargs)
 
+    def from_defined(self, model_name):
+        """
+        A few model sizes I defined
+        """
+        if model_name == 'vit-small':
+            self.hidden_size = 512
+            self.num_hidden_layers = 8
+
+
 
 class EcgVit(pl.LightningModule):
     def __init__(
@@ -217,6 +226,10 @@ class MyTrainer:
             check_val_every_n_epoch=1,
             max_epochs=n_ep,
             log_every_n_steps=1,
+            gpus=torch.cuda.device_count(),
+            # auto_select_gpus=True,
+            accelerator='auto',
+            # accelerator='gpu' if torch.cuda.is_available() else 'cpu',  # `auto` doesn't uses GPU even though available
             precision=self.train_args['precision'],
             weights_save_path=os.path.join(output_dir, 'weights'),
             num_sanity_val_steps=-1,  # Runs & logs eval before training starts

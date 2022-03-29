@@ -3,8 +3,9 @@ Taken from [ECGDenoisingTool](https://github.com/zheng120/ECGDenoisingTool),
 used in paper *Optimal Multi-Stage Arrhythmia Classification Approach*
 """
 
+import math
 from scipy import signal, stats
-from loess import loess_1d
+
 
 from ecg_transformer.util.util import *
 
@@ -64,6 +65,7 @@ class DataPreprocessor:
         hence force an odd number of points as in MATLAB implementation
         """
         # float64 to ensure float output, due to package implementation
+        from loess import loess_1d
         if isinstance(n, float):
             n = force_odd(int(sig.size * n) -1)
         return loess_1d.loess_1d(np.arange(sig.size).astype(np.float64), sig, degree=2, npoints=n)[1]
