@@ -2,6 +2,7 @@ import glob
 from pathlib import Path
 
 import h5py
+import matplotlib.pyplot as plt
 import wfdb.processing
 from tqdm import tqdm, trange
 
@@ -229,14 +230,14 @@ class RecDataExport:
 if __name__ == '__main__':
     from icecream import ic
 
-    np.random.seed(config('random_seed'))
+    np.random.seed(config('random-seed'))
     # fix_g12ec_headers()
 
     def export():
         de = RecDataExport(fqs=250)
         de(resample='single')
         # de(resample=True)
-    export()
+    # export()
 
     def sanity_check():
         """
@@ -277,23 +278,26 @@ if __name__ == '__main__':
 
         sig, truth_denoised = ecg_util.get_nlm_denoise_truth(verbose=False)[:2]
         ic(sig[:10], truth_denoised[:10], sig.shape)
-        ecg_util.plot_1d(
-            [sig, truth_denoised],
-            label=['Original, resampled', 'Denoised'],
-            title=f'[{dnm}] output generated from dataset',
-            # e=2**11
-        )
+        # ecg_util.plot_1d(
+        #     [sig, truth_denoised],
+        #     label=['Original, resampled', 'Denoised'],
+        #     title=f'[{dnm}] output generated from dataset',
+        #     # e=2**11
+        # )
 
         # Pick a channel randomly
         def _step(s, c):
             plt.cla()
+            ic('inside _step', data_ori[s, c, :10], data_den[s, c, :10])
             ecg_util.plot_1d(
                 [data_ori[s, c], data_den[s, c]],
                 label=['Original, resampled', 'Denoised'],
-                title=f'[{dnm}] Processed Signal random plot: signal {s + 1} channel {c + 1}',
+                title=f'[{dnm}] Processed Signal random plot: signal {s+1} channel {c+1}',
                 new_fig=False,
+                show=False,
                 # e=2**10
             )
+            plt.draw()
 
         class PlotFrame:
             def __init__(self, i=0, n_s=n_sig, n_c=n_ch):
@@ -315,6 +319,7 @@ if __name__ == '__main__':
             def next(self, event):
                 prev_idx = self.idx
                 self.idx = self.clp(self.idx+1)
+                ic('clicked next', prev_idx, self.idx)
                 if prev_idx != self.idx:
                     self._set_curr_idx()
                     _step(self.i_s, self.i_c)
@@ -327,6 +332,8 @@ if __name__ == '__main__':
                     _step(self.i_s, self.i_c)
 
         plt.figure(figsize=(18, 6))
+        # plt.ion()
+
         init = 0
         pf = PlotFrame(i=init)
         ax = plt.gca()
@@ -339,6 +346,6 @@ if __name__ == '__main__':
         # _step(pf.i_s, pf.i_c)
         _step(77, 0)
         plt.show()
-    # check_matlab_out()
+    check_matlab_out()
 
 

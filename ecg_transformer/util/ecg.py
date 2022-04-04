@@ -24,6 +24,8 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
     lbl = [None for _ in arr] if label is None else label
 
     def _plot(a_, lb_):
+        from icecream import ic
+        ic('inside _plot')
         a_ = a_[s:e]
         plt.gca().plot(np.arange(a_.size), a_, label=lb_, **kwargs)
     for a, lb in zip(arr, lbl):

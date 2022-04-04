@@ -26,7 +26,7 @@ class EcgVitConfig(PretrainedConfig):
             patch_size: int = 64,
             num_channels: int = 12,
             hidden_size: int = 512,  # Default parameters are 2/3 of ViT base model sizes
-            num_hidden_layers: int = 12,
+            num_hidden_layers: int = 8,
             num_attention_heads: int = 8,
             intermediate_size: int = 2048,
             hidden_dropout_prob: float = 0.1,
@@ -45,14 +45,29 @@ class EcgVitConfig(PretrainedConfig):
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
         super().__init__(**kwargs)
 
-    def from_defined(self, model_name):
+    @classmethod
+    def from_defined(cls, model_name):
         """
         A few model sizes I defined
         """
+        assert model_name in ['vit-small', 'vit-base', 'vit-large'], 'Model name undefined'
+        conf = cls()
         if model_name == 'vit-small':
-            self.hidden_size = 512
-            self.num_hidden_layers = 8
-
+            conf.hidden_size = 512
+            conf.num_hidden_layers = 8
+            conf.num_attention_heads = 8
+            conf.intermediate_size = 2048
+        elif model_name == 'vit-base':
+            conf.hidden_size = 768
+            conf.num_hidden_layers = 12
+            conf.num_attention_heads = 12
+            conf.intermediate_size = 3072
+        elif model_name == 'vit-large':
+            conf.hidden_size = 1024
+            conf.num_hidden_layers = 24
+            conf.num_attention_heads = 16
+            conf.intermediate_size = 4096
+        return conf
 
 
 class EcgVit(pl.LightningModule):
@@ -185,7 +200,8 @@ class MyTrainer:
         ))
         if model_args is None:
             model_args = dict()
-        conf = EcgVitConfig()
+        model_name = model_args.pop('name', 'vit-small')
+        conf = EcgVitConfig.from_defined(model_name)
         self.data_module = PtbxlDataModule(
             train_args=self.train_args, dataset_args=dict(
                 init_kwargs=dict(patch_size=conf.patch_size)
@@ -227,9 +243,7 @@ class MyTrainer:
             max_epochs=n_ep,
             log_every_n_steps=1,
             gpus=torch.cuda.device_count(),
-            # auto_select_gpus=True,
             accelerator='auto',
-            # accelerator='gpu' if torch.cuda.is_available() else 'cpu',  # `auto` doesn't uses GPU even though available
             precision=self.train_args['precision'],
             weights_save_path=os.path.join(output_dir, 'weights'),
             num_sanity_val_steps=-1,  # Runs & logs eval before training starts

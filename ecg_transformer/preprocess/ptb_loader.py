@@ -87,10 +87,8 @@ class PtbxlDataset(EcgDataset):
 def get_ptbxl_splits(
         n_sample: int = None, dataset_args: Dict = None
 ) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
-    from icecream import ic
-    ic(n_sample)
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(4224))  # TODO: the amount of denoised data
+    idxs_processed = list(range(15744))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
