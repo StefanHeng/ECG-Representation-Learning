@@ -4,6 +4,7 @@ ECG signal dataset
 Intended for self-supervised ECG representation pretraining
 """
 import h5py
+from typing import Sequence
 
 import torch
 from torchvision.transforms import Compose  # just a nice wrapper, and not 2D image specific
@@ -26,24 +27,33 @@ class EcgDataset(Dataset):
         L: # sample per channel
     """
     def __init__(
-            self, dataset: Union[str, h5py.File] = 'PTB-XL', fqs=250, return_type: str = 'np',
+            self, dataset: str = 'PTB-XL', subset: Union[bool, Sequence[int]] = None,
+            fqs=250, return_type: str = 'np',
             normalize: NormArg = 'std', transform: Union[Transform, List[Transform]] = None
     ):
-        self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset)) if isinstance(dataset, str) else dataset
-        self.dataset: h5py.Dataset = self.rec['data']
         # from icecream import ic
-        # ic(self.dset, type(self.dset))
+        # ic('in ecg dataset init', now())
+        self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset))
+        self.dataset: h5py.Dataset = self.rec['data']
         self.attrs = json.loads(self.rec.attrs['meta'])
         assert self.attrs['fqs'] == fqs  # Sanity check
+        # ic('in ecg dataset init, loaded data', now())
+        # ic(isinstance(subset, Sequence), subset)
 
-        # TODO: debugging for now, as not all records are processed
-        self.is_full = all(np.any(d != 0) for d in self.dataset)  # cos potentially costly to load entire data
-        if not self.is_full:
-            self.idxs_processed = np.array([idx for idx, d in enumerate(self.dataset) if np.any(d != 0)])
-            arr = self.dataset[self.idxs_processed]
-        else:
+        if subset is not None and subset is not False:
+            # all data stored in memory; TODO: optimization?
+            self.dataset: np.ndarray = self.dataset[subset]
+            self.is_full = True
             arr = self.dataset[:]
-        assert not np.all(np.isnan(arr))
+        else:
+            # TODO: debugging for now, as not all records are processed
+            self.is_full = all(np.any(d != 0) for d in self.dataset)  # cos potentially costly to load entire data
+            if not self.is_full:
+                self.idxs_processed = np.array([idx for idx, d in enumerate(self.dataset) if np.any(d != 0)])
+                arr = self.dataset[self.idxs_processed]
+            else:
+                arr = self.dataset[:]
+            assert not np.all(np.isnan(arr))
 
         return_types = ['pt', 'np']
         assert return_type in return_types, \
@@ -64,9 +74,13 @@ class EcgDataset(Dataset):
         """
         :return: Number of records
         """
+        # from icecream import ic
+        # ic('in ecg dataset len len', len(self.dataset), type(self.dataset))
         return self.dataset.shape[0] if self.is_full else self.idxs_processed.size
 
     def __getitem__(self, idx) -> Union[np.ndarray, torch.FloatTensor]:
+        # from icecream import ic
+        # ic(idx)
         arr = self.dataset[idx].astype(np.float32)  # cos the h5py stores float64
         if self.transform:
             arr = self.transform(arr)

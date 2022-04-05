@@ -7,14 +7,12 @@ Frame the problem as multi-label classification with total of 71 classes spannin
 
 from ast import literal_eval
 from typing import Sequence
-import h5py
 
 import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 from ecg_transformer.util import *
-import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import EcgDataset
 
 
@@ -49,17 +47,16 @@ class PtbxlDataset(EcgDataset):
     DATASET_NAME = 'PTB-XL'
     N_CLASS = 71
 
-    def __init__(self, idxs: List[int], labels: Sequence[List[int]], **kwargs):
+    def __init__(self, idxs, labels: Sequence[List[int]], **kwargs):
         """
         :param idxs: Indices into the original PTB-XL csv rows
             Intended for selecting rows in the original dataset to create splits
         """
-        assert 'dataset' not in kwargs
-        kwargs['dataset'] = PtbxlDataset.DATASET_NAME
+        assert 'dataset' not in kwargs and 'subset' not in kwargs
+        kwargs['dataset'], kwargs['subset'] = PtbxlDataset.DATASET_NAME, idxs
         super().__init__(**kwargs)
-        # Override parent filed since custom `idxs` => all data stored in memory; TODO: optimization?
-        self.dataset: np.ndarray = self.dataset[idxs]
         self.labels = labels
+        # ic(self.dataset.shape, len(self), idxs)
 
     @staticmethod
     def lbs2multi_hot(lbs: List[int], return_float=False) -> torch.Tensor:
@@ -135,7 +132,7 @@ if __name__ == '__main__':
         ic(nd.transform)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    check_ptb_denoise_progress()
+    # check_ptb_denoise_progress()
 
     def check_split_dataset():
         dest_tr, dset_vl, dset_ts = get_ptbxl_splits()
@@ -143,4 +140,12 @@ if __name__ == '__main__':
         batch = dest_tr[0]
         sv, lbs = batch['sample_values'], batch['labels']
         ic(sv, lbs, sv.shape, lbs.shape)
-    check_split_dataset()
+    # check_split_dataset()
+
+    def check_data_loading():
+        dset = get_ptbxl_splits(n_sample=4)[0]
+        ic(dset, len(dset))
+        dl = DataLoader(dset, batch_size=2, shuffle=True, pin_memory=True, num_workers=0)
+        for e in dl:
+            ic(e, e['sample_values'].shape, e['labels'].shape)
+    check_data_loading()
