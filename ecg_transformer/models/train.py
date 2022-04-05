@@ -1,15 +1,12 @@
-import os
-
 import torch
 from torch.nn import Module
-from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from transformers import get_cosine_schedule_with_warmup
 
 from ecg_transformer.util import *
 import ecg_transformer.util.train as train_util
-from ecg_transformer.preprocess import PtbxlDataModule
+from ecg_transformer.preprocess import transform, PtbxlDataModule
 from ecg_transformer.models import EcgVitConfig, EcgVit
 
 
@@ -179,22 +176,19 @@ def get_train_args(args: Dict = None) -> Dict:
     return args_
 
 
-def get_data_module(train_args: Dict = None, dataset_args: Dict = None) -> PtbxlDataModule:
-    return PtbxlDataModule(train_args=train_args, dataset_args=dataset_args)
-
-
 def get_all_setup(
         model_name: str = 'ecg-vit', model_size: str = 'small', train_args: Dict = None
 ) -> Tuple[Module, MyTrainer]:
+    # always zero-pad in the end
+
     assert model_name == 'ecg-vit'
     conf = EcgVitConfig.from_defined(f'{model_name}-{model_size}')
     model = EcgVit(config=conf)
     train_args = get_train_args(train_args)
-    dset_args = dict(init_kwargs=dict(patch_size=conf.patch_size))  # for padding; TODO: move the logic here
-    data_module = get_data_module(train_args=train_args, dataset_args=dset_args)
 
-    B, C, L = next(iter(DataLoader(data_module.dset_tr, batch_size=2)))['sample_values'].shape
-    assert L % conf.patch_size == 0
+    pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))
+    data_module = PtbxlDataModule(train_args=train_args, dataset_args=dict(normalize=('std', 1), transform=pad))
+
     # TODO: gradient accumulation not supported
     train_args['steps_per_epoch'] = steps_per_epoch = len(data_module.train_dataloader())
     train_args['n_step'] = steps_per_epoch * train_args['num_train_epoch']

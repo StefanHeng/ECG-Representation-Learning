@@ -625,7 +625,7 @@ if __name__ == '__main__':
 
     seed_ = config('random_seed')
 
-    el = EcgDataset(dataset_name='CHAP_SHAO', normalize=3.5)  # TODO: Generalize to multiple datasets
+    el = EcgDataset(dataset='CHAP_SHAO', normalize=3.5)  # TODO: Generalize to multiple datasets
     et = EcgTokenizer(k=8)
     # et = EcgTokenizer(k=8, backend='nex')
 

@@ -13,48 +13,48 @@ config_dict = {
         dir_proj=DIR_PROJ,
         dir_dset=DIR_DSET
     ),
-    DIR_DSET: dict(
-        BIH_MVED=dict(
+    DIR_DSET: {
+        'BIH-MVED': dict(
             nm='MIT-BIH Malignant Ventricular Ectopy Database',
             dir_nm='MIT-BIH-MVED'
         ),
-        INCART=dict(
+        'INCART': dict(
             dir_nm='St-Petersburg-INCART',
             nm='St Petersburg INCART 12-lead Arrhythmia Database',
             rec_fmt='*.dat',  # For glob search
         ),
-        PTB_XL=dict(
+        'PTB-XL': dict(
             nm='PTB-XL, a large publicly available electrocardiography dataset',
             dir_nm='PTB-XL',
             rec_fmt='records500/**/*.dat',  # the 500Hz signals
         ),
-        PTB_Diagnostic=dict(
+        'PTB-Diagnostic': dict(
             nm='PTB Diagnostic ECG Database',
             dir_nm='PTB-Diagnostic',
             rec_fmt='**/*.dat',
             path_label='RECORDS'
         ),
-        CSPC=dict(
+        'CSPC': dict(
             nm='China Physiological Signal Challenge 2018',
             dir_nm='CSPC-2018',
             rec_fmt='*.mat',
         ),
-        CSPC_CinC=dict(
+        'CSPC-CinC': dict(
             nm='China Physiological Signal Challenge 2018 - from CinC',
             dir_nm='CSPC-2018-CinC',
             rec_fmt='*.mat',
         ),
-        CSPC_Extra_CinC=dict(
+        'CSPC-Extra-CinC': dict(
             nm='China Physiological Signal Challenge 2018, unused/extra - from CinC',
             dir_nm='CSPC-2018-Extra-CinC',
             rec_fmt='*.mat',
         ),
-        G12EC=dict(
+        'G12EC': dict(
             nm='Georgia 12-lead ECG Challenge (G12EC) Database',
             dir_nm='Georgia-12-Lead',
             rec_fmt='*.mat',
         ),
-        CHAP_SHAO=dict(
+        'CHAP-SHAO': dict(
             nm='Chapman University, Shaoxing People’s Hospital 12-lead ECG Database',
             dir_nm='Chapman-Shaoxing',
             rec_fmt='ECGData/*.csv',
@@ -62,20 +62,20 @@ config_dict = {
             # *A 12-lead electrocardiogram database for arrhythmia research covering more than 10,000 patients*
             fqs=500
         ),
-        CODE_TEST=dict(
+        'CODE-TEST': dict(
             nm='CODE-test: An annotated 12-lead ECG dataset',
             dir_nm='CODE-test',
             rec_fmt='ecg_tracings.hdf5',
             fqs=400
         ),
-        my=dict(
+        'my': dict(
             nm='Stefan-12-Lead-Combined',
             dir_nm='Stef-Combined',
             fnm_labels='records.csv',
             rec_fmt='%s-combined.hdf5',
             rec_fmt_denoised='%s-denoised.hdf5',
         )
-    ),
+    },
     'datasets_export': dict(
         total=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC', 'CHAP_SHAO', 'CODE_TEST'],
         support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
@@ -109,7 +109,8 @@ def extract_ptb_codes():
             diagnostic_class=row.diagnostic_class if not is_nan(row.diagnostic_class) else None,
             diagnostic_subclass=row.diagnostic_subclass if not is_nan(row.diagnostic_subclass) else None
         )
-    path_ptb = os.path.join(PATH_BASE, DIR_DSET, get(config_dict, f'{DIR_DSET}.PTB_XL.dir_nm'))
+    dnm = 'PTB-XL'
+    path_ptb = os.path.join(PATH_BASE, DIR_DSET, get(config_dict, f'{DIR_DSET}.{dnm}.dir_nm'))
     df_ptb = pd.read_csv(
         os.path.join(path_ptb, 'scp_statements.csv'),
         usecols=['Unnamed: 0', 'diagnostic', 'form', 'rhythm', 'diagnostic_class', 'diagnostic_subclass'],
@@ -119,7 +120,7 @@ def extract_ptb_codes():
     id2code = list(df_ptb.index)  # Stick to the same ordering
     assert len(id2code) == 71
     code2id = {c: i for i, c in enumerate(id2code)}
-    set_(config_dict, 'datasets.PTB_XL.code', dict(codes=codes, code2id=code2id, id2code=id2code))
+    set_(config_dict, f'datasets.{dnm}.code', dict(codes=codes, code2id=code2id, id2code=id2code))
 
 
 def extract_datasets_meta():
@@ -162,7 +163,7 @@ def wrap_config():
 
 
 extract_ptb_codes()
-extract_datasets_meta()
+# extract_datasets_meta()
 set_paths()
 wrap_config()
 

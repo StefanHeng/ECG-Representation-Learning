@@ -46,32 +46,20 @@ def export_ptbxl_labels():
 
 
 class PtbxlDataset(EcgDataset):
-    DNM = 'PTB_XL'
+    DATASET_NAME = 'PTB-XL'
     N_CLASS = 71
 
-    def __init__(self, idxs: List[int], labels: Sequence[List[int]], init_kwargs=None, post_init_kwargs=None):
+    def __init__(self, idxs: List[int], labels: Sequence[List[int]], **kwargs):
         """
         :param idxs: Indices into the original PTB-XL csv rows
             Intended for selecting rows in the original dataset to create splits
         """
-        if init_kwargs is None:
-            init_kwargs = dict()
-        if post_init_kwargs is None:
-            post_init_kwargs = dict()
-        super().__init__(**init_kwargs)
-        rec = h5py.File(ecg_util.get_denoised_h5_path(PtbxlDataset.DNM))
-        dset = rec['data']
-        fqs = json.loads(rec.attrs['meta'])['fqs']
-        assert fqs == 250  # TODO: generalize?
-        self.dset: np.ndarray = dset[idxs]  # All data stored in memory; TODO: optimization?
+        assert 'dataset' not in kwargs
+        kwargs['dataset'] = PtbxlDataset.DATASET_NAME
+        super().__init__(**kwargs)
+        # Override parent filed since custom `idxs` => all data stored in memory; TODO: optimization?
+        self.dataset: np.ndarray = self.dataset[idxs]
         self.labels = labels
-
-        self.is_full = True  # Assume user passed in processed data; Fit with `EcgDataset.__len__` API
-        super()._post_init(self.dset, **post_init_kwargs)
-        self.meta = OrderedDict([
-            ('frequency', fqs),
-            ('normalization', self.normalizers.__repr__()),
-        ])
 
     @staticmethod
     def lbs2multi_hot(lbs: List[int], return_float=False) -> torch.Tensor:
@@ -94,7 +82,7 @@ class PtbxlDataModule(pl.LightningDataModule):
             n_sample=train_args['n_sample'], dataset_args=dataset_args
         )
         # self.n_worker = os.cpu_count()  # this seems to slow-down training
-        self.n_worker = 1
+        self.n_worker = 0
 
     def train_dataloader(self):
         # TODO: signal transforms
@@ -111,7 +99,7 @@ def get_ptbxl_splits(
         n_sample: int = None, dataset_args: Dict = None
 ) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(16000))  # TODO: the amount of denoised data
+    idxs_processed = list(range(17536))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
@@ -127,8 +115,7 @@ def get_ptbxl_splits(
         assert n_tr + n_vl + n_ts == len(df)
     logger.info(f'Splits created with sizes {log_dict(dict(train=n_tr, eval=n_vl, test=n_ts))}... ')
 
-    if dataset_args is None:
-        dataset_args = dict()
+    dataset_args = dataset_args or dict()
 
     def get_dset(df_) -> PtbxlDataset:
         # so that indexing into `labels` is 0-indexed
@@ -140,12 +127,12 @@ if __name__ == '__main__':
     from icecream import ic
 
     def check_ptb_denoise_progress():
-        from ecg_transformer.preprocess import NamedDataset
+        from ecg_transformer.preprocess import EcgDataset
 
         dnm = 'PTB_XL'
-        nd = NamedDataset(dnm, post_init_kwargs=dict(normalize='std'))
-        ic(len(nd), nd.dset.shape, nd[0].shape)
-        ic(nd.normalizers)
+        nd = EcgDataset(dnm)
+        ic(len(nd), nd.dataset.shape, nd[0].shape)
+        ic(nd.transform)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
     check_ptb_denoise_progress()

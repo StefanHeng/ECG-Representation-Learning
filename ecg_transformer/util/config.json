@@ -5,7 +5,7 @@
         "dir_dset": "datasets"
     },
     "datasets": {
-        "BIH_MVED": {
+        "BIH-MVED": {
             "nm": "MIT-BIH Malignant Ventricular Ectopy Database",
             "dir_nm": "MIT-BIH-MVED"
         },
@@ -13,12 +13,9 @@
             "dir_nm": "St-Petersburg-INCART",
             "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
             "rec_fmt": "*.dat",
-            "n_rec": 10,
-            "n_pat": 5,
-            "fqs": 257,
             "rec_ext": ".dat"
         },
-        "PTB_XL": {
+        "PTB-XL": {
             "nm": "PTB-XL, a large publicly available electrocardiography dataset",
             "dir_nm": "PTB-XL",
             "rec_fmt": "records500/**/*.dat",
@@ -673,19 +670,13 @@
                     "TRIGU"
                 ]
             },
-            "n_rec": 10,
-            "n_pat": 10,
-            "fqs": 500,
             "rec_ext": ".dat"
         },
-        "PTB_Diagnostic": {
+        "PTB-Diagnostic": {
             "nm": "PTB Diagnostic ECG Database",
             "dir_nm": "PTB-Diagnostic",
             "rec_fmt": "**/*.dat",
             "path_label": "RECORDS",
-            "n_rec": 10,
-            "n_pat": 5,
-            "fqs": 1000,
             "rec_ext": ".dat"
         },
         "CSPC": {
@@ -694,49 +685,36 @@
             "rec_fmt": "*.mat",
             "rec_ext": ".mat"
         },
-        "CSPC_CinC": {
+        "CSPC-CinC": {
             "nm": "China Physiological Signal Challenge 2018 - from CinC",
             "dir_nm": "CSPC-2018-CinC",
             "rec_fmt": "*.mat",
-            "n_rec": 10,
-            "n_pat": 10,
-            "fqs": 500,
             "rec_ext": ".mat"
         },
-        "CSPC_Extra_CinC": {
+        "CSPC-Extra-CinC": {
             "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
             "dir_nm": "CSPC-2018-Extra-CinC",
             "rec_fmt": "*.mat",
-            "n_rec": 10,
-            "n_pat": "Unknown",
-            "fqs": 500,
             "rec_ext": ".mat"
         },
         "G12EC": {
             "nm": "Georgia 12-lead ECG Challenge (G12EC) Database",
             "dir_nm": "Georgia-12-Lead",
             "rec_fmt": "*.mat",
-            "n_rec": 10,
-            "n_pat": "Unknown",
-            "fqs": 500,
             "rec_ext": ".mat"
         },
-        "CHAP_SHAO": {
+        "CHAP-SHAO": {
             "nm": "Chapman University, Shaoxing People\u2019s Hospital 12-lead ECG Database",
             "dir_nm": "Chapman-Shaoxing",
             "rec_fmt": "ECGData/*.csv",
             "fqs": 500,
-            "n_rec": 10,
-            "n_pat": 10,
             "rec_ext": ".csv"
         },
-        "CODE_TEST": {
+        "CODE-TEST": {
             "nm": "CODE-test: An annotated 12-lead ECG dataset",
             "dir_nm": "CODE-test",
             "rec_fmt": "ecg_tracings.hdf5",
             "fqs": 400,
-            "n_rec": 827,
-            "n_pat": 827,
             "rec_ext": ".hdf5"
         },
         "my": {
