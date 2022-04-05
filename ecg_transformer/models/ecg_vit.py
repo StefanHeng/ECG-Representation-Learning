@@ -9,6 +9,7 @@ from torch import nn
 from transformers import PretrainedConfig
 from vit_pytorch import ViT
 
+from ecg_transformer.util import *
 from ecg_transformer.util.models import ModelOutput
 
 
@@ -43,19 +44,29 @@ class EcgVitConfig(PretrainedConfig):
         """
         A few model sizes I defined
         """
-        assert model_name in ['vit-small', 'vit-base', 'vit-large'], 'Model name undefined'
+        model_names = ['ecg-vit-debug', 'ecg-vit-tiny', 'ecg-vit-small', 'ecg-vit-base', 'ecg-vit-large']
+        assert model_name in model_names, \
+            f'Unexpected model name: expect one of {logi(model_names)}, got {logi(model_name)}'
         conf = cls()
-        if model_name == 'vit-small':
+        if model_name == 'ecg-vit-debug':
+            conf = cls.from_defined('ecg-vit-tiny')
+            conf.num_hidden_layers = 2
+        elif model_name == 'ecg-vit-tiny':
+            conf.hidden_size = 256
+            conf.num_hidden_layers = 8
+            conf.num_attention_heads = 8
+            conf.intermediate_size = 1024
+        elif model_name == 'ecg-vit-small':
             conf.hidden_size = 512
             conf.num_hidden_layers = 8
             conf.num_attention_heads = 8
             conf.intermediate_size = 2048
-        elif model_name == 'vit-base':
+        elif model_name == 'ecg-vit-base':
             conf.hidden_size = 768
             conf.num_hidden_layers = 12
             conf.num_attention_heads = 12
             conf.intermediate_size = 3072
-        elif model_name == 'vit-large':
+        elif model_name == 'ecg-vit-large':
             conf.hidden_size = 1024
             conf.num_hidden_layers = 24
             conf.num_attention_heads = 16
@@ -87,9 +98,29 @@ class EcgVit(nn.Module):
         self.vit = ViT(**_md_args)
         self.loss_fn = nn.BCEWithLogitsLoss()  # TODO: more complex loss, e.g. weighting?
 
+        C, L = self.config.num_channels, self.config.max_signal_length
+        self.meta = {
+            'name': self.__class__.__qualname__, 'input shape': f'{C} x {L}', '#patch': L // self.config.patch_size
+        }
+
     def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
         logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
         loss = None
         if labels is not None:
             loss = self.loss_fn(input=logits, target=labels)
         return ModelOutput(loss=loss, logits=logits)
+
+
+if __name__ == '__main__':
+    def check_forward_pass():
+        ev = EcgVit()
+        # ic(ev)
+        sigs = torch.randn(4, 12, 2560)
+        ic(ev.vit.to_patch_embedding(torch.randn(4, 12, 1, 2560)).shape)
+
+        labels_ = torch.zeros(4, 71)
+        labels_[[0, 0, 1, 2, 3, 3, 3], [0, 1, 2, 3, 4, 5, 6]] = 1
+        ic(labels_)
+        loss_, logits_ = ev(sigs, labels_)
+        ic(sigs.shape, loss_, logits_.shape)
+    # check_forward_pass()

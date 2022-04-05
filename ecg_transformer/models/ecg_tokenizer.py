@@ -1,3 +1,4 @@
+import math
 import pickle
 
 from numpy.random import default_rng
@@ -6,10 +7,8 @@ from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMea
 from matplotlib.widgets import Slider
 
 from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import EcgDataset
-
-
-D_EXP = config('path-export')
 
 
 def cluster_args(method, cls_kwargs=None, cuml=False):
@@ -174,12 +173,12 @@ class EcgTokenizer:
         """
         Save current tokenizer object into pickle
         """
-        fnm = f'ecg-tokenizer, {now(sep="-")}, k={self.k}, cls={self.fit_method}, n={self.n_sig}, e={self.cls_th}'
-        with open(os.path.join(D_EXP, f'{fnm}.pickle'), 'wb') as f:
+        fnm = f'ecg-tokenizer, {now(for_path=True)}, k={self.k}, cls={self.fit_method}, n={self.n_sig}, e={self.cls_th}'
+        with open(os.path.join(get_processed_path(), f'{fnm}.pickle'), 'wb') as f:
             pickle.dump(self, f)
 
     @classmethod
-    def from_pickle(cls, fnm, dir_=D_EXP):
+    def from_pickle(cls, fnm, dir_=get_processed_path()):
         with open(os.path.join(dir_, fnm), 'rb') as f:
             tokenizer = pickle.load(f)
             assert isinstance(tokenizer, cls)
@@ -460,11 +459,11 @@ class EcgTokenizer:
             plt.plot(rank, y, marker='o', lw=0.5, ms=1, label='# sample')
 
             precision = 10
-            (a_, b_), (x_, y_) = fit_power_law(rank, y, return_fit=precision)
+            (a_, b_), (x_, y_) = ecg_util.fit_power_law(rank, y, return_fit=precision)
             a_, b_ = round(a_, 2), round(b_, 2)
             n_ = n*precision
             plt.plot(x_[:n_], y_[:n_], lw=0.4, ls='-', label=fr'Fitted power law: ${a_} x^{{{b_}}}$')
-            r2_ = round(r2(y, a_ * np.power(rank, b_)), 5)
+            r2_ = round(ecg_util.r2(y, a_ * np.power(rank, b_)), 5)
             ax_ = plt.gca()
             ax_.text(0.75, 0.95, rf'$R^2 = {r2_}$', transform=ax_.transAxes)
             log(f'R-squared for fitted curve: {logi(r2_)}')
@@ -477,7 +476,7 @@ class EcgTokenizer:
             plt.legend()
             if save_fig_:
                 t = t.replace('$', '').replace(r'\epsilon', 'e')
-                save_fig(f'{t}, {now(sep="-")}')
+                save_fig(f'{t}, {now(for_path=True)}')
             else:
                 plt.show()
 

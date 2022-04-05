@@ -20,7 +20,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .data_path import PATH_BASE, DIR_PROJ, PKG_NM, DIR_DSET, DIR_MDL
+from .data_path import PATH_BASE, DIR_PROJ, PKG_NM, DIR_DSET
 
 
 pd.set_option('expand_frame_repr', False)

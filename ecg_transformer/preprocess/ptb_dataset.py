@@ -91,7 +91,7 @@ class PtbxlDataModule(pl.LightningDataModule):
         super().__init__(**kwargs)
         self.train_args = train_args
         self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
-            self.train_args['n_sample'], dataset_args=dataset_args
+            n_sample=train_args['n_sample'], dataset_args=dataset_args
         )
         # self.n_worker = os.cpu_count()  # this seems to slow-down training
         self.n_worker = 1
@@ -111,7 +111,7 @@ def get_ptbxl_splits(
         n_sample: int = None, dataset_args: Dict = None
 ) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(15744))  # TODO: the amount of denoised data
+    idxs_processed = list(range(16000))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
