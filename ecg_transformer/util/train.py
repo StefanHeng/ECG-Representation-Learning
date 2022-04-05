@@ -14,7 +14,7 @@ def get_accuracy(
     :param return_auc: If true, macro AUROC and (valid) per-class AUROC is returned
     """
     if not hasattr(get_accuracy, 'id2code'):
-        get_accuracy.id2code = config('datasets.PTB_XL.code.id2code')
+        get_accuracy.id2code = config('datasets.PTB-XL.code.id2code')
     preds_bin = (preds >= 0.5).int()  # for binary classifications per class
 
     macro_auc, code2auroc = None, dict()

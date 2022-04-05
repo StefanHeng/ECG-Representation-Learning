@@ -8,7 +8,7 @@ addpath('..')
 
 %Util.config
 %dnm = 'CHAP_SHAO';
-dnm = 'PTB_XL';
+dnm = 'PTB-XL';
 de = DataExport;
 %de.run(dnm, 'ori')
 de.run(dnm, 'data')

@@ -80,7 +80,7 @@ class MyTrainer:
         self.model, self.data_module = model, data_module
         self.pl_module = EcgVitTrainModule(model=model, train_args=train_args, parent_trainer=self)
         model_meta = model.meta
-        self.train_meta = {'model': model_meta, '#step': n_step, '#epoch': num_train_epoch}
+        self.train_meta = {'model': model_meta, '#epoch': num_train_epoch, '#step': n_step, 'bsz': train_batch_size}
         self.log_fnm = f'{model_meta["name"]}, ' \
                        f'n={len(data_module.dset_tr)}, a={learning_rate}, dc={weight_decay}, ' \
                        f'bsz={train_batch_size}, n_ep={num_train_epoch}'
@@ -152,7 +152,6 @@ class MyTrainer:
             if 'step' in msg:
                 del msg['step']
             msg = {k: v for k, v in msg.items() if ('per_class_auc' not in k and 'epoch' not in k and bool(v))}
-            # ic(msg)
             self.logger_tb.log_metrics(msg, step=step)
 
 
@@ -179,15 +178,14 @@ def get_train_args(args: Dict = None) -> Dict:
 def get_all_setup(
         model_name: str = 'ecg-vit', model_size: str = 'small', train_args: Dict = None
 ) -> Tuple[Module, MyTrainer]:
-    # always zero-pad in the end
-
     assert model_name == 'ecg-vit'
     conf = EcgVitConfig.from_defined(f'{model_name}-{model_size}')
     model = EcgVit(config=conf)
     train_args = get_train_args(train_args)
 
-    pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))
-    data_module = PtbxlDataModule(train_args=train_args, dataset_args=dict(normalize=('std', 1), transform=pad))
+    pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
+    dset_args = dict(normalize=('std', 1), transform=pad, return_type='pt')
+    data_module = PtbxlDataModule(train_args=train_args, dataset_args=dset_args)
 
     # TODO: gradient accumulation not supported
     train_args['steps_per_epoch'] = steps_per_epoch = len(data_module.train_dataloader())

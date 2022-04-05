@@ -56,7 +56,6 @@ class PtbxlDataset(EcgDataset):
         kwargs['dataset'], kwargs['subset'] = PtbxlDataset.DATASET_NAME, idxs
         super().__init__(**kwargs)
         self.labels = labels
-        # ic(self.dataset.shape, len(self), idxs)
 
     @staticmethod
     def lbs2multi_hot(lbs: List[int], return_float=False) -> torch.Tensor:
@@ -64,7 +63,7 @@ class PtbxlDataset(EcgDataset):
         multi_hot[lbs] = 1
         return multi_hot
 
-    def __getitem__(self, idx) -> Dict[str, torch.FloatTensor]:
+    def __getitem__(self, idx) -> Dict[str, torch.Tensor]:
         return dict(
             sample_values=super().__getitem__(idx),
             labels=PtbxlDataset.lbs2multi_hot(self.labels[idx], return_float=True)
@@ -78,7 +77,7 @@ class PtbxlDataModule(pl.LightningDataModule):
         self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
             n_sample=train_args['n_sample'], dataset_args=dataset_args
         )
-        # self.n_worker = os.cpu_count()  # this seems to slow-down training
+        # self.n_worker = os.cpu_count()  # multi-processing is slower, pbb dur to HDF5
         self.n_worker = 0
 
     def train_dataloader(self):
@@ -96,7 +95,7 @@ def get_ptbxl_splits(
         n_sample: int = None, dataset_args: Dict = None
 ) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(17536))  # TODO: the amount of denoised data
+    idxs_processed = list(range(17792))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
@@ -126,13 +125,13 @@ if __name__ == '__main__':
     def check_ptb_denoise_progress():
         from ecg_transformer.preprocess import EcgDataset
 
-        dnm = 'PTB_XL'
+        dnm = 'PTB-XL'
         nd = EcgDataset(dnm)
         ic(len(nd), nd.dataset.shape, nd[0].shape)
         ic(nd.transform)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    # check_ptb_denoise_progress()
+    check_ptb_denoise_progress()
 
     def check_split_dataset():
         dest_tr, dset_vl, dset_ts = get_ptbxl_splits()
@@ -140,12 +139,13 @@ if __name__ == '__main__':
         batch = dest_tr[0]
         sv, lbs = batch['sample_values'], batch['labels']
         ic(sv, lbs, sv.shape, lbs.shape)
-    # check_split_dataset()
+    check_split_dataset()
 
     def check_data_loading():
-        dset = get_ptbxl_splits(n_sample=4)[0]
+        dset = get_ptbxl_splits(n_sample=4, dataset_args=dict(return_type='pt'))[0]
         ic(dset, len(dset))
         dl = DataLoader(dset, batch_size=2, shuffle=True, pin_memory=True, num_workers=0)
         for e in dl:
-            ic(e, e['sample_values'].shape, e['labels'].shape)
-    check_data_loading()
+            ic(e, e['sample_values'].shape, e['labels'].shape, e['sample_values'].dtype, e['labels'].dtype)
+            exit(1)
+    # check_data_loading()

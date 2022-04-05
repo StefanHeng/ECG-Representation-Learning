@@ -4,7 +4,6 @@ ECG signal dataset
 Intended for self-supervised ECG representation pretraining
 """
 import h5py
-from typing import Sequence
 
 import torch
 from torchvision.transforms import Compose  # just a nice wrapper, and not 2D image specific
@@ -27,18 +26,14 @@ class EcgDataset(Dataset):
         L: # sample per channel
     """
     def __init__(
-            self, dataset: str = 'PTB-XL', subset: Union[bool, Sequence[int]] = None,
+            self, dataset: str = 'PTB-XL', subset: Union[bool, Any] = None,
             fqs=250, return_type: str = 'np',
             normalize: NormArg = 'std', transform: Union[Transform, List[Transform]] = None
     ):
-        # from icecream import ic
-        # ic('in ecg dataset init', now())
         self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset))
         self.dataset: h5py.Dataset = self.rec['data']
         self.attrs = json.loads(self.rec.attrs['meta'])
         assert self.attrs['fqs'] == fqs  # Sanity check
-        # ic('in ecg dataset init, loaded data', now())
-        # ic(isinstance(subset, Sequence), subset)
 
         if subset is not None and subset is not False:
             # all data stored in memory; TODO: optimization?
@@ -74,18 +69,19 @@ class EcgDataset(Dataset):
         """
         :return: Number of records
         """
-        # from icecream import ic
-        # ic('in ecg dataset len len', len(self.dataset), type(self.dataset))
         return self.dataset.shape[0] if self.is_full else self.idxs_processed.size
 
-    def __getitem__(self, idx) -> Union[np.ndarray, torch.FloatTensor]:
+    def __getitem__(self, idx) -> Union[np.ndarray, torch.Tensor]:
         # from icecream import ic
-        # ic(idx)
         arr = self.dataset[idx].astype(np.float32)  # cos the h5py stores float64
+        # ic(arr.dtype)
+        # ic('in ecg dset get_item', arr.shape)
         if self.transform:
             arr = self.transform(arr)
+        # ic('in ecg dset get_item, after transform', arr.shape)
+        # ic(arr.dtype)
         if self.return_type == 'pt':
-            return torch.from_numpy(arr).float()
+            return torch.from_numpy(arr)  # somehow without
         else:
             return arr
 
