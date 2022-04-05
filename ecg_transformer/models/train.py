@@ -1,112 +1,25 @@
-"""
-Vision Transformer adapted to 1D ECG signals
-
-Intended fpr vanilla, supervised training
-"""
-
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from transformers import PretrainedConfig
 from transformers import get_cosine_schedule_with_warmup
-from vit_pytorch import ViT
 
 from ecg_transformer.util import *
-from ecg_transformer.util.model import ModelOutput
 import ecg_transformer.util.train as train_util
-from ecg_transformer.preprocess import get_ptbxl_splits
+from ecg_transformer.preprocess import PtbxlDataModule
+from ecg_transformer.models import EcgVitConfig
 
 
-class EcgVitConfig(PretrainedConfig):
-    def __init__(
-            self,
-            max_signal_length: int = 2560,
-            patch_size: int = 64,
-            num_channels: int = 12,
-            hidden_size: int = 512,  # Default parameters are 2/3 of ViT base model sizes
-            num_hidden_layers: int = 8,
-            num_attention_heads: int = 8,
-            intermediate_size: int = 2048,
-            hidden_dropout_prob: float = 0.1,
-            attention_probs_dropout_prob: float = 0.1,
-            **kwargs
-    ):
-        self.max_signal_length = max_signal_length
-        self.patch_size = patch_size
-        self.num_channels = num_channels
-        self.num_class = num_channels
-        self.hidden_size = hidden_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.intermediate_size = intermediate_size
-        self.hidden_dropout_prob = hidden_dropout_prob
-        self.attention_probs_dropout_prob = attention_probs_dropout_prob
-        super().__init__(**kwargs)
-
-    @classmethod
-    def from_defined(cls, model_name):
-        """
-        A few model sizes I defined
-        """
-        assert model_name in ['vit-small', 'vit-base', 'vit-large'], 'Model name undefined'
-        conf = cls()
-        if model_name == 'vit-small':
-            conf.hidden_size = 512
-            conf.num_hidden_layers = 8
-            conf.num_attention_heads = 8
-            conf.intermediate_size = 2048
-        elif model_name == 'vit-base':
-            conf.hidden_size = 768
-            conf.num_hidden_layers = 12
-            conf.num_attention_heads = 12
-            conf.intermediate_size = 3072
-        elif model_name == 'vit-large':
-            conf.hidden_size = 1024
-            conf.num_hidden_layers = 24
-            conf.num_attention_heads = 16
-            conf.intermediate_size = 4096
-        return conf
-
-
-class EcgVit(pl.LightningModule):
-    def __init__(
-            self, num_class: int = 71, model_config=EcgVitConfig(),
-            train_kwargs: Dict = None
-    ):
+class EcgVitTrainer(pl.LightningModule):
+    def __init__(self, model: torch.nn.Module, train_kwargs: Dict = None):
         super().__init__()
-        hd_sz, n_head = model_config.hidden_size, model_config.num_attention_heads
-        assert hd_sz % n_head == 0
-        dim_head = hd_sz // n_head
-        self.config = model_config
-        _md_args = dict(
-            image_size=(1, self.config.max_signal_length),  # height is 1
-            patch_size=(1, self.config.patch_size),
-            num_classes=num_class,
-            dim=self.config.hidden_size,
-            depth=self.config.num_hidden_layers,
-            heads=self.config.num_attention_heads,
-            mlp_dim=self.config.intermediate_size,
-            pool='cls',
-            channels=self.config.num_channels,
-            dim_head=dim_head,
-            dropout=self.config.hidden_dropout_prob,
-            emb_dropout=self.config.attention_probs_dropout_prob
-        )
-        self.vit = ViT(**_md_args)
-        self.loss_fn = nn.BCEWithLogitsLoss()  # TODO: weighting?
-
+        self.model = model
         self.train_args, self.train_meta, self.parent_trainer = (
             train_kwargs['args'], train_kwargs['meta'], train_kwargs['parent']
         )
 
-    def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
-        logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
-        loss = None
-        if labels is not None:
-            loss = self.loss_fn(input=logits, target=labels)
-        return ModelOutput(loss=loss, logits=logits)
+    def forward(self, **kwargs):
+        return self.model(**kwargs)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
@@ -154,27 +67,6 @@ class EcgVit(pl.LightningModule):
             self.parent_trainer.log(x)
 
 
-class PtbxlDataModule(pl.LightningDataModule):
-    def __init__(self, train_args: Dict = None, dataset_args: Dict = None, **kwargs):
-        super().__init__(**kwargs)
-        self.train_args = train_args
-        self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
-            self.train_args['n_sample'], dataset_args=dataset_args
-        )
-        # self.n_worker = os.cpu_count()  # this seems to slow-down training
-        self.n_worker = 1
-
-    def train_dataloader(self):
-        # TODO: signal transforms
-        return DataLoader(
-            self.dset_tr, batch_size=self.train_args['train_batch_size'], shuffle=True,
-            pin_memory=True, num_workers=self.n_worker
-        )
-
-    def val_dataloader(self):
-        return DataLoader(self.dset_vl, batch_size=self.train_args['eval_batch_size'], num_workers=self.n_worker)
-
-
 class MyTrainer:
     def __init__(self, name='EcgVit Train', model_args: Dict = None, train_args: Dict = None, log2console=True):
         self.name = name
@@ -214,7 +106,9 @@ class MyTrainer:
             '#step': n_step, '#epoch': num_train_epoch,
             'model input shape': f'B x {C} x {L}', '#patch': L // conf.patch_size
         }
-        self.model = EcgVit(train_kwargs=dict(args=self.train_args, meta=self.train_meta, parent=self), **model_args)
+        self.model = EcgVitTrainer(
+            train_kwargs=dict(args=self.train_args, meta=self.train_meta, parent=self), **model_args
+        )
         self.log_fnm = f'{self.model.__class__.__qualname__}, ' \
                        f'n={len(self.data_module.dset_tr)}, a={learning_rate}, dc={weight_decay}, ' \
                        f'bsz={train_batch_size}, n_ep={num_train_epoch}'
@@ -284,7 +178,7 @@ if __name__ == '__main__':
     seed_everything(config('random-seed'))
 
     def check_forward_pass():
-        ev = EcgVit()
+        ev = EcgVitTrainer()
         # ic(ev)
         sigs = torch.randn(4, 12, 2560)
         ic(ev.vit.to_patch_embedding(torch.randn(4, 12, 1, 2560)).shape)

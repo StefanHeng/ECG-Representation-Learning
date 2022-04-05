@@ -1,0 +1,95 @@
+"""
+Vision Transformer adapted to 1D ECG signals
+
+Intended fpr vanilla, supervised training
+"""
+
+import torch
+from torch import nn
+from transformers import PretrainedConfig
+from vit_pytorch import ViT
+
+from ecg_transformer.util.models import ModelOutput
+
+
+class EcgVitConfig(PretrainedConfig):
+    def __init__(
+            self,
+            max_signal_length: int = 2560,
+            patch_size: int = 64,
+            num_channels: int = 12,
+            hidden_size: int = 512,  # Default parameters are 2/3 of ViT base model sizes
+            num_hidden_layers: int = 8,
+            num_attention_heads: int = 8,
+            intermediate_size: int = 2048,
+            hidden_dropout_prob: float = 0.1,
+            attention_probs_dropout_prob: float = 0.1,
+            **kwargs
+    ):
+        self.max_signal_length = max_signal_length
+        self.patch_size = patch_size
+        self.num_channels = num_channels
+        self.num_class = num_channels
+        self.hidden_size = hidden_size
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.intermediate_size = intermediate_size
+        self.hidden_dropout_prob = hidden_dropout_prob
+        self.attention_probs_dropout_prob = attention_probs_dropout_prob
+        super().__init__(**kwargs)
+
+    @classmethod
+    def from_defined(cls, model_name):
+        """
+        A few model sizes I defined
+        """
+        assert model_name in ['vit-small', 'vit-base', 'vit-large'], 'Model name undefined'
+        conf = cls()
+        if model_name == 'vit-small':
+            conf.hidden_size = 512
+            conf.num_hidden_layers = 8
+            conf.num_attention_heads = 8
+            conf.intermediate_size = 2048
+        elif model_name == 'vit-base':
+            conf.hidden_size = 768
+            conf.num_hidden_layers = 12
+            conf.num_attention_heads = 12
+            conf.intermediate_size = 3072
+        elif model_name == 'vit-large':
+            conf.hidden_size = 1024
+            conf.num_hidden_layers = 24
+            conf.num_attention_heads = 16
+            conf.intermediate_size = 4096
+        return conf
+
+
+class EcgVit(nn.Module):
+    def __init__(self, num_class: int = 71, config=EcgVitConfig(),):
+        super().__init__()
+        hd_sz, n_head = config.hidden_size, config.num_attention_heads
+        assert hd_sz % n_head == 0
+        dim_head = hd_sz // n_head
+        self.config = config
+        _md_args = dict(
+            image_size=(1, self.config.max_signal_length),  # height is 1
+            patch_size=(1, self.config.patch_size),
+            num_classes=num_class,
+            dim=self.config.hidden_size,
+            depth=self.config.num_hidden_layers,
+            heads=self.config.num_attention_heads,
+            mlp_dim=self.config.intermediate_size,
+            pool='cls',
+            channels=self.config.num_channels,
+            dim_head=dim_head,
+            dropout=self.config.hidden_dropout_prob,
+            emb_dropout=self.config.attention_probs_dropout_prob
+        )
+        self.vit = ViT(**_md_args)
+        self.loss_fn = nn.BCEWithLogitsLoss()  # TODO: more complex loss, e.g. weighting?
+
+    def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
+        logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
+        loss = None
+        if labels is not None:
+            loss = self.loss_fn(input=logits, target=labels)
+        return ModelOutput(loss=loss, logits=logits)

@@ -1,4 +1,4 @@
 from .data_export import RecDataExport as Export
 from .data_preprocessor import DataPreprocessor as Preprocessor
-from .ecg_loader import NormArg, EcgDataset, NamedDataset
-from .ptb_loader import PtbxlDataset, get_ptbxl_splits
+from .dataset import NormArg, EcgDataset, NamedDataset
+from .ptb_dataset import PtbxlDataset, PtbxlDataModule, get_ptbxl_splits

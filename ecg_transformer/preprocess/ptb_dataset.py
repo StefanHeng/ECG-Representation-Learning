@@ -10,10 +10,12 @@ from typing import Sequence
 import h5py
 
 import torch
+from torch.utils.data import DataLoader
+import pytorch_lightning as pl
 
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
-from ecg_transformer.preprocess import NormArg, EcgDataset
+from ecg_transformer.preprocess import EcgDataset
 
 
 def export_ptbxl_labels():
@@ -82,6 +84,27 @@ class PtbxlDataset(EcgDataset):
             sample_values=super().__getitem__(idx),
             labels=PtbxlDataset.lbs2multi_hot(self.labels[idx], return_float=True)
         )
+
+
+class PtbxlDataModule(pl.LightningDataModule):
+    def __init__(self, train_args: Dict = None, dataset_args: Dict = None, **kwargs):
+        super().__init__(**kwargs)
+        self.train_args = train_args
+        self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
+            self.train_args['n_sample'], dataset_args=dataset_args
+        )
+        # self.n_worker = os.cpu_count()  # this seems to slow-down training
+        self.n_worker = 1
+
+    def train_dataloader(self):
+        # TODO: signal transforms
+        return DataLoader(
+            self.dset_tr, batch_size=self.train_args['train_batch_size'], shuffle=True,
+            pin_memory=True, num_workers=self.n_worker
+        )
+
+    def val_dataloader(self):
+        return DataLoader(self.dset_vl, batch_size=self.train_args['eval_batch_size'], num_workers=self.n_worker)
 
 
 def get_ptbxl_splits(

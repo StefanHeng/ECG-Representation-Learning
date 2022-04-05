@@ -2,7 +2,6 @@ import glob
 from pathlib import Path
 
 import h5py
-import matplotlib.pyplot as plt
 import wfdb.processing
 from tqdm import tqdm, trange
 
@@ -267,7 +266,8 @@ if __name__ == '__main__':
         """
         from matplotlib.widgets import Button
 
-        dnm = 'CHAP_SHAO'
+        # dnm = 'CHAP_SHAO'
+        dnm = 'PTB_XL'
         d_dset = config(f'datasets.my')
         path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
         rec_ori = h5py.File(os.path.join(path_exp, d_dset['rec_fmt'] % dnm), 'r')
@@ -288,7 +288,6 @@ if __name__ == '__main__':
         # Pick a channel randomly
         def _step(s, c):
             plt.cla()
-            ic('inside _step', data_ori[s, c, :10], data_den[s, c, :10])
             ecg_util.plot_1d(
                 [data_ori[s, c], data_den[s, c]],
                 label=['Original, resampled', 'Denoised'],
@@ -306,7 +305,6 @@ if __name__ == '__main__':
                 self.n_c = n_c
                 n = self.n_s * self.n_c
                 self.idxs = np.arange(n)
-                # ic(self.n_s, self.n_c, self.idxs)
                 np.random.shuffle(self.idxs)
 
                 self.idx = i
@@ -319,7 +317,6 @@ if __name__ == '__main__':
             def next(self, event):
                 prev_idx = self.idx
                 self.idx = self.clp(self.idx+1)
-                ic('clicked next', prev_idx, self.idx)
                 if prev_idx != self.idx:
                     self._set_curr_idx()
                     _step(self.i_s, self.i_c)
@@ -332,7 +329,6 @@ if __name__ == '__main__':
                     _step(self.i_s, self.i_c)
 
         plt.figure(figsize=(18, 6))
-        # plt.ion()
 
         init = 0
         pf = PlotFrame(i=init)
