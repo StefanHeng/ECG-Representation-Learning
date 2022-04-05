@@ -13,6 +13,9 @@
             "dir_nm": "St-Petersburg-INCART",
             "nm": "St Petersburg INCART 12-lead Arrhythmia Database",
             "rec_fmt": "*.dat",
+            "n_rec": 75,
+            "n_pat": 32,
+            "fqs": 257,
             "rec_ext": ".dat"
         },
         "PTB-XL": {
@@ -670,6 +673,9 @@
                     "TRIGU"
                 ]
             },
+            "n_rec": 21837,
+            "n_pat": 18885,
+            "fqs": 500,
             "rec_ext": ".dat"
         },
         "PTB-Diagnostic": {
@@ -677,6 +683,9 @@
             "dir_nm": "PTB-Diagnostic",
             "rec_fmt": "**/*.dat",
             "path_label": "RECORDS",
+            "n_rec": 549,
+            "n_pat": 290,
+            "fqs": 1000,
             "rec_ext": ".dat"
         },
         "CSPC": {
@@ -689,18 +698,27 @@
             "nm": "China Physiological Signal Challenge 2018 - from CinC",
             "dir_nm": "CSPC-2018-CinC",
             "rec_fmt": "*.mat",
+            "n_rec": 6877,
+            "n_pat": 6877,
+            "fqs": 500,
             "rec_ext": ".mat"
         },
         "CSPC-Extra-CinC": {
             "nm": "China Physiological Signal Challenge 2018, unused/extra - from CinC",
             "dir_nm": "CSPC-2018-Extra-CinC",
             "rec_fmt": "*.mat",
+            "n_rec": 3453,
+            "n_pat": "Unknown",
+            "fqs": 500,
             "rec_ext": ".mat"
         },
         "G12EC": {
             "nm": "Georgia 12-lead ECG Challenge (G12EC) Database",
             "dir_nm": "Georgia-12-Lead",
             "rec_fmt": "*.mat",
+            "n_rec": 10344,
+            "n_pat": "Unknown",
+            "fqs": 500,
             "rec_ext": ".mat"
         },
         "CHAP-SHAO": {
@@ -708,6 +726,8 @@
             "dir_nm": "Chapman-Shaoxing",
             "rec_fmt": "ECGData/*.csv",
             "fqs": 500,
+            "n_rec": 10646,
+            "n_pat": 10646,
             "rec_ext": ".csv"
         },
         "CODE-TEST": {
@@ -715,6 +735,8 @@
             "dir_nm": "CODE-test",
             "rec_fmt": "ecg_tracings.hdf5",
             "fqs": 400,
+            "n_rec": 827,
+            "n_pat": 827,
             "rec_ext": ".hdf5"
         },
         "my": {
@@ -726,23 +748,23 @@
             "rec_ext": ".hdf5"
         }
     },
-    "datasets_export": {
+    "datasets-export": {
         "total": [
             "INCART",
-            "PTB_XL",
-            "PTB_Diagnostic",
-            "CSPC_CinC",
-            "CSPC_Extra_CinC",
+            "PTB-XL",
+            "PTB-Diagnostic",
+            "CSPC-CinC",
+            "CSPC-Extra-CinC",
             "G12EC",
-            "CHAP_SHAO",
-            "CODE_TEST"
+            "CHAP-SHAO",
+            "CODE-TEST"
         ],
         "support_wfdb": [
             "INCART",
-            "PTB_XL",
-            "PTB_Diagnostic",
-            "CSPC_CinC",
-            "CSPC_Extra_CinC",
+            "PTB-XL",
+            "PTB-Diagnostic",
+            "CSPC-CinC",
+            "CSPC-Extra-CinC",
             "G12EC"
         ]
     },

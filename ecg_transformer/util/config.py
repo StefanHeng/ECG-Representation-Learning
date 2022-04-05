@@ -76,9 +76,9 @@ config_dict = {
             rec_fmt_denoised='%s-denoised.hdf5',
         )
     },
-    'datasets_export': dict(
-        total=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC', 'CHAP_SHAO', 'CODE_TEST'],
-        support_wfdb=['INCART', 'PTB_XL', 'PTB_Diagnostic', 'CSPC_CinC', 'CSPC_Extra_CinC', 'G12EC']
+    'datasets-export': dict(
+        total=['INCART', 'PTB-XL', 'PTB-Diagnostic', 'CSPC-CinC', 'CSPC-Extra-CinC', 'G12EC', 'CHAP-SHAO', 'CODE-TEST'],
+        support_wfdb=['INCART', 'PTB-XL', 'PTB-Diagnostic', 'CSPC-CinC', 'CSPC-Extra-CinC', 'G12EC']
     ),
     'random-seed': 77,
     'pre_processing': dict(
@@ -129,14 +129,16 @@ def extract_datasets_meta():
     # 2) run `ecg_transformer.preprocess.data_export.py`
     # 3) run the script with function
     df_label = ecg_util.get_my_rec_labels()
-    sup = config_dict['datasets_export']['support_wfdb']
-    for dnm in config_dict['datasets_export']['total']:
+    sup = config_dict['datasets-export']['support_wfdb']
+    for dnm in config_dict['datasets-export']['total']:
         df_ = df_label[df_label['dataset'] == dnm]
         d_dset = config_dict[DIR_DSET][dnm]
 
         d_dset['n_rec'] = df_.shape[0]
 
         uniqs = df_['patient_name'].unique()
+        from icecream import ic
+        ic(dnm, uniqs, len(uniqs))
         d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and math.isnan(uniqs[0]) else len(uniqs)
 
         if dnm in sup:
@@ -163,7 +165,7 @@ def wrap_config():
 
 
 extract_ptb_codes()
-# extract_datasets_meta()
+extract_datasets_meta()
 set_paths()
 wrap_config()
 

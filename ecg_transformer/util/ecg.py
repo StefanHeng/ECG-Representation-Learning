@@ -155,9 +155,9 @@ def fnm2sigs(fnm, dnm):
     if not hasattr(config, 'd_d_dset'):
         fnm2sigs.d_d_dset = config(DIR_DSET)
 
-    if dnm == 'CHAP_SHAO':
+    if dnm == 'CHAP-SHAO':
         return pd.read_csv(fnm).to_numpy().T
-    elif dnm == 'CODE_TEST':
+    elif dnm == 'CODE-TEST':
         assert isinstance(fnm, int)  # Single file with all recordings
         if not hasattr(config, 'ct_tracings'):
             fnms = get_rec_paths(dnm)
@@ -166,10 +166,6 @@ def fnm2sigs(fnm, dnm):
 
         return fnm2sigs.ct_tracings['tracings'][fnm]
     else:
-        # from icecream import ic
-        # rec = wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext']))  # TODO; debugging
-        # ic(rec, vars(rec))
-        # exit(1)
         return wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext'])).p_signal.T
 
 

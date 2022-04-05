@@ -36,7 +36,7 @@ class RecDataExport:
         :param fqs: (Potentially re-sampling) frequency
         """
         self.d_dsets = config('datasets')
-        self.dsets_exp = config('datasets_export')
+        self.dsets_exp = config('datasets-export')
         self.d_my = config('datasets.my')
         self.path_exp = os.path.join(PATH_BASE, DIR_DSET, self.d_my['dir_nm'])
 
@@ -47,12 +47,12 @@ class RecDataExport:
 
     def __call__(self, resample: Union[str, bool] = False):
         self.logger: logging.Logger = get_logger('ECG Record Export')
-        dnms = self.dsets_exp["total"]
+        dnms = self.dsets_exp['total']
         self._log_info(f'Exporting ECG records on datasets {logi(dnms)}... ')
-        # self.export_record_info()
+        self.export_record_info()
         # for dnm in dnms[1:2]:
-        for dnm in dnms:
-            self.export_record_data(dnm, resample=resample)
+        # for dnm in dnms:
+        #     self.export_record_data(dnm, resample=resample)
         # self.export_record_data('CHAP_SHAO', resample)  # TODO: debugging
 
     def get_rec_nms(self, dnm):
@@ -102,16 +102,16 @@ class RecDataExport:
                     na.nan = float('nan')
                 return na.nan
 
-            d_f = dict(
-                INCART=incart,
-                PTB_XL=ptb_xl,
-                PTB_Diagnostic=ptb_diagnostic,
-                CSPC_CinC=one2one,
-                CSPC_Extra_CinC=na,  # Unknown, suspect multiple records for a single patient
-                G12EC=na,  # Patient info not available & multiple records for a single patient
-                CHAP_SHAO=one2one,
-                CODE_TEST=one2one
-            )
+            d_f = {
+                'INCART': incart,
+                'PTB-XL': ptb_xl,
+                'PTB-Diagnostic': ptb_diagnostic,
+                'CSPC-CinC': one2one,
+                'CSPC-Extra-CinC': na,  # Unknown, suspect multiple records for a single patient
+                'G12EC': na,  # Patient info not available & multiple records for a single patient
+                'CHAP-SHAO': one2one,
+                'CODE-TEST': one2one
+            }
             return d_f[dnm]
 
         get_pat_num = get_get_pat_num()
@@ -125,15 +125,15 @@ class RecDataExport:
 
         def get_row(fnm_):
             path_r, rec_nm = get_relative_path_n_name(fnm_)
-            d_args = dict(
-                INCART=[fnm_],
-                PTB_XL=[f'{path_r}/{rec_nm}'[len(dnm)+1:]],
-                PTB_Diagnostic=[rec_nm],
-                CSPC_CinC=[],
-                CSPC_Extra_CinC=[],
-                G12EC=[],
-                CHAP_SHAO=[]
-            )
+            d_args = {
+                'INCART': [fnm_],
+                'PTB-XL': [f'{path_r}/{rec_nm}'[len(dnm)+1:]],
+                'PTB-Diagnostic': [rec_nm],
+                'CSPC-CinC': [],
+                'CSPC-Extra-CinC': [],
+                'G12EC': [],
+                'CHAP-SHAO': []
+            }
             pat_nm = get_pat_num(*d_args[dnm])
             return [dnm, pat_nm, rec_nm, path_r]
 
@@ -143,13 +143,13 @@ class RecDataExport:
             path_r, rec_nm = get_relative_path_n_name(fnm_)
             n_pat = h5py.File(fnm_, 'r')['tracings'].shape[0]
             rows_ = []
-            for i in trange(n_pat, desc='CODE_TEST', unit='rec'):
+            for i in trange(n_pat, desc='CODE-TEST', unit='rec'):
                 rows_.append([dnm, i, rec_nm, path_r])
             return rows_
 
         self._log_info(f'Getting record info for {logi(dnm)}... ')
-        rec_nms = self.get_rec_nms(dnm)[:10]
-        if dnm == 'CODE_TEST':
+        rec_nms = self.get_rec_nms(dnm)
+        if dnm == 'CODE-TEST':
             rows = get_row_code_test(rec_nms)
         else:
             rows = []
@@ -185,8 +185,6 @@ class RecDataExport:
         d_dset = self.d_dsets[dnm]
 
         rec_nms = self.get_rec_nms(dnm)
-        # for rnm in rec_nms:
-        #     ic(fnm2sigs(rnm, dnm).shape)
         sigs = np.stack(batched_conc_map(lambda fnms_, s_, e_: [ecg_util.fnm2sigs(nm_, dnm) for nm_ in fnms_[s_:e_]], rec_nms))
         fqs = d_dset['fqs']
         d_rec = dict(n=len(rec_nms), shape=sigs.shape, frequency=fqs)
@@ -235,8 +233,7 @@ if __name__ == '__main__':
     def export():
         de = RecDataExport(fqs=250)
         de(resample='single')
-        # de(resample=True)
-    # export()
+    export()
 
     def sanity_check():
         """
@@ -342,6 +339,4 @@ if __name__ == '__main__':
         # _step(pf.i_s, pf.i_c)
         _step(77, 0)
         plt.show()
-    check_matlab_out()
-
-
+    # check_matlab_out()

@@ -61,7 +61,6 @@ class NormalizeSingle:
             a, b = self.norm_meta
             self.norm_meta = a.astype(np.float32), b.astype(np.float32)
 
-    # def __call__(self, arr, squeeze_1st=False):
     def __call__(self, arr):
         if self.scheme == 'none':
             return arr
@@ -69,7 +68,7 @@ class NormalizeSingle:
             if self.scheme in ['global', 'norm']:
                 mi, ma = self.norm_meta
                 sub, div = mi, (ma - mi)
-            else:  # normalize == 'std'
+            else:  # 'std'
                 sub, div = self.norm_meta
             if arr.ndim == 2:
                 sub, div = sub[0], div[0]  # (1, 12, 1) -> (12, 1)
@@ -104,11 +103,6 @@ class Normalize:
 
     def __call__(self, arr: np.array):
         assert arr.ndim in [2, 3]
-        # lst_squeeze_1st = [ndim == 3] * len(self.normalizers)  # if array is a slice; TODO: check for this
-        # from icecream import ic
-        # ic('in normalize call', lst_squeeze_1st, arr, arr.shape)
-        # for normalizer, squeeze_1st in zip(self.normalizers, lst_squeeze_1st):
-        #     arr = normalizer(arr, squeeze_1st)
         for normalizer in self.normalizers:
             arr = normalizer(arr)
         return arr
