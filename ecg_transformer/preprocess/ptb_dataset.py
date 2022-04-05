@@ -77,8 +77,7 @@ class PtbxlDataModule(pl.LightningDataModule):
         self.dset_tr, self.dset_vl, self.dset_ts = get_ptbxl_splits(
             n_sample=train_args['n_sample'], dataset_args=dataset_args
         )
-        # self.n_worker = os.cpu_count()  # multi-processing is slower, pbb dur to HDF5
-        self.n_worker = 0
+        self.n_worker = 0  # multiprocessing not supported since HDF5 can't be pickled
 
     def train_dataloader(self):
         # TODO: signal transforms

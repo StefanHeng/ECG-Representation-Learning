@@ -72,14 +72,9 @@ class EcgDataset(Dataset):
         return self.dataset.shape[0] if self.is_full else self.idxs_processed.size
 
     def __getitem__(self, idx) -> Union[np.ndarray, torch.Tensor]:
-        # from icecream import ic
         arr = self.dataset[idx].astype(np.float32)  # cos the h5py stores float64
-        # ic(arr.dtype)
-        # ic('in ecg dset get_item', arr.shape)
         if self.transform:
             arr = self.transform(arr)
-        # ic('in ecg dset get_item, after transform', arr.shape)
-        # ic(arr.dtype)
         if self.return_type == 'pt':
             return torch.from_numpy(arr)  # somehow without
         else:

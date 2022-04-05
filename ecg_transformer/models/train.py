@@ -59,6 +59,9 @@ class EcgVitTrainModule(pl.LightningModule):
         }
         d_log.update({f'eval/{k}': v for k, v in d_update.items()})
         self._log_info(d_log)
+        for k, v in d_log.items():
+            if not isinstance(v, dict):
+                self.parent_trainer.pl_trainer.callback_metrics[k] = torch.tensor(v)  # per `ModelCheckpoint`
 
     def _log_info(self, x):
         if self.parent_trainer is not None:
@@ -84,7 +87,7 @@ class MyTrainer:
         self.log_fnm = f'{model_meta["name"]}, ' \
                        f'n={len(data_module.dset_tr)}, a={learning_rate}, dc={weight_decay}, ' \
                        f'bsz={train_batch_size}, n_ep={num_train_epoch}'
-        self.logger, self.logger_fl, self.logger_tb, self.trainer = None, None, None, None
+        self.logger, self.logger_fl, self.logger_tb, self.pl_trainer = None, None, None, None
         # cos the internal epoch for sanity check eval is always 0
         self._ran_sanity_check_eval, self._eval_epoch_count = False, 1
 
@@ -101,10 +104,22 @@ class MyTrainer:
         tb_fnm = f'tb - {self.log_fnm}'
         os.makedirs(os.path.join(self.output_dir, tb_fnm), exist_ok=True)
         self.logger_tb = TensorBoardLogger(self.output_dir, name=tb_fnm)
-        self.trainer = pl.Trainer(
+        callback = None
+        if self.train_args['save_while_training']:
+            callback = pl.callbacks.ModelCheckpoint(
+                dirpath=os.path.join(self.output_dir, 'checkpoints'),
+                monitor='eval/loss',
+                filename='checkpoint-epoch{epoch:02d}, eval-loss={eval/loss:.2f}',
+                every_n_epochs=self.train_args['save_every_n_epoch'],
+                # verbose=True,
+                save_top_k=self.train_args['save_top_k'],
+                save_last=True
+            )
+        self.pl_trainer = pl.Trainer(
             logger=self.logger_tb,
             default_root_dir=self.output_dir,
             enable_progress_bar=False,
+            callbacks=callback,
             gradient_clip_val=1,
             check_val_every_n_epoch=1,
             max_epochs=n_ep,
@@ -118,11 +133,12 @@ class MyTrainer:
             detect_anomaly=True,
             move_metrics_to_cpu=True,
         )
-        self.trainer.fit(self.pl_module, self.data_module)
+        # ic(self.pl_trainer.callbacks)
+        self.pl_trainer.fit(self.pl_module, self.data_module)
 
     def get_curr_learning_rate(self):
-        assert self.trainer is not None
-        return self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+        assert self.pl_trainer is not None
+        return self.pl_trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
 
     def log(self, msg):
         is_dict = isinstance(msg, dict)
@@ -167,7 +183,10 @@ def get_train_args(args: Dict = None) -> Dict:
         patience=8,
         precision=16 if torch.cuda.is_available() else 'bf16',
         log_per_epoch=False,
-        log_to_console=True
+        log_to_console=True,
+        save_while_training=False,  # only save in the end
+        save_every_n_epoch=1,
+        save_top_k=-1  # save all models
     )
     args_ = default_args
     if args is not None:
@@ -204,14 +223,17 @@ if __name__ == '__main__':
         model_size = 'debug'
 
         train_args = dict(
-            num_train_epoch=4,
-            train_batch_size=2,  # TODO: debugging
+            num_train_epoch=16,
+            train_batch_size=2,
             eval_batch_size=2,
             warmup_ratio=0.1,
             n_sample=4,
             precision=16,
-            # log_per_epoch=True,
-            # log_to_console=False
+            log_per_epoch=True,
+            # log_to_console=False,
+            save_while_training=True,
+            save_every_n_epoch=4,
+            save_top_k=2
         )
         model, trainer = get_all_setup(model_size=model_size, train_args=train_args)
         trainer.train()
