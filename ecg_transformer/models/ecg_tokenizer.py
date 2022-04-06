@@ -105,7 +105,7 @@ class EcgPadder:
 
         def pad_shift(  # To preserve as much morphology
                 a: np.ndarray,
-                pad_width: tuple[int, int],
+                pad_width: Tuple[int, int],
                 iaxis: int,  # per numpy.pad; intended for last axis only
                 kwargs
         ):
@@ -151,7 +151,7 @@ class EcgTokenizer:
         self.lens = None  # of dim (N_cls); cluster sizes
         self.nn: KDTree = None  # Nearest Neighbor for decoding
         # Customized NN, filtering out centroids by count or relative size
-        self.nns: dict[Union[int, float], EcgTokenizer.CustNN] = {}
+        self.nns: Dict[Union[int, float], EcgTokenizer.CustNN] = {}
 
         self.fit_method = None  # Hyperparameters for the last call to `fit`
         self.n_sig = None
@@ -216,7 +216,7 @@ class EcgTokenizer:
     def __call__(
             self,
             sig: Union[int, np.ndarray], th: Union[int, float] = None,
-            plot: Union[bool, tuple[int, int]] = False, plot_args: dict = None
+            plot: Union[bool, Tuple[int, int]] = False, plot_args: Dict = None
     ):
         """
         :param sig: signals or batch of signals to encode, of dim `d_prev::l`, where `l` is the number of samples
@@ -345,7 +345,7 @@ class EcgTokenizer:
 
     def fit(
             self, sigs: np.ndarray, method='spectral', cls_kwargs=None,
-            plot_args: dict[str] = None, save=False
+            plot_args: Dict[str, Any] = None, save=False
     ):
         """
         :param sigs: Array of shape N x C x L

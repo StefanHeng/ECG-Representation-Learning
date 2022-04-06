@@ -262,7 +262,7 @@ def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
 
 
 def log_dict_id(d: Dict) -> str:
-    return json.dumps(d, indent=2)
+    return json.dumps(d, indent=4)
 
 
 def log_dict_pg(d: Dict) -> str:

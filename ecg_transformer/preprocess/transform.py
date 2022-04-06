@@ -1,7 +1,7 @@
 """
 Transformations on multichannel 1D signals similar to those for 2D images in torchvision
 """
-
+import numpy as np
 from scipy.stats import norm
 
 from ecg_transformer.util import *
@@ -12,7 +12,27 @@ NormArg = Union[_NormArg, List[_NormArg]]
 Transform = Callable[[np.ndarray], np.ndarray]
 
 
-class NormalizeSingle:
+class Normalize:
+    """
+    Normalize based on given mean and std
+    """
+    def __init__(self, mean = None, std = None):
+        """
+        Each parameter is array-like with 12 channels
+        """
+        assert len(mean) == 12 and len(std) == 12
+        self.mean, self.std = np.asarray(mean).astype(np.float32), np.asarray(std).astype(np.float32)
+
+    def __call__(self, arr: np.ndarray) -> np.ndarray:
+        assert arr.ndim in [2, 3]
+        if arr.ndim == 3:
+            mean, std = self.mean.reshape((1, -1, 1)), self.std.reshape((1, -1, 1))
+        else:
+            mean, std = self.mean.reshape((-1, 1)), self.std.reshape((-1, 1))
+        return (arr - mean) / std
+
+
+class _DynamicNormalize:
     def __init__(self, arr, scheme: str = 'std', arg: Union[float, int] = None):
         """
         :param scheme: normalize scheme: one of [`global`, `std`, `norm`, `none`]
@@ -83,7 +103,10 @@ class NormalizeSingle:
         return f'<{self.__class__.__qualname__} {self.scheme} {str_arg}>'
 
 
-class Normalize:
+class DynamicNormalize:
+    """
+    Dynamically normalize based on array to compute statistics, using potentially a sequence of schemes
+    """
     def __init__(self, arr: np.ndarray, normalize: NormArg = (('norm', 3), ('std', 1))):
         """
         :param arr: (n_samples, n_channels, n_leads) array for computing normalization statistics
@@ -97,7 +120,7 @@ class Normalize:
         assert all((isinstance(pr, tuple) and len(pr) in [1, 2]) for pr in norm_args)
         self.normalizers = []
         for pr in norm_args:
-            normzer = NormalizeSingle(arr, *pr)
+            normzer = _DynamicNormalize(arr, *pr)
             self.normalizers.append(normzer)
             arr = normzer(arr)  # the normalizations are done sequentially
 
@@ -128,6 +151,16 @@ class TimeEndPad:
         return f'<{self.__class__.__qualname__} k={self.k}>'
 
 
+class RandomCrop:
+    def __init__(self, scale: Tuple[float, float]):
+        pass
+
+
+class Resize:
+    def __init__(self, output_length: int):
+        pass
+
+
 class RandomResizedCrop:
     def __init__(self, scale=(0.5, 1)):
         pass
@@ -144,11 +177,11 @@ if __name__ == '__main__':
         a = dset[dset.idxs_processed]
         ic(a.shape)
 
-        n = Normalize(a, 'global')
+        n = DynamicNormalize(a, 'global')
         ic(n, n.normalizers[0].norm_meta)
-        n = Normalize(a, ('std', 3))
+        n = DynamicNormalize(a, ('std', 3))
         ic(n, n.normalizers[0].norm_meta)
-        n = Normalize(a, ('norm', 3))
+        n = DynamicNormalize(a, ('norm', 3))
         ic(n, n.normalizers[0].norm_meta)
     # check_norm_meta()
 
@@ -180,7 +213,8 @@ if __name__ == '__main__':
     # check_normalize()
 
     def check_normalize_channel(n: int = 128):
-        ed = EcgDataset(normalize=[('norm', 3), ('std', 1)])
+        # ed = EcgDataset(normalize=[('norm', 3), ('std', 1)])
+        ed = EcgDataset(normalize=('std', 1))
         ed_n = EcgDataset(normalize='none')
         n_sig, (n_ch, l) = len(ed), ed.dataset.shape[1:]
         for i in range(n_ch):
@@ -188,7 +222,7 @@ if __name__ == '__main__':
             sigs = ed[idxs_sig][:, i, :]
             sigs_ori = ed_n[idxs_sig][:, i, :]
 
-            oor = (0 > sigs) | (sigs > 1)
+            oor = (-1 > sigs) | (sigs > 1)
             oor = dict(signal=np.any(oor, axis=-1).sum() / n, sample=oor.sum() / oor.size)
             ic(i, oor)
 
@@ -214,5 +248,5 @@ if __name__ == '__main__':
         plt.figure(figsize=(18, 6))
         ecg_util.plot_1d(sigs, label='Normalized signal', new_fig=False, plot_kwargs=dict(lw=0.1, ms=0.11))
         plt.show()
-    check_pad()
+    # check_pad()
 

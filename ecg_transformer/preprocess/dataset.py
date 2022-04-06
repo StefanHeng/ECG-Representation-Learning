@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
-from ecg_transformer.preprocess.transform import NormArg, Normalize, Transform
+from ecg_transformer.preprocess.transform import NormArg, Normalize, DynamicNormalize, Transform
 
 
 class EcgDataset(Dataset):
@@ -55,7 +55,13 @@ class EcgDataset(Dataset):
             f'Unexpected return_type: expect one of {logi(return_type)}, got {logi(return_type)}'
 
         self.return_type = return_type
-        tsf = [Normalize(arr, normalize)] if normalize else []
+
+        if isinstance(normalize, dict):
+            tsf = [Normalize(**normalize)]
+        elif normalize:
+            tsf = [DynamicNormalize(arr, normalize)]
+        else:
+            tsf = []
         if transform:
             tsf.extend(transform if isinstance(transform, list) else [transform])
 

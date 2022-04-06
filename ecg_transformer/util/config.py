@@ -5,6 +5,7 @@ import wfdb
 
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
+from ecg_transformer.preprocess import get_ptbxl_splits
 
 
 config_dict = {
@@ -137,8 +138,6 @@ def extract_datasets_meta():
         d_dset['n_rec'] = df_.shape[0]
 
         uniqs = df_['patient_name'].unique()
-        from icecream import ic
-        ic(dnm, uniqs, len(uniqs))
         d_dset['n_pat'] = 'Unknown' if len(uniqs) == 1 and math.isnan(uniqs[0]) else len(uniqs)
 
         if dnm in sup:
@@ -147,11 +146,22 @@ def extract_datasets_meta():
             d_dset['fqs'] = wfdb.rdrecord(rec_path[:rec_path.index('.')], sampto=1).fs
 
 
+def set_ptbxl_train_stats():
+    """
+    Get per-channel mean and standard deviation, see `ecg_transformer.preprocess.transform.py`
+    """
+    n_sample = None
+    dset = get_ptbxl_splits(n_sample=n_sample, dataset_args=dict(normalize=('std', 1)))[0]
+    std1_normalizer = dset.transform.transforms[0].normalizers[0]
+    mean, std = std1_normalizer.norm_meta
+    mean, std = mean.flatten().tolist(), std.flatten().tolist()
+    d_dset: Dict[str, Any] = config_dict['datasets']['PTB-XL']
+    d_dset['train-stats'] = dict(mean=mean, std=std)
+
+
 def set_paths():
     # Accommodate other OS
     for key in keys(config_dict):
-        from icecream import ic
-        ic(key)
         val = get(config_dict, key)
         if key[key.rfind('.')+1:] == 'dir_nm':
             set_(config_dict, key, os.path.join(*val.split('/')))
@@ -166,6 +176,7 @@ def wrap_config():
 
 extract_ptb_codes()
 extract_datasets_meta()
+set_ptbxl_train_stats()
 set_paths()
 wrap_config()
 

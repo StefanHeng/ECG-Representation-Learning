@@ -94,7 +94,7 @@ def get_ptbxl_splits(
         n_sample: int = None, dataset_args: Dict = None
 ) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(17792))  # TODO: the amount of denoised data
+    idxs_processed = list(range(17920))  # TODO: the amount of denoised data
     logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         ic(nd.transform)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    check_ptb_denoise_progress()
+    # check_ptb_denoise_progress()
 
     def check_split_dataset():
         dest_tr, dset_vl, dset_ts = get_ptbxl_splits()
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         batch = dest_tr[0]
         sv, lbs = batch['sample_values'], batch['labels']
         ic(sv, lbs, sv.shape, lbs.shape)
-    check_split_dataset()
+    # check_split_dataset()
 
     def check_data_loading():
         dset = get_ptbxl_splits(n_sample=4, dataset_args=dict(return_type='pt'))[0]

@@ -111,7 +111,6 @@ class MyTrainer:
                 monitor='eval/loss',
                 filename='checkpoint-epoch{epoch:02d}, eval-loss={eval/loss:.2f}',
                 every_n_epochs=self.train_args['save_every_n_epoch'],
-                # verbose=True,
                 save_top_k=self.train_args['save_top_k'],
                 save_last=True
             )
@@ -127,18 +126,16 @@ class MyTrainer:
             gpus=torch.cuda.device_count(),
             accelerator='auto',
             precision=self.train_args['precision'],
-            weights_save_path=os.path.join(self.output_dir, 'weights'),
             num_sanity_val_steps=-1,  # Runs & logs eval before training starts
             deterministic=True,
             detect_anomaly=True,
             move_metrics_to_cpu=True,
         )
-        # ic(self.pl_trainer.callbacks)
         self.pl_trainer.fit(self.pl_module, self.data_module)
 
     def get_curr_learning_rate(self):
         assert self.pl_trainer is not None
-        return self.pl_trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+        return self.pl_trainer.lr_scheduler_configs[0].scheduler.get_last_lr()[0]
 
     def log(self, msg):
         is_dict = isinstance(msg, dict)
@@ -203,7 +200,7 @@ def get_all_setup(
     train_args = get_train_args(train_args)
 
     pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
-    dset_args = dict(normalize=('std', 1), transform=pad, return_type='pt')
+    dset_args = dict(normalize=config('datasets.PTB-XL.train-stats'), transform=pad, return_type='pt')
     data_module = PtbxlDataModule(train_args=train_args, dataset_args=dset_args)
 
     # TODO: gradient accumulation not supported
