@@ -22,12 +22,13 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
     if not isinstance(label, list):
         label = [label] * len(arr)
     lbl = [None for _ in arr] if label is None else label
+    cs = sns.color_palette('husl', n_colors=len(arr))
 
-    def _plot(a_, lb_):
+    def _plot(a_, lb_, c):
         a_ = a_[s:e]
-        plt.gca().plot(np.arange(a_.size), a_, label=lb_, **kwargs)
-    for a, lb in zip(arr, lbl):
-        _plot(a, lb)
+        plt.gca().plot(np.arange(a_.size), a_, label=lb_, c=c, **kwargs)
+    for a, lb, c in zip(arr, lbl, cs):
+        _plot(a, lb, c)
 
     if label:
         handles, labels = plt.gca().get_legend_handles_labels()  # Distinct labels

@@ -35,19 +35,25 @@ class EcgDataset(Dataset):
         self.attrs = json.loads(self.rec.attrs['meta'])
         assert self.attrs['fqs'] == fqs  # Sanity check
 
+        is_dynamic_norm = normalize and not isinstance(normalize, dict)  # potentially save unnecessary array loading
+        arr = None
         if subset is not None and subset is not False:
             # all data stored in memory; TODO: optimization?
             self.dataset: np.ndarray = self.dataset[subset]
             self.is_full = True
-            arr = self.dataset[:]
+            if is_dynamic_norm:
+                arr = self.dataset[:]
         else:
             # TODO: debugging for now, as not all records are processed
             self.is_full = all(np.any(d != 0) for d in self.dataset)  # cos potentially costly to load entire data
             if not self.is_full:
                 self.idxs_processed = np.array([idx for idx, d in enumerate(self.dataset) if np.any(d != 0)])
-                arr = self.dataset[self.idxs_processed]
+                if is_dynamic_norm:
+                    arr = self.dataset[self.idxs_processed]
             else:
-                arr = self.dataset[:]
+                if is_dynamic_norm:
+                    arr = self.dataset[:]
+        if arr is not None:
             assert not np.all(np.isnan(arr))
 
         return_types = ['pt', 'np']

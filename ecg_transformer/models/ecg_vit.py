@@ -108,8 +108,8 @@ class EcgVit(nn.Module):
         loss = None
         if labels is not None:
             loss = self.loss_fn(input=logits, target=labels)
-        # from icecream import ic
-        # ic(loss, logits)
+        from icecream import ic
+        ic(loss, logits, logits.isnan().nonzero(), sample_values.isnan().any())
         return ModelOutput(loss=loss, logits=logits)
 
 

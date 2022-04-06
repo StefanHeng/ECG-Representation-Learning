@@ -30,15 +30,33 @@ classdef DataExport
             else
                 sigs_den = zeros(size(sigs));
             end
+
+%            sig_fine = sigs(:, 10, 12722)
+%            sig_broken = sigs(:, 11, 12722)
+%            sig_broken_smoothed = denoiser(sig_broken)
+%            exit(1)
 %            for i = 1:n_rec
 %            for i = 1:3328
             for i = 1:16000+1024+512+256+128
+%            for i = 12722:12723
                 if ~any(sigs_den(:, :, i), 'all')
                     sigs_ = squeeze(sigs(:, :, i));
                     disp([Util.now() '| Denosing file #' pad(i) '... '])
                     sigs_den(:, :, i) = self.apply_1d(sigs_, denoiser);
                 else
                     disp([Util.now() '| File #' pad(i) ' was denoised - ignored '])
+                end
+                if i == 12722
+                % PTB-XL/records500/12000/12722_hr channel 11, has all 0's => nan's after denoising
+                % => explicitly set it to all 0's
+                    sig_broken = sigs(:, 11, 12722)
+                    assert(all(sig_broken(:)==0));
+%                    all_z = nnz(sig_broken) == 0
+%                    assert(nnz(sig_broken) == 0);  % all 0's
+                    sig_broken_den = denoiser(sig_broken)
+                    assert(sum(isnan(sig_broken_den(:))));  % has nan
+                    sigs_den(:, 11, i) = zeros(size(sigs_den(:, 11, i)));
+%                    exit(1)
                 end
             end
 

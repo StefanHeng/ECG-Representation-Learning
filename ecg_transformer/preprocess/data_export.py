@@ -35,10 +35,7 @@ class RecDataExport:
         """
         :param fqs: (Potentially re-sampling) frequency
         """
-        self.d_dsets = config('datasets')
-        self.dsets_exp = config('datasets-export')
-        self.d_my = config('datasets.my')
-        self.path_exp = os.path.join(PATH_BASE, DIR_DSET, self.d_my['dir_nm'])
+        self.path_exp = os.path.join(PATH_BASE, DIR_DSET, config('datasets.my.dir_nm'))
 
         self.lbl_cols = ['dataset', 'patient_name', 'record_name', 'record_path']
         self.fqs = fqs
@@ -47,7 +44,7 @@ class RecDataExport:
 
     def __call__(self, resample: Union[str, bool] = False):
         self.logger: logging.Logger = get_logger('ECG Record Export')
-        dnms = self.dsets_exp['total']
+        dnms = config('datasets-export.total')
         self._log_info(f'Exporting ECG records on datasets {logi(dnms)}... ')
         self.export_record_info()
         # for dnm in dnms[1:2]:
@@ -55,8 +52,9 @@ class RecDataExport:
         #     self.export_record_data(dnm, resample=resample)
         # self.export_record_data('CHAP_SHAO', resample)  # TODO: debugging
 
-    def get_rec_nms(self, dnm):
-        d_dset = self.d_dsets[dnm]
+    @staticmethod
+    def get_rec_nms(dnm):
+        d_dset = config(f'datasets.{dnm}')
         return sorted(
             glob.iglob(os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'], d_dset['rec_fmt']), recursive=True)
         )
@@ -160,12 +158,11 @@ class RecDataExport:
     def export_record_info(self):
         self._log_info(f'Exporting dataset record info... ')
         df = pd.DataFrame(
-            sum([self.get_dset_record_info(dnm, return_df=False) for dnm in self.dsets_exp['total']], start=[]),
+            sum([self.get_dset_record_info(dnm, return_df=False) for dnm in config('datasets-export.total')], start=[]),
             columns=self.lbl_cols
         )
         df = df.apply(lambda x: x.astype('category'))
-
-        fnm = os.path.join(self.path_exp, self.d_my['fnm_labels'])
+        fnm = os.path.join(self.path_exp, config('datasets.my.fnm_labels'))
         df.to_csv(fnm)
         self._log_info(f'ECG record info exported to {logi(fnm)}')
 
@@ -181,7 +178,7 @@ class RecDataExport:
         """
         if self.logger is not None:
             self.logger.info(f'Exporting {logi(dnm)} data... ')
-        assert dnm in self.dsets_exp['total']
+        assert dnm in config('datasets-export.total')
         d_dset = self.d_dsets[dnm]
 
         rec_nms = self.get_rec_nms(dnm)
@@ -211,8 +208,7 @@ class RecDataExport:
         if _resample and resample != 'single':
             dsets['ori'] = sigs
         attrs = dict(dnm=dnm, fqs=fqs, resampled=resample)
-
-        fnm = os.path.join(self.path_exp, self.d_my['rec_fmt'] % dnm)
+        fnm = os.path.join(self.path_exp, config('datasets.my.rec_fmt') % dnm)
         self._log_info(f'Writing processed signals to {logi(fnm)}...')
         open(fnm, 'a').close()  # Create file in OS
         fl = h5py.File(fnm, 'w')

@@ -1,7 +1,6 @@
 """
 Transformations on multichannel 1D signals similar to those for 2D images in torchvision
 """
-import numpy as np
 from scipy.stats import norm
 
 from ecg_transformer.util import *
@@ -16,7 +15,7 @@ class Normalize:
     """
     Normalize based on given mean and std
     """
-    def __init__(self, mean = None, std = None):
+    def __init__(self, mean=None, std=None):
         """
         Each parameter is array-like with 12 channels
         """
@@ -250,3 +249,42 @@ if __name__ == '__main__':
         plt.show()
     # check_pad()
 
+    def check_no_nan():
+        from tqdm import tqdm
+
+        ed = EcgDataset(normalize=config('datasets.PTB-XL.train-stats'), return_type='pt')
+        idxs_nan = []
+        for idx, e in enumerate(tqdm(ed)):
+            if e.isnan().any():
+                idxs_nan.append(idx)
+        ic(idxs_nan)
+        idx_wicked = 12721  # this one has nan value
+        arr = ed[idx_wicked]
+        ic(arr.isnan().any())
+        # ic(arr)
+        # idxs_row, idxs_col = arr.isnan().nonzero().t()
+        # ic(idxs_row, idxs_col)
+        # torch.set_printoptions(linewidth=2000)
+        # print(arr)
+        # ic(arr[idxs_row, idxs_col])
+
+        def get_wicked_data():
+            import wfdb
+            path = os.path.join(PATH_BASE, DIR_DSET, config('datasets.PTB-XL.dir_nm'))
+            df = pd.read_csv(os.path.join(path, 'ptbxl_database.csv'), index_col='ecg_id')
+            fnm_wicked = os.path.join(path, df.filename_hr[idx_wicked+1])
+            ic(fnm_wicked)
+            sig_wicked, meta = wfdb.rdsamp(fnm_wicked)
+            sig_wicked = sig_wicked.T
+            ic(sig_wicked.shape, sig_wicked[10])
+
+            labels = ['Broken' if i == 10 else i for i in range(12)]
+            ecg_util.plot_1d(sig_wicked, label=labels)
+
+            # from ecg_transformer.preprocess import Export
+            # dnm = 'PTB-XL'
+            # fnm = Export.get_rec_nms(dnm)[idx_wicked]  # the same file path
+            # ic(fnm)
+            # exit(1)
+        get_wicked_data()
+    # check_no_nan()

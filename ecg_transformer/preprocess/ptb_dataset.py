@@ -25,11 +25,12 @@ def export_ptbxl_labels():
     """
     from icecream import ic
 
-    path = os.path.join(PATH_BASE, DIR_DSET, config('datasets.PTB_XL.dir_nm'), 'ptbxl_database.csv')
+    dnm = 'PTB-XL'
+    path = os.path.join(PATH_BASE, DIR_DSET, config(f'datasets.{dnm}.dir_nm'), 'ptbxl_database.csv')
     df = pd.read_csv(path, usecols=['ecg_id', 'patient_id', 'scp_codes', 'strat_fold'], index_col=0)
     df.patient_id = df.patient_id.astype(int)
     df.scp_codes = df.scp_codes.apply(literal_eval)
-    _d_codes = config('datasets.PTB_XL.code')
+    _d_codes = config(f'datasets.{dnm}.code')
     d_codes, code2id = _d_codes['codes'], _d_codes['code2id']
 
     def map_row(row: pd.Series):
