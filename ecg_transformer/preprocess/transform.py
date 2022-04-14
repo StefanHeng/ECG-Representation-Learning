@@ -161,7 +161,15 @@ class Resize:
 
 
 class RandomResizedCrop:
+    """
+    Ignore, as stretching the signals by a factor of 2 breaks physiological information
+    """
     def __init__(self, scale=(0.5, 1)):
+        pass
+
+
+class TimeOut:
+    def __init__(self):
         pass
 
 
@@ -213,8 +221,12 @@ if __name__ == '__main__':
 
     def check_normalize_channel(n: int = 128):
         # ed = EcgDataset(normalize=[('norm', 3), ('std', 1)])
-        ed = EcgDataset(normalize=('std', 1))
-        ed_n = EcgDataset(normalize='none')
+        # ed = EcgDataset(normalize=('std', 1))
+        t = 'original'
+        dnm = 'PTB-XL'
+        path = ecg_util.get_processed_record_path(dnm, t)
+        ed = EcgDataset(path, normalize=config(f'datasets.PTB-XL.train-stats.{t}'))
+        ed_n = EcgDataset(path, normalize='none')
         n_sig, (n_ch, l) = len(ed), ed.dataset.shape[1:]
         for i in range(n_ch):
             idxs_sig = np.sort(np.random.choice(n_sig, size=n, replace=False))
@@ -235,7 +247,7 @@ if __name__ == '__main__':
             )
             plt.title(f'Normalize sanity check for channel {i+1}')
             plt.show()
-    # check_normalize_channel(n=32)
+    check_normalize_channel(n=32)
 
     def check_pad(n: int = 128):
         patch_size = 64

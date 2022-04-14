@@ -3,6 +3,7 @@ Dataloader for downstream supervised fine-tuning on the PTB-XL dataset
 
 Frame the problem as multi-label classification with total of 71 classes spanning 3 aspects,
     each class as a binary probability
+That is, ignore the likelihood for each `scp_codes`, as those are not accurate anyway
 """
 
 from ast import literal_eval
@@ -13,6 +14,7 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import EcgDataset
 
 
@@ -45,16 +47,18 @@ def export_ptbxl_labels():
 
 
 class PtbxlDataset(EcgDataset):
-    DATASET_NAME = 'PTB-XL'
     N_CLASS = 71
 
-    def __init__(self, idxs, labels: Sequence[List[int]], **kwargs):
+    def __init__(self, idxs, labels: Sequence[List[int]], type: str = 'denoised', **kwargs):
         """
         :param idxs: Indices into the original PTB-XL csv rows
             Intended for selecting rows in the original dataset to create splits
         """
+        ca(type=type)
         assert 'dataset' not in kwargs and 'subset' not in kwargs
-        kwargs['dataset'], kwargs['subset'] = PtbxlDataset.DATASET_NAME, idxs
+        kwargs['dataset'], kwargs['subset'] = ecg_util.get_processed_record_path('PTB-XL', type=type), idxs
+        from icecream import ic
+        ic(kwargs['dataset'])
         super().__init__(**kwargs)
         self.labels = labels
 
@@ -92,15 +96,15 @@ class PtbxlDataModule(pl.LightningDataModule):
 
 
 def get_ptbxl_splits(
-        n_sample: int = None, dataset_args: Dict = None
+        n_sample: int = None, dataset_args: Dict = None, type='denoised'
 ) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
+    ca(type=type)
     logger = get_logger('Get PTB-XL splits')
-    idxs_processed = list(range(17920))  # TODO: the amount of denoised data
-    logger.info(f'Getting PTB-XL splits with n={logi(len(idxs_processed))}... ')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
     df = pd.read_csv(os.path.join(get_processed_path(), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
-    df = df.iloc[idxs_processed]
+    # df = df.iloc[idxs_processed]
+    logger.info(f'Getting PTB-XL splits with n={logi(len(df))}... ')
     df.labels = df.labels.apply(literal_eval)
     # `strat_fold`s are in [1, 10]
     df_tr, df_vl, df_ts = df[df.strat_fold < 9], df[df.strat_fold == 9], df[df.strat_fold == 10]
@@ -131,7 +135,7 @@ if __name__ == '__main__':
         ic(nd.transform)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    # check_ptb_denoise_progress()
+    check_ptb_denoise_progress()
 
     def check_split_dataset():
         dest_tr, dset_vl, dset_ts = get_ptbxl_splits()
@@ -139,7 +143,7 @@ if __name__ == '__main__':
         batch = dest_tr[0]
         sv, lbs = batch['sample_values'], batch['labels']
         ic(sv, lbs, sv.shape, lbs.shape)
-    # check_split_dataset()
+    check_split_dataset()
 
     def check_data_loading():
         dset = get_ptbxl_splits(n_sample=4, dataset_args=dict(return_type='pt'))[0]

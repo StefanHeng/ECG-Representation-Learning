@@ -30,7 +30,8 @@ class EcgDataset(Dataset):
             fqs=250, return_type: str = 'np',
             normalize: NormArg = 'std', transform: Union[Transform, List[Transform]] = None
     ):
-        self.rec = h5py.File(ecg_util.get_denoised_h5_path(dataset))
+        path = dataset if os.path.exists(dataset) else ecg_util.get_processed_record_path(dataset, type='denoised')
+        self.rec = h5py.File(path)
         self.dataset: h5py.Dataset = self.rec['data']
         self.attrs = json.loads(self.rec.attrs['meta'])
         assert self.attrs['fqs'] == fqs  # Sanity check

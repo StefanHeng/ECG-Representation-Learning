@@ -80,6 +80,9 @@ def config(attr):
 
 
 def get_processed_path():
+    """
+    Path where the processed records are stored
+    """
     return os.path.join(PATH_BASE, DIR_DSET, config('datasets.my.dir_nm'))
 
 
@@ -245,7 +248,8 @@ def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
         if isinstance(v, dict):
             return log_dict(v, with_color=with_color)
         else:
-            if is_float(v):  # Pad only normal, expected floats, intended for metric logging
+            # Pad only normal, expected floats, intended for metric logging
+            if not isinstance(v, (tuple, list)) and is_float(v):
                 if is_float(v, no_int=True, no_sci=True):
                     v = float(v)
                     return log(v, c='i', as_str=True, pad=pad_float) if with_color else f'{v:>{pad_float}}'

@@ -14,7 +14,7 @@ config_dict = {
         dir_proj=DIR_PROJ,
         dir_dset=DIR_DSET
     ),
-    DIR_DSET: {
+    'datasets': {
         'BIH-MVED': dict(
             nm='MIT-BIH Malignant Ventricular Ectopy Database',
             dir_nm='MIT-BIH-MVED'
@@ -148,15 +148,19 @@ def extract_datasets_meta():
 
 def set_ptbxl_train_stats():
     """
-    Get per-channel mean and standard deviation, see `ecg_transformer.preprocess.transform.py`
+    Get per-channel mean and standard deviation based on the training set, see `ecg_transformer.preprocess.transform.py`
     """
     n_sample = None
-    dset = get_ptbxl_splits(n_sample=n_sample, dataset_args=dict(normalize=('std', 1)))[0]
-    std1_normalizer = dset.transform.transforms[0].normalizers[0]
-    mean, std = std1_normalizer.norm_meta
-    mean, std = mean.flatten().tolist(), std.flatten().tolist()
-    d_dset: Dict[str, Any] = config_dict['datasets']['PTB-XL']
-    d_dset['train-stats'] = dict(mean=mean, std=std)
+
+    def _get_single(type: str) -> Dict:
+        dset = get_ptbxl_splits(n_sample=n_sample, dataset_args=dict(normalize=('std', 1), type=type))[0]
+        std1_normalizer = dset.transform.transforms[0].normalizers[0]
+        mean, std = std1_normalizer.norm_meta
+        mean, std = mean.flatten().tolist(), std.flatten().tolist()
+        return dict(mean=mean, std=std)
+    # d_dset: Dict[str, Any] = config_dict['datasets']['PTB-XL']
+    # d_dset['train-stats'] = dict(
+    set_(config_dict, 'datasets.PTB-XL.train-stats', {k: _get_single(k) for k in ['original', 'denoised']})
 
 
 def set_paths():

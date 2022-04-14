@@ -17,7 +17,7 @@ def get_accuracy(
         get_accuracy.id2code = config('datasets.PTB-XL.code.id2code')
     preds_bin = (preds >= 0.5).int()  # for binary classifications per class
 
-    macro_auc, code2auroc = None, dict()
+    macro_auc, code2auroc = None, None
     if return_auc:
         # which of the 71 classes in this batch/entire dataset of labels, has both positive and negative samples
         # filter out those with only pos/neg labels, otherwise AUROC breaks

@@ -7,6 +7,7 @@ import wfdb
 from wfdb import processing
 
 from .util import *
+from .check_args import ca
 
 
 def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=True, plot_kwargs=None, show=True):
@@ -24,9 +25,10 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
     lbl = [None for _ in arr] if label is None else label
     cs = sns.color_palette('husl', n_colors=len(arr))
 
-    def _plot(a_, lb_, c):
+    def _plot(a_, lb_, c_):
         a_ = a_[s:e]
-        plt.gca().plot(np.arange(a_.size), a_, label=lb_, c=c, **kwargs)
+        args = dict(c=c_) | kwargs
+        plt.gca().plot(np.arange(a_.size), a_, label=lb_, **args)
     for a, lb, c in zip(arr, lbl, cs):
         _plot(a, lb, c)
 
@@ -152,12 +154,12 @@ def get_record_eg(dnm, n=0, ln=None):
     return wfdb.rdrecord(rec_path[:rec_path.index('.')], **kwargs)
 
 
-def fnm2sigs(fnm, dnm):
-    if not hasattr(config, 'd_d_dset'):
-        fnm2sigs.d_d_dset = config(DIR_DSET)
+def fnm2sigs(fnm, dnm, to_fp32: bool = True):
+    # if not hasattr(config, 'd_d_dset'):
+    #     fnm2sigs.d_d_dset = config(DIR_DSET)
 
     if dnm == 'CHAP-SHAO':
-        return pd.read_csv(fnm).to_numpy().T
+        arr = pd.read_csv(fnm).to_numpy().T
     elif dnm == 'CODE-TEST':
         assert isinstance(fnm, int)  # Single file with all recordings
         if not hasattr(config, 'ct_tracings'):
@@ -165,9 +167,13 @@ def fnm2sigs(fnm, dnm):
             assert len(fnms) == 1
             fnm2sigs.ct_tracings = h5py.File(fnm, 'r')
 
-        return fnm2sigs.ct_tracings['tracings'][fnm]
+        arr = fnm2sigs.ct_tracings['tracings'][fnm]
     else:
-        return wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext'])).p_signal.T
+        arr = wfdb.rdsamp(fnm.removesuffix(config(f'datasets.{dnm}.rec_ext')))[0].T  # (signal, meta)
+        # return wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext'])).p_signal.T
+    if to_fp32:
+        arr = arr.astype(np.float32)  # for faster processing, & for ML anyway
+    return arr
 
 
 def get_signal_eg(dnm=None, n=None):
@@ -228,14 +234,10 @@ def get_nlm_denoise_truth(verbose=False):
     )
 
 
-def get_denoised_h5_path(dnm):
-    if not hasattr(get_denoised_h5_path, 'd_dset'):
-        get_denoised_h5_path.d_dset = config(f'datasets.my')
-    d_dset = get_denoised_h5_path.d_dset
-    if not hasattr(get_denoised_h5_path, 'path_exp'):
-        # Path where the processed records are stored
-        get_denoised_h5_path.path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
-    return os.path.join(get_denoised_h5_path.path_exp, d_dset['rec_fmt_denoised'] % dnm)
+def get_processed_record_path(dataset_name, type: str = 'denoised'):
+    ca(type=type, dataset_name=dataset_name)
+    fmt = 'rec_fmt_denoised' if type == 'denoised' else 'rec_fmt'
+    return os.path.join(get_processed_path(), config(f'datasets.my.{fmt}') % dataset_name)
 
 
 if __name__ == '__main__':

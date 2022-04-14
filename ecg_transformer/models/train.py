@@ -5,6 +5,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from transformers import get_cosine_schedule_with_warmup
 
 from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 import ecg_transformer.util.train as train_util
 from ecg_transformer.preprocess import transform, PtbxlDataModule
 from ecg_transformer.models import EcgVitConfig, EcgVit
@@ -192,15 +193,18 @@ def get_train_args(args: Dict = None) -> Dict:
 
 
 def get_all_setup(
-        model_name: str = 'ecg-vit', model_size: str = 'small', train_args: Dict = None
+        model_name: str = 'ecg-vit', model_size: str = 'small', train_args: Dict = None,
+        ptbxl_type: str = 'denoised'
 ) -> Tuple[Module, MyTrainer]:
     assert model_name == 'ecg-vit'
     conf = EcgVitConfig.from_defined(f'{model_name}-{model_size}')
     model = EcgVit(config=conf)
     train_args = get_train_args(train_args)
 
+    dnm = 'PTB-XL'
     pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
-    dset_args = dict(normalize=config('datasets.PTB-XL.train-stats'), transform=pad, return_type='pt')
+    stats = config(f'datasets.{dnm}.train-stats.{ptbxl_type}')
+    dset_args = dict(type=ptbxl_type, normalize=stats, transform=pad, return_type='pt')
     data_module = PtbxlDataModule(train_args=train_args, dataset_args=dset_args)
 
     # TODO: gradient accumulation not supported
@@ -218,11 +222,12 @@ if __name__ == '__main__':
 
     def train():
         model_size = 'debug'
+        t = 'original'
 
         train_args = dict(
-            num_train_epoch=16,
-            train_batch_size=2,
-            eval_batch_size=2,
+            num_train_epoch=128,
+            train_batch_size=4,
+            eval_batch_size=4,
             warmup_ratio=0.1,
             n_sample=4,
             precision=16,
@@ -232,6 +237,6 @@ if __name__ == '__main__':
             save_every_n_epoch=4,
             save_top_k=2
         )
-        model, trainer = get_all_setup(model_size=model_size, train_args=train_args)
+        model, trainer = get_all_setup(model_size=model_size, train_args=train_args, ptbxl_type=t)
         trainer.train()
     train()

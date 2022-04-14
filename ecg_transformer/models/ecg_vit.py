@@ -25,18 +25,19 @@ class EcgVitConfig(PretrainedConfig):
             intermediate_size: int = 2048,
             hidden_dropout_prob: float = 0.1,
             attention_probs_dropout_prob: float = 0.1,
+            num_class: int = 71,  # specific to ECG supervised classification
             **kwargs
     ):
         self.max_signal_length = max_signal_length
         self.patch_size = patch_size
         self.num_channels = num_channels
-        self.num_class = num_channels
         self.hidden_size = hidden_size
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
         self.intermediate_size = intermediate_size
         self.hidden_dropout_prob = hidden_dropout_prob
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
+        self.num_class = num_class
         super().__init__(**kwargs)
 
     @classmethod
@@ -108,12 +109,12 @@ class EcgVit(nn.Module):
         loss = None
         if labels is not None:
             loss = self.loss_fn(input=logits, target=labels)
-        from icecream import ic
-        ic(loss, logits, logits.isnan().nonzero(), sample_values.isnan().any())
         return ModelOutput(loss=loss, logits=logits)
 
 
 if __name__ == '__main__':
+    from icecream import ic
+
     def check_forward_pass():
         ev = EcgVit()
         # ic(ev)

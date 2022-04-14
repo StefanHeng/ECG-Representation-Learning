@@ -46,10 +46,10 @@ class RecDataExport:
         self.logger: logging.Logger = get_logger('ECG Record Export')
         dnms = config('datasets-export.total')
         self._log_info(f'Exporting ECG records on datasets {logi(dnms)}... ')
-        self.export_record_info()
-        # for dnm in dnms[1:2]:
+        # self.export_record_info()
         # for dnm in dnms:
-        #     self.export_record_data(dnm, resample=resample)
+        for dnm in dnms[1:2]:
+            self.export_record_data(dnm, resample=resample)
         # self.export_record_data('CHAP_SHAO', resample)  # TODO: debugging
 
     @staticmethod
@@ -60,7 +60,7 @@ class RecDataExport:
         )
 
     def get_dset_record_info(self, dnm, return_df=True) -> Union[pd.DataFrame, List[List]]:
-        d_dset = self.d_dsets[dnm]
+        d_dset = config(f'datasets.{dnm}')
         dir_nm = d_dset['dir_nm']
         path_ = os.path.join(PATH_BASE, DIR_DSET, dir_nm)
 
@@ -179,12 +179,15 @@ class RecDataExport:
         if self.logger is not None:
             self.logger.info(f'Exporting {logi(dnm)} data... ')
         assert dnm in config('datasets-export.total')
-        d_dset = self.d_dsets[dnm]
 
         rec_nms = self.get_rec_nms(dnm)
-        sigs = np.stack(batched_conc_map(lambda fnms_, s_, e_: [ecg_util.fnm2sigs(nm_, dnm) for nm_ in fnms_[s_:e_]], rec_nms))
-        fqs = d_dset['fqs']
-        d_rec = dict(n=len(rec_nms), shape=sigs.shape, frequency=fqs)
+        # rec_nms = rec_nms[:1024]  # TODO: debugging
+        sigs = np.stack(batched_conc_map(
+            lambda fnms_, s_, e_: [ecg_util.fnm2sigs(nm_, dnm) for nm_ in fnms_[s_:e_]], rec_nms)
+        )
+        # ic(sigs, sigs.shape, sigs.dtype)
+        fqs = config(f'datasets.{dnm}.fqs')
+        d_rec = dict(n=len(rec_nms), shape=sigs.shape, dtype=sigs.dtype, frequency=fqs)
         self._log_info(f'Loaded record data: {log_dict(d_rec)}')
         shape = sigs.shape
         assert len(shape) == 3 and shape[0] == len(rec_nms) and shape[1] == 12
@@ -208,6 +211,7 @@ class RecDataExport:
         if _resample and resample != 'single':
             dsets['ori'] = sigs
         attrs = dict(dnm=dnm, fqs=fqs, resampled=resample)
+        # ic(type(resample))
         fnm = os.path.join(self.path_exp, config('datasets.my.rec_fmt') % dnm)
         self._log_info(f'Writing processed signals to {logi(fnm)}...')
         open(fnm, 'a').close()  # Create file in OS
@@ -229,7 +233,7 @@ if __name__ == '__main__':
     def export():
         de = RecDataExport(fqs=250)
         de(resample='single')
-    export()
+    # export()
 
     def sanity_check():
         """
@@ -260,7 +264,7 @@ if __name__ == '__main__':
         from matplotlib.widgets import Button
 
         # dnm = 'CHAP_SHAO'
-        dnm = 'PTB_XL'
+        dnm = 'PTB-XL'
         d_dset = config(f'datasets.my')
         path_exp = os.path.join(PATH_BASE, DIR_DSET, d_dset['dir_nm'])
         rec_ori = h5py.File(os.path.join(path_exp, d_dset['rec_fmt'] % dnm), 'r')
@@ -269,8 +273,8 @@ if __name__ == '__main__':
         ic(data_ori.shape)
         n_sig, n_ch, l_ch = data_ori.shape
 
-        sig, truth_denoised = ecg_util.get_nlm_denoise_truth(verbose=False)[:2]
-        ic(sig[:10], truth_denoised[:10], sig.shape)
+        # sig, truth_denoised = ecg_util.get_nlm_denoise_truth(verbose=False)[:2]
+        # ic(sig[:10], truth_denoised[:10], sig.shape)
         # ecg_util.plot_1d(
         #     [sig, truth_denoised],
         #     label=['Original, resampled', 'Denoised'],
@@ -336,3 +340,21 @@ if __name__ == '__main__':
         _step(77, 0)
         plt.show()
     # check_matlab_out()
+
+    def exported_to_fp32():
+        """
+        Save disk space on colab, and processing anyway, convert the MATLAB-denoised dataset from fp64 to fp32
+        """
+        fnm = 'PTB-XL-denoised'
+        fnm_out = f'{fnm}, fp32'
+        fnm = os.path.join(get_processed_path(), f'{fnm}.hdf5')
+        fnm_out = os.path.join(get_processed_path(), f'{fnm_out}.hdf5')
+
+        rec = h5py.File(fnm, 'r')
+        assert list(rec.attrs.keys()) == ['meta'] and list(rec.keys()) == ['data'] and rec['data'].dtype == np.float64
+
+        rec_out = h5py.File(fnm_out, 'w')
+        rec_out.attrs['meta'] = rec.attrs['meta']
+        rec_out.create_dataset('data', data=rec['data'], dtype=np.float32)
+        ic(rec_out.attrs['meta'], rec_out.keys())
+    exported_to_fp32()
