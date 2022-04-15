@@ -28,6 +28,8 @@ class Normalize:
             mean, std = self.mean.reshape((1, -1, 1)), self.std.reshape((1, -1, 1))
         else:
             mean, std = self.mean.reshape((-1, 1)), self.std.reshape((-1, 1))
+        # from icecream import ic
+        # ic('in normalized')
         return (arr - mean) / std
 
 

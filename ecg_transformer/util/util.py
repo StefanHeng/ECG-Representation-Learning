@@ -170,6 +170,20 @@ def fmt_dt(secs: Union[int, float, datetime.timedelta]):
         return f'{round(secs)}s'
 
 
+def profile_runtime(callback: Callable, sleep: Union[float, int] = None):
+    import time
+    import cProfile
+    import pstats
+    profiler = cProfile.Profile()
+    profiler.enable()
+    callback()
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats('cumtime')
+    if sleep:    # Sometimes, the top rows in `print_states` are now shown properly
+        time.sleep(sleep)
+    stats.print_stats()
+
+
 def sig_d(flt: float, n: int = 1):
     """
     :return: first n-th significant digit of `sig_d`

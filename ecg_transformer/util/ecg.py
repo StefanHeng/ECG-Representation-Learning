@@ -44,6 +44,39 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
         plt.show()
 
 
+def plot_ecg(arr: np.ndarray, title=None):
+    """
+    :param arr: 2D array of a 12-lead ECG signal
+    :param title: Title of the plot
+    """
+    n_lead = arr.shape[0]
+    height = (abs(np.max(arr)) + abs(np.min(arr))) / 4  # Empirical
+
+    plt.figure(figsize=(16, 13))
+
+    ylb_ori = ((np.arange(n_lead) - n_lead + 1) * height)[::-1]
+    ylb_new = ['I', 'II', 'III', 'avR', 'avL', 'avF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']  # TODO; verify order
+    cs = sns.color_palette('husl', n_colors=n_lead)
+    for i, row in enumerate(arr):
+        offset = height * i
+        x = np.arange(row.size)
+        y = row - offset
+        plt.plot(x, y, label=ylb_new[i], marker='o', ms=0.3, lw=0.25, c=cs[i])
+        plt.axhline(y=-offset, lw=0.2)
+
+    t = 'ECG 12-lead plot'
+    if title:
+        t = f'{t}, {title}'
+    plt.title(t)
+    plt.xlabel('Timestep (potentially resampled)')
+    plt.ylabel('Volt, normalized')
+    plt.yticks(ylb_ori, ylb_new)
+    handles, labels = plt.gca().get_legend_handles_labels()  # Distinct labels
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys(), bbox_to_anchor=(1.05, 1))
+    plt.show()
+
+
 def r2(y, y_fit):
     return 1 - (np.square(y - y_fit).sum() / np.square(y - np.mean(y)).sum())
 

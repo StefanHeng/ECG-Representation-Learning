@@ -45,17 +45,19 @@ class EcgVitConfig(PretrainedConfig):
         """
         A few model sizes I defined
         """
-        model_names = ['ecg-vit-debug', 'ecg-vit-tiny', 'ecg-vit-small', 'ecg-vit-base', 'ecg-vit-large']
-        assert model_name in model_names, \
-            f'Unexpected model name: expect one of {logi(model_names)}, got {logi(model_name)}'
+        ca(model_name=model_name)
         conf = cls()
         if model_name == 'ecg-vit-debug':
-            conf = cls.from_defined('ecg-vit-tiny')
-            conf.num_hidden_layers = 2
+            # conf = cls.from_defined('ecg-vit-tiny')
+            # conf.num_hidden_layers = 2
+            conf.hidden_size = 64
+            conf.num_hidden_layers = 4
+            conf.num_attention_heads = 4
+            conf.intermediate_size = 256
         elif model_name == 'ecg-vit-tiny':
             conf.hidden_size = 256
-            conf.num_hidden_layers = 8
-            conf.num_attention_heads = 8
+            conf.num_hidden_layers = 4
+            conf.num_attention_heads = 4
             conf.intermediate_size = 1024
         elif model_name == 'ecg-vit-small':
             conf.hidden_size = 512
@@ -97,17 +99,37 @@ class EcgVit(nn.Module):
             emb_dropout=self.config.attention_probs_dropout_prob
         )
         self.vit = ViT(**_md_args)
+        # self.debug_pool = nn.AdaptiveAvgPool2d((1, 1))
+        # self.debug_pool = nn.AdaptiveAvgPool2d((1, 160))
+        # self.debug_linear1 = nn.Linear(12 * 160, 128)
+        # self.debug_relu = nn.ReLU(inplace=True)
+        # self.debug_linear2 = nn.Linear(128, num_class)
         self.loss_fn = nn.BCEWithLogitsLoss()  # TODO: more complex loss, e.g. weighting?
+        # self.loss_weight = (1, 32)
+        self.loss_weight = None
 
         C, L = self.config.num_channels, self.config.max_signal_length
         self.meta = {
-            'name': self.__class__.__qualname__, 'input shape': f'{C} x {L}', '#patch': L // self.config.patch_size
+            'name': self.__class__.__qualname__, 'input shape': f'{C} x {L}', '#patch': L // self.config.patch_size,
+            '#l': self.config.num_hidden_layers, '#h': self.config.num_attention_heads,
         }
 
     def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
         logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
+        # from icecream import ic
+        # ic(sample_values.shape, self.debug_pool(sample_values.unsqueeze(-2)).shape)
+        # pooled = self.debug_pool(sample_values.unsqueeze(-2)).flatten(start_dim=1)
+        # logits = self.debug_linear1(pooled.squeeze())
+        # logits = self.debug_linear2(self.debug_relu(logits))
+        # from icecream import ic
+        # ic(sample_values.unsqueeze(-2).shape, logits.shape, labels.shape, logits, labels)
         loss = None
         if labels is not None:
+            if self.loss_weight:
+                # from icecream import ic
+                # ic(self.loss_weight)
+                weight = torch.tensor(self.loss_weight, device=labels.device)
+                self.loss_fn = nn.BCEWithLogitsLoss(weight=weight[labels.long()])  # Map weights by each label
             loss = self.loss_fn(input=logits, target=labels)
         return ModelOutput(loss=loss, logits=logits)
 

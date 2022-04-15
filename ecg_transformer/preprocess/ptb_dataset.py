@@ -57,8 +57,6 @@ class PtbxlDataset(EcgDataset):
         ca(type=type)
         assert 'dataset' not in kwargs and 'subset' not in kwargs
         kwargs['dataset'], kwargs['subset'] = ecg_util.get_processed_record_path('PTB-XL', type=type), idxs
-        from icecream import ic
-        ic(kwargs['dataset'])
         super().__init__(**kwargs)
         self.labels = labels
 

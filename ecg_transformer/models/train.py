@@ -2,10 +2,9 @@ import torch
 from torch.nn import Module
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from transformers import get_cosine_schedule_with_warmup
+from transformers import get_cosine_schedule_with_warmup, get_constant_schedule_with_warmup
 
 from ecg_transformer.util import *
-import ecg_transformer.util.ecg as ecg_util
 import ecg_transformer.util.train as train_util
 from ecg_transformer.preprocess import transform, PtbxlDataModule
 from ecg_transformer.models import EcgVitConfig, EcgVit
@@ -18,6 +17,7 @@ class EcgVitTrainModule(pl.LightningModule):
         self.train_args, self.parent_trainer = train_args, parent_trainer
 
     def forward(self, **kwargs):
+        # ic(kwargs['sample_values'])
         return self.model(**kwargs)
 
     def configure_optimizers(self):
@@ -25,9 +25,13 @@ class EcgVitTrainModule(pl.LightningModule):
             self.parameters(), lr=self.train_args['learning_rate'], weight_decay=self.train_args['weight_decay']
         )
         warmup_ratio, n_step = self.train_args['warmup_ratio'], self.train_args['n_step']
-        scheduler = get_cosine_schedule_with_warmup(
-            optimizer, num_warmup_steps=round(n_step * warmup_ratio), num_training_steps=n_step
-        )
+        sch, args = self.train_args['schedule'], dict(optimizer=optimizer, num_warmup_steps=round(n_step*warmup_ratio))
+        if sch == 'constant':
+            sch = get_constant_schedule_with_warmup
+        else:
+            sch = get_cosine_schedule_with_warmup
+            args.update(dict(num_training_steps=n_step))
+        scheduler = sch(**args)
         return [optimizer], [dict(scheduler=scheduler, interval='step', frequency=1)]
 
     def training_step(self, batch, batch_idx):
@@ -44,7 +48,7 @@ class EcgVitTrainModule(pl.LightningModule):
         lr = self.parent_trainer.get_curr_learning_rate()
         d_update = {  # colab compatibility
             **dict(learning_rate=lr, loss=loss.detach().item()),
-            **train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=False)
+            **train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
         }
         d_log.update({f'train/{k}': v for k, v in d_update.items()})
         self._log_info(d_log)
@@ -58,11 +62,11 @@ class EcgVitTrainModule(pl.LightningModule):
             **dict(loss=loss),
             **train_util.get_accuracy(preds_prob, labels)
         }
-        d_log.update({f'eval/{k}': v for k, v in d_update.items()})
-        self._log_info(d_log)
-        for k, v in d_log.items():
+        for k, v in d_update.items():
             if not isinstance(v, dict):
                 self.parent_trainer.pl_trainer.callback_metrics[k] = torch.tensor(v)  # per `ModelCheckpoint`
+        d_log.update({f'eval/{k}': v for k, v in d_update.items()})
+        self._log_info(d_log)
 
     def _log_info(self, x):
         if self.parent_trainer is not None:
@@ -109,8 +113,8 @@ class MyTrainer:
         if self.train_args['save_while_training']:
             callback = pl.callbacks.ModelCheckpoint(
                 dirpath=os.path.join(self.output_dir, 'checkpoints'),
-                monitor='eval/loss',
-                filename='checkpoint-epoch{epoch:02d}, eval-loss={eval/loss:.2f}',
+                monitor='loss',  # having `eval/loss` seems to break the filename
+                filename='checkpoint-{epoch:02d}, {loss:.2f}',
                 every_n_epochs=self.train_args['save_every_n_epoch'],
                 save_top_k=self.train_args['save_top_k'],
                 save_last=True
@@ -121,7 +125,8 @@ class MyTrainer:
             enable_progress_bar=False,
             callbacks=callback,
             gradient_clip_val=1,
-            check_val_every_n_epoch=1,
+            # check_val_every_n_epoch=1,
+            check_val_every_n_epoch=int(1e10),  # Disable evaluation, TODO: debugging
             max_epochs=n_ep,
             log_every_n_steps=1,
             gpus=torch.cuda.device_count(),
@@ -174,6 +179,7 @@ def get_train_args(args: Dict = None) -> Dict:
         num_train_epoch=3,
         train_batch_size=64,
         eval_batch_size=64,
+        do_eval=True,
         learning_rate=3e-4,
         weight_decay=1e-1,
         warmup_ratio=0.05,
@@ -203,8 +209,9 @@ def get_all_setup(
 
     dnm = 'PTB-XL'
     pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
-    stats = config(f'datasets.{dnm}.train-stats.{ptbxl_type}')
-    dset_args = dict(type=ptbxl_type, normalize=stats, transform=pad, return_type='pt')
+    # stats = config(f'datasets.{dnm}.train-stats.{ptbxl_type}')
+    # dset_args = dict(type=ptbxl_type, normalize=stats, transform=pad, return_type='pt')
+    dset_args = dict(type=ptbxl_type, normalize=('norm', 3), transform=pad, return_type='pt')
     data_module = PtbxlDataModule(train_args=train_args, dataset_args=dset_args)
 
     # TODO: gradient accumulation not supported
@@ -215,8 +222,17 @@ def get_all_setup(
 
 
 if __name__ == '__main__':
+    from torch.utils.data import DataLoader
     from pytorch_lightning.utilities.seed import seed_everything
+
     from icecream import ic
+
+    from ecg_transformer.preprocess import get_ptbxl_splits
+
+    lw = 1024
+    ic.lineWrapWidth = lw
+    np.set_printoptions(linewidth=lw)
+    torch.set_printoptions(linewidth=lw)
 
     seed_everything(config('random-seed'))
 
@@ -224,19 +240,113 @@ if __name__ == '__main__':
         model_size = 'debug'
         t = 'original'
 
+        n_sample = 256
+        bsz = 32
+
         train_args = dict(
-            num_train_epoch=128,
-            train_batch_size=4,
-            eval_batch_size=4,
-            warmup_ratio=0.1,
-            n_sample=4,
-            precision=16,
-            log_per_epoch=True,
-            # log_to_console=False,
+            num_train_epoch=32,
+            train_batch_size=bsz,
+            eval_batch_size=bsz,
+            learning_rate=1e-3,
+            # warmup_ratio=0.1,
+            warmup_ratio=0,
+            schedule='constant',
+            n_sample=n_sample,
+            precision=16 if torch.cuda.is_available() else 32,
+            do_eval=False,
+            # log_per_epoch=True,
+            log_to_console=False,
             save_while_training=True,
             save_every_n_epoch=4,
             save_top_k=2
         )
         model, trainer = get_all_setup(model_size=model_size, train_args=train_args, ptbxl_type=t)
         trainer.train()
-    train()
+    # train()
+    # profile_runtime(train)
+
+    def fix_check_trained_why_auc_low():
+
+        model_key = 'ecg-vit-base'
+        conf = EcgVitConfig.from_defined(model_key)
+        model = EcgVit(config=conf)
+        model = EcgVitTrainModule(model=model)
+
+        checkpoint_path = os.path.join(
+            PATH_BASE, DIR_PROJ, DIR_MDL,
+            '2022-04-14_14-59-52', 'checkpoints', 'checkpoint-epochepoch=08, eval-loss=eval', 'loss=0.13.ckpt'
+        )
+        ckpt = torch.load(checkpoint_path, map_location='cpu')
+        # ic(type(ckpt), ckpt.keys())
+        # ic(ckpt['state_dict'].keys())
+        model.load_state_dict(ckpt['state_dict'], strict=True)  # Need the pl wrapper cos that's how the model is saved
+        model.eval()
+        # ic(model)
+
+        t = 'original'
+        dnm = 'PTB-XL'
+        pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
+        stats = config(f'datasets.{dnm}.train-stats.{t}')
+        dset_args = dict(type=t, normalize=stats, transform=pad, return_type='pt')
+        tr, vl, ts = get_ptbxl_splits(n_sample=1024, dataset_args=dset_args)
+        # dl = DataLoader(tr, batch_size=4)
+        dl = DataLoader(vl, batch_size=4)
+        for inputs in dl:
+            sample_values = inputs['sample_values']
+            ic(sample_values.shape, sample_values[:, 0, :20])
+            with torch.no_grad():
+                outputs = model(**inputs)
+            # ic(outputs)
+            loss, logits, labels = outputs.loss, outputs.logits, inputs['labels']
+            ic(logits)
+            ic(train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True))
+            exit(1)
+    # fix_check_trained_why_auc_low()
+
+    def fix_check_why_logits_all_same():
+        conf = EcgVitConfig.from_defined('ecg-vit-debug')
+        conf.patch_size = 32  # half of the defined
+        model = EcgVit(config=conf)
+
+        t = 'original'
+        dnm = 'PTB-XL'
+        pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
+        stats = config(f'datasets.{dnm}.train-stats.{t}')
+        dset_args = dict(type=t, normalize=stats, transform=pad, return_type='pt')
+        n = 256
+        bsz = 32
+        tr, vl, ts = get_ptbxl_splits(n_sample=n, dataset_args=dset_args)
+        dl = DataLoader(vl, batch_size=bsz, shuffle=True)
+
+        # lr = 3e-4
+        lr = 1e-3
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0)
+        for n_ep in range(32):
+            model.train()  # cos at the end of each eval, evaluate
+            for inputs in dl:
+                # inputs['sample_values'] = inputs['sample_values'][:, :, :80]
+                optimizer.zero_grad()
+
+                sample_values, labels = inputs['sample_values'], inputs['labels']
+                outputs = model(**inputs)
+                loss, logits = outputs.loss, outputs.logits.detach()
+
+                msk_2_class = torch.any(labels != labels[0], dim=0)
+                prob_preds = torch.sigmoid(logits)
+                bin_preds = prob_preds > 0.5
+                matched: torch.Tensor = bin_preds == labels
+                acc = matched.sum().item() / matched.numel()
+                # ic(sample_values[:, 0, :4], labels, logits, acc)
+                ic(
+                    prob_preds[:, msk_2_class], bin_preds[:, msk_2_class], labels[:, msk_2_class], acc,
+                    bin_preds.sum().item(),
+                    (~matched).nonzero(),
+                )
+
+                loss.backward()
+                import torch.nn as nn
+                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0, error_if_nonfinite=True)
+                optimizer.step()
+                # scheduler.step()
+    fix_check_why_logits_all_same()
+    # profile_runtime(fix_check_why_logits_all_same)

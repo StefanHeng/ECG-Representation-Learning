@@ -97,18 +97,30 @@ class EcgDataset(Dataset):
 if __name__ == '__main__':
     from icecream import ic
 
-    dnm = 'CHAP_SHAO'
+    import ecg_transformer.util.ecg as ecg_util
 
     def sanity_check():
+        dnm = 'CHAP-SHAO'
         nd = EcgDataset(dnm, normalize='global')
         ic(len(nd), nd[0].shape)
         ic(nd.transform)
         for i, rec in enumerate(nd[:8]):
             ic(rec.shape, rec[0, :4])
-    sanity_check()
+    # sanity_check()
 
     def check_extracted_dataset():
-        for dnm_ in config('datasets_export.total'):
-            el_ = EcgDataset(dnm_)
+        for dnm in config('datasets_export.total'):
+            el_ = EcgDataset(dnm)
             ic(el_.dataset.shape)
     # check_extracted_dataset()
+
+    def check_loaded_12_lead():
+        dnm = 'PTB-XL'
+        # normalize = ('norm', 3)
+        normalize = 'std'
+        ed = EcgDataset(dnm, normalize=normalize)
+        for rec in ed[:4]:
+            ic(rec.shape)
+            ecg_util.plot_ecg(rec)
+            # exit(1)
+    check_loaded_12_lead()
