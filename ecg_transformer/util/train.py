@@ -42,11 +42,11 @@ def get_accuracy(
             if isinstance(aucs, (float, np.float32, np.float64)):
                 aucs = np.array([aucs])
             from icecream import ic
-            ic(preds_bin[:, msk_2_class].bool(), labels[:, msk_2_class])
-            # ic(aucs, msk_2_class, labels[:, msk_2_class], preds_prob[:, msk_2_class])
+            ic(preds_prob[:, msk_2_class], preds_bin[:, msk_2_class].bool(), labels[:, msk_2_class])
             code2auroc = {get_accuracy.id2code[idx]: auc for idx, auc in zip(idxs_2_class, aucs)}
             macro_auc = np.array(list(code2auroc.values())).mean()
     # should rarely be not the case, unless, the positive labels for all samples is exactly the same
+
     if isinstance(labels, torch.Tensor):  # must be that `preds_bin` is also a tensor
         labels = labels.cpu().numpy()
     preds_bin = preds_bin.cpu().numpy()

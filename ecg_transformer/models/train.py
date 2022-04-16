@@ -20,13 +20,12 @@ class EcgVitTrainModule(pl.LightningModule):
         self.train_args, self.parent_trainer = train_args, parent_trainer
 
     def forward(self, **kwargs):
-        # ic(kwargs['sample_values'])
         return self.model(**kwargs)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.train_args['learning_rate'], weight_decay=self.train_args['weight_decay']
-        )
+        optim_cls = torch.optim.AdamW if self.args['optimizer'] == 'AdamW' else torch.optim.Adam
+        lr, dc = self.args['learning_rate'], self.args['weight_decay']
+        optimizer = optim_cls(self.parameters(), lr=lr, weight_decay=dc)
         warmup_ratio, n_step = self.train_args['warmup_ratio'], self.train_args['n_step']
         sch, args = self.train_args['schedule'], dict(optimizer=optimizer, num_warmup_steps=round(n_step*warmup_ratio))
         if sch == 'constant':
@@ -202,9 +201,8 @@ class MyTrainer:
         self.epoch, self.step = None, None
         self.t_strt = None
 
-        model_meta = model.meta
-        self.train_meta = {'model': model_meta, '#epoch': num_train_epoch, '#step': n_step, 'bsz': train_batch_size}
-        self.log_fnm = f'model={model_meta}, ' \
+        self.train_meta = {'model': model.meta, '#epoch': num_train_epoch, '#step': n_step, 'bsz': train_batch_size}
+        self.log_fnm = f'model={model.meta_str}, ' \
                        f'n={len(train_dataset)}, a={learning_rate}, dc={weight_decay}, ' \
                        f'bsz={train_batch_size}, n_ep={num_train_epoch}'
         self.logger, self.logger_fl, self.tb_writer = None, None, None
@@ -224,9 +222,9 @@ class MyTrainer:
         self.tb_writer = SummaryWriter(tb_path)
 
         dl = DataLoader(self.train_dataset, batch_size=self.args['train_batch_size'], shuffle=True, pin_memory=True)
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=self.args['learning_rate'], weight_decay=self.args['weight_decay']
-        )
+        optim_cls = torch.optim.AdamW if self.args['optimizer'] == 'AdamW' else torch.optim.Adam
+        lr, dc = self.args['learning_rate'], self.args['weight_decay']
+        self.optimizer = optim_cls(self.model.parameters(), lr=lr, weight_decay=dc)
         warmup_ratio, n_step = self.args['warmup_ratio'], self.args['n_step']
         sch, args = self.args['schedule'], dict(optimizer=self.optimizer, num_warmup_steps=round(n_step*warmup_ratio))
         if sch == 'constant':
@@ -262,6 +260,9 @@ class MyTrainer:
                 self.optimizer.step()
                 self.scheduler.step()
 
+                d_metric = train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
+                acc, auc = d_metric['binary_accuracy'], d_metric['macro_auc']
+                ic(acc, auc)
                 d_log = dict(epoch=self.epoch, step=self.step)  # 1-indexed
                 lr = self._get_lr()
                 d_update = {  # colab compatibility
@@ -352,8 +353,9 @@ def get_train_args(args: Dict = None, n_train: int = None) -> Dict:
         train_batch_size=64,
         eval_batch_size=64,
         do_eval=True,
+        optimizer='AdamW',  # 'Adam' as in ViT doesn't work well, only learns meaningful with real small decay
         learning_rate=3e-4,
-        weight_decay=1e-1,
+        weight_decay=1e-2,  # decay of 1e-1 as in ViT is too harsh for our case
         warmup_ratio=0.05,
         n_sample=None,
         patience=8,
@@ -378,7 +380,7 @@ def get_all_setup(
 ) -> Tuple[nn.Module, MyPlTrainer]:
     assert model_name == 'ecg-vit'
     conf = EcgVitConfig.from_defined(f'{model_name}-{model_size}')
-    conf.patch_size = 32  # TODO: debugging
+    # conf.patch_size = 32  # TODO: debugging
     model = EcgVit(config=conf)
 
     dnm = 'PTB-XL'
@@ -424,15 +426,20 @@ if __name__ == '__main__':
         # model_size = 'tiny'
         t = 'original'
 
-        n_sample = 128
-        bsz = 8
+        # n_sample = 128
+        n_sample = 512
+        # bsz = 8
+        bsz = 32
         num_train_epoch = 32
 
         train_args = dict(
             num_train_epoch=num_train_epoch,
             train_batch_size=bsz,
             eval_batch_size=bsz,
-            learning_rate=1e-3,
+            # learning_rate=1e-3,
+            learning_rate=3e-4,
+            # weight_decay=1e-4,
+            weight_decay=1e-2,
             # warmup_ratio=0.1,
             warmup_ratio=0,
             schedule='constant',
@@ -441,7 +448,7 @@ if __name__ == '__main__':
             do_eval=False,
             # log_per_epoch=True,
             log_to_console=False,
-            save_every_n_epoch=32,
+            save_every_n_epoch=8,
             save_top_k=2
         )
         model, trainer = get_all_setup(model_size=model_size, train_args=train_args, ptbxl_type=t)

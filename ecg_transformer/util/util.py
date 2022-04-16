@@ -254,7 +254,7 @@ def is_float(x: Any, no_int=False, no_sci=False) -> bool:
         return False
 
 
-def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
+def log_dict(d: Dict, with_color=True, pad_float: int = 5, sep=': ') -> str:
     """
     Syntactic sugar for logging dict with coloring for console output
     """
@@ -273,13 +273,20 @@ def log_dict(d: Dict, with_color=True, pad_float: int = 5) -> str:
                 return logi(v) if with_color else v
     if d is None:
         d = dict()
-    pairs = (f'{k}: {_log_val(v)}' for k, v in d.items())
+    pairs = (f'{k}{sep}{_log_val(v)}' for k, v in d.items())
     pref = log_s('{', c='m') if with_color else '{'
     post = log_s('}', c='m') if with_color else '}'
     return pref + ', '.join(pairs) + post
 
 
+def log_dict_nc(d: Dict, **kwargs) -> str:
+    return log_dict(d, with_color=False, **kwargs)
+
+
 def log_dict_id(d: Dict) -> str:
+    """
+    Indented dict
+    """
     return json.dumps(d, indent=4)
 
 
@@ -287,8 +294,11 @@ def log_dict_pg(d: Dict) -> str:
     return highlight(log_dict_id(d), lexers.JsonLexer(), formatters.TerminalFormatter())
 
 
-def log_dict_nc(d: Dict, **kwargs) -> str:
-    return log_dict(d, with_color=False, **kwargs)
+def log_dict_p(d: Dict, **kwargs) -> str:
+    """
+    for path
+    """
+    return log_dict(d, with_color=False, sep='=', **kwargs)
 
 
 def hex2rgb(hx: str) -> Union[Tuple[int], Tuple[float]]:
