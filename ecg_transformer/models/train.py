@@ -1,5 +1,11 @@
+import os
+import sys
 import math
+import logging
+import datetime
+from typing import Dict, Tuple, Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -12,7 +18,7 @@ from tqdm import tqdm
 from ecg_transformer.util import *
 import ecg_transformer.util.train as train_util
 from ecg_transformer.preprocess import EcgDataset, transform, PtbxlDataModule, get_ptbxl_splits
-from ecg_transformer.models import EcgVitConfig, EcgVit
+from ecg_transformer.models.ecg_vit import EcgVitConfig, EcgVit
 
 
 class EcgVitTrainModule(pl.LightningModule):
@@ -147,7 +153,7 @@ class MyPlTrainer:
         )
         t_strt = datetime.datetime.now()
         self.pl_trainer.fit(self.pl_module, self.data_module)
-        t = fmt_dt(datetime.datetime.now() - t_strt)
+        t = fmt_time(datetime.datetime.now() - t_strt)
         self.logger.info(f'Training completed in {logi(t)} ')
         self.logger_fl.info(f'Training completed in {t} ')
 
@@ -250,7 +256,7 @@ class MyTrainer:
         best_eval_loss, n_bad_ep = float('inf'), 0
         self.t_strt = datetime.datetime.now()
         if self.args['do_eval']:
-            self.evaluate(tqdm_desc='Before training')
+            self.evaluate()
         # TODO: doesn't seem to gate refresh rate, but seems refreshing is fine on colab
         tqdm_refresh_rate = 20 if is_on_colab() else 1
         for _ in range(self.args['num_train_epoch']):
@@ -271,9 +277,6 @@ class MyTrainer:
                 self.optimizer.step()
                 self.scheduler.step()
 
-                # d_metric = train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
-                # acc, auc = d_metric['binary_accuracy'], d_metric['macro_auc']
-                # ic(acc, auc)
                 d_log = dict(epoch=self.epoch, step=self.step)  # 1-indexed
                 lr = self._get_lr()
                 d_update = {  # colab compatibility
@@ -288,7 +291,7 @@ class MyTrainer:
                 fnm = f'model - {self.log_fnm}, ep{self.epoch}.pt'
                 torch.save(self.model.state_dict(), os.path.join(self.output_dir, fnm))
             if self.args['do_eval']:
-                eval_loss = self.evaluate(tqdm_desc=desc_epoch)['eval/loss']
+                eval_loss = self.evaluate()['eval/loss']
 
                 if eval_loss < best_eval_loss:
                     best_eval_loss = eval_loss
@@ -296,28 +299,24 @@ class MyTrainer:
                 else:
                     n_bad_ep += 1
                 if n_bad_ep >= self.args['patience']:
-                    t = fmt_dt(datetime.datetime.now() - self.t_strt)
+                    t = fmt_time(datetime.datetime.now() - self.t_strt)
                     d_pat = dict(epoch=self.epoch, patience=self.args['patience'], best_eval_cls_acc=best_eval_loss)
                     self.logger.info(f'Training terminated early for {log_dict(d_pat)} in {logi(t)} ')
                     self.logger_fl.info(f'Training terminated early for {log_dict_nc(d_pat)} in {t}')
                     break
-        t = fmt_dt(datetime.datetime.now() - self.t_strt)
+        t = fmt_time(datetime.datetime.now() - self.t_strt)
         self.logger.info(f'Training completed in {logi(t)} ')
         self.logger_fl.info(f'Training completed in {t} ')
         self.logger, self.logger_fl, self.tb_writer = None, None, None  # reset
         torch.save(self.model.state_dict(), os.path.join(self.output_dir, f'model - {self.log_fnm}.pt'))
 
-    def evaluate(self, tqdm_desc=None):
+    def evaluate(self):
         self.model.eval()
 
         bsz = self.args['eval_batch_size']
         dl = DataLoader(self.eval_dataset, batch_size=bsz, shuffle=False)
 
-        # tqdm_args = dict(unit='ba')
-        # if tqdm_desc is not None:
-        #     tqdm_args.update(dict(desc=f'Eval {tqdm_desc}'))
         lst_loss, lst_logits, lst_labels = [], [], []
-        # for inputs in tqdm(dl, **tqdm_args):
         for inputs in dl:  # no tqdm for eval
             if torch.cuda.is_available():
                 inputs = {k: v.cuda() for k, v in inputs.items()}
@@ -475,7 +474,6 @@ if __name__ == '__main__':
     # profile_runtime(train)
 
     def fix_check_trained_why_auc_low():
-
         model_key = 'ecg-vit-base'
         conf = EcgVitConfig.from_defined(model_key)
         model = EcgVit(config=conf)

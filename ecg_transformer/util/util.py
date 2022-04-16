@@ -17,10 +17,24 @@ import sty
 import colorama
 import numpy as np
 import pandas as pd
+import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .data_path import PATH_BASE, DIR_PROJ, PKG_NM, DIR_DSET
+from .data_path import PATH_BASE, DIR_PROJ, PKG_NM
+
+
+__all__ = [
+    'LN_KWARGS', 'nan',
+    'get', 'set_', 'it_keys', 'config',
+    'join_its', 'conc_map', 'batched_conc_map',
+    'readable_int', 'nth_sig_digit', 'now', 'sizeof_fmt', 'fmt_time', 'profile_runtime',
+    'log', 'log_s', 'logi', 'is_float', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
+    'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
+    'remove_1st_occurrence', 'stem', 'np_index', 'clipper',
+    'is_on_colab', 'get_model_num_trainable_parameter',
+    'save_fig'
+]
 
 
 pd.set_option('expand_frame_repr', False)
@@ -53,7 +67,7 @@ def set_(dic, ks, val):
     node[ks[-1]] = val
 
 
-def keys(dic, prefix=''):
+def it_keys(dic, prefix=''):
     """
     :return: Generator for all potentially-nested keys
     """
@@ -61,7 +75,7 @@ def keys(dic, prefix=''):
         return k_ if prefix == '' else f'{prefix}.{k_}'
     for k, v in dic.items():
         if isinstance(v, dict):
-            for k__ in keys(v, prefix=_full(k)):
+            for k__ in it_keys(v, prefix=_full(k)):
                 yield k__
         else:
             yield _full(k)
@@ -77,13 +91,6 @@ def config(attr):
         with open(os.path.join(PATH_BASE, DIR_PROJ, PKG_NM, 'util', 'config.json'), 'r') as f:
             config.config = json.load(f)
     return get(config.config, attr)
-
-
-def get_processed_path():
-    """
-    Path where the processed records are stored
-    """
-    return os.path.join(PATH_BASE, DIR_DSET, config('datasets.my.dir_nm'))
 
 
 T = TypeVar('T')
@@ -134,6 +141,17 @@ def batched_conc_map(
         return fn(*args)
 
 
+def readable_int(num: int, suffix: str = '') -> str:
+    """
+    Converts (potentially large) integer to human-readable format
+    """
+    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Y', suffix)
+
+
 def now(as_str=True, for_path=False) -> Union[datetime.datetime, str]:
     """
     # Considering file output path
@@ -154,18 +172,18 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def fmt_dt(secs: Union[int, float, datetime.timedelta]):
+def fmt_time(secs: Union[int, float, datetime.timedelta]):
     if isinstance(secs, datetime.timedelta):
         secs = secs.seconds + (secs.microseconds/1e6)
     if secs >= 86400:
         d = secs // 86400  # // floor division
-        return f'{round(d)}d{fmt_dt(secs-d*86400)}'
+        return f'{round(d)}d{fmt_time(secs - d * 86400)}'
     elif secs >= 3600:
         h = secs // 3600
-        return f'{round(h)}h{fmt_dt(secs-h*3600)}'
+        return f'{round(h)}h{fmt_time(secs - h * 3600)}'
     elif secs >= 60:
         m = secs // 60
-        return f'{round(m)}m{fmt_dt(secs-m*60)}'
+        return f'{round(m)}m{fmt_time(secs - m * 60)}'
     else:
         return f'{round(secs)}s'
 
@@ -188,7 +206,12 @@ def is_on_colab() -> bool:
     return 'google.colab' in sys.modules
 
 
-def sig_d(flt: float, n: int = 1):
+def get_model_num_trainable_parameter(model: torch.nn.Module, readable: bool = True) -> Union[int, str]:
+    n = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return readable_int(n) if readable else n
+
+
+def nth_sig_digit(flt: float, n: int = 1) -> float:
     """
     :return: first n-th significant digit of `sig_d`
     """

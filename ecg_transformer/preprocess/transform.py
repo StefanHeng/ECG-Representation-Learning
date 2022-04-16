@@ -1,6 +1,9 @@
 """
 Transformations on multichannel 1D signals similar to those for 2D images in torchvision
 """
+import numpy as np
+from typing import List, Tuple, Dict, Union, Callable
+
 from scipy.stats import norm
 import torch
 
@@ -183,6 +186,10 @@ class TimeOut:
 
 
 if __name__ == '__main__':
+    import os
+
+    import pandas as pd
+    import matplotlib.pyplot as plt
     from icecream import ic
 
     import ecg_transformer.util.ecg as ecg_util

@@ -3,14 +3,18 @@ ECG signal dataset
 
 Intended for self-supervised ECG representation pretraining
 """
+import os
+import json
 import h5py
+from typing import List, Union, Any
+from collections import OrderedDict
 
+import numpy as np
 import torch
 from torchvision.transforms import Compose  # just a nice wrapper, and not 2D image specific
 from torch.utils.data import Dataset
 
 from ecg_transformer.util import *
-import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess.transform import NormArg, Normalize, DynamicNormalize, Transform
 
 

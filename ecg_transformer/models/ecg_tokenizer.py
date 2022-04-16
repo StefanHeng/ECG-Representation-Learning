@@ -1,10 +1,16 @@
+import os
 import math
 import pickle
+import datetime
+from typing import Tuple, Dict, Union, Any
 
+import numpy as np
 from numpy.random import default_rng
 from sklearn.neighbors import KDTree
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, OPTICS, Birch, KMeans
+import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+import seaborn as sns
 
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
@@ -149,7 +155,7 @@ class EcgTokenizer:
 
         self.centers = None  # of dim (N_cls, k); centers[i] stores the cluster mean for id `i`
         self.lens = None  # of dim (N_cls); cluster sizes
-        self.nn: KDTree = None  # Nearest Neighbor for decoding
+        self.nn = None  # Nearest Neighbor for decoding
         # Customized NN, filtering out centroids by count or relative size
         self.nns: Dict[Union[int, float], EcgTokenizer.CustNN] = {}
 
@@ -174,11 +180,11 @@ class EcgTokenizer:
         Save current tokenizer object into pickle
         """
         fnm = f'ecg-tokenizer, {now(for_path=True)}, k={self.k}, cls={self.fit_method}, n={self.n_sig}, e={self.cls_th}'
-        with open(os.path.join(get_processed_path(), f'{fnm}.pickle'), 'wb') as f:
+        with open(os.path.join(ecg_util.get_processed_path(), f'{fnm}.pickle'), 'wb') as f:
             pickle.dump(self, f)
 
     @classmethod
-    def from_pickle(cls, fnm, dir_=get_processed_path()):
+    def from_pickle(cls, fnm, dir_=ecg_util.get_processed_path()):
         with open(os.path.join(dir_, fnm), 'rb') as f:
             tokenizer = pickle.load(f)
             assert isinstance(tokenizer, cls)
@@ -402,7 +408,7 @@ class EcgTokenizer:
         cls = cluster(segs, method=method, cls_kwargs=cls_kwargs)
         # np.testing.assert_array_equal(segs, segs_)
         lbs = cls.labels_  # Treated as the token id
-        log(f'Clustering completed in {logi(fmt_dt(datetime.datetime.now()-strt))}')
+        log(f'Clustering completed in {logi(fmt_time(datetime.datetime.now() - strt))}')
 
         ids_vocab, counts = np.unique(lbs, return_counts=True)  # `ids_vocab` sorted ascending
         msk_cls = ids_vocab != -1  # For `DBSCAN`, points with labels -1 are outliers
@@ -586,7 +592,7 @@ class EcgTokenizer:
                             for i in reversed(idxs):
                                 del fig.texts[i]
                             y_mi, y_ma = ylim
-                            y_mi, y_ma = sig_d(y_mi, n=3), sig_d(y_ma, n=3)
+                            y_mi, y_ma = nth_sig_digit(y_mi, n=3), nth_sig_digit(y_ma, n=3)
                             plt.figtext(0.8, 0.96, f'Y axis: $[{y_mi}, {y_ma}]$', fontdict=dict(fontsize=10*scale))
                     for idx in range(n_plot):
                         d_axs[idx].set_visible(True)

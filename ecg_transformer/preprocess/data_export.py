@@ -1,6 +1,12 @@
+import os
 import glob
+import json
+import logging
+from typing import List, Union
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import h5py
 import wfdb.processing
 from tqdm import tqdm, trange
@@ -225,6 +231,8 @@ class RecDataExport:
 
 
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
     from icecream import ic
 
     np.random.seed(config('random-seed'))
@@ -347,8 +355,8 @@ if __name__ == '__main__':
         """
         fnm = 'PTB-XL-denoised'
         fnm_out = f'{fnm}, fp32'
-        fnm = os.path.join(get_processed_path(), f'{fnm}.hdf5')
-        fnm_out = os.path.join(get_processed_path(), f'{fnm_out}.hdf5')
+        fnm = os.path.join(ecg_util.get_processed_path(), f'{fnm}.hdf5')
+        fnm_out = os.path.join(ecg_util.get_processed_path(), f'{fnm_out}.hdf5')
 
         rec = h5py.File(fnm, 'r')
         assert list(rec.attrs.keys()) == ['meta'] and list(rec.keys()) == ['data'] and rec['data'].dtype == np.float64

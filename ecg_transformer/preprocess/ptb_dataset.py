@@ -5,10 +5,11 @@ Frame the problem as multi-label classification with total of 71 classes spannin
     each class as a binary probability
 That is, ignore the likelihood for each `scp_codes`, as those are not accurate anyway
 """
-
+import os
 from ast import literal_eval
-from typing import Sequence
+from typing import List, Tuple, Dict, Sequence
 
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
@@ -100,7 +101,7 @@ def get_ptbxl_splits(
     logger = get_logger('Get PTB-XL splits')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
-    df = pd.read_csv(os.path.join(get_processed_path(), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
+    df = pd.read_csv(os.path.join(ecg_util.get_processed_path(), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
     # df = df.iloc[idxs_processed]
     logger.info(f'Getting PTB-XL splits with n={logi(len(df))}... ')
     df.labels = df.labels.apply(literal_eval)

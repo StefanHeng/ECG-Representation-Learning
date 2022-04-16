@@ -1,12 +1,19 @@
+import os
 import math
 import glob
+from typing import Union
 
+import numpy as np
+import pandas as pd
 import h5py
 import scipy.optimize
 import wfdb
 from wfdb import processing
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from .util import *
+from .data_path import PATH_BASE, DIR_DSET
 from .check_args import ca
 
 
@@ -87,9 +94,7 @@ def fit_power_law(x: np.ndarray, y: np.ndarray, return_fit: Union[int, bool] = F
         If `return_fit` is True, return additionally 2-tuple of (fitted x, fitted y)
             If integer given, the fitted curve is returned by scale
     """
-    # from icecream import ic
     def pow_law(x_, a, b):
-        # ic(x_, a, b)
         return a * np.power(x_, b)
     x, y = np.asarray(x).astype(float), np.asarray(y)
     (a_, b_), p_cov = scipy.optimize.curve_fit(f=pow_law, xdata=x, ydata=y, p0=(x[0]*2, -1))
@@ -151,6 +156,13 @@ def refine_rpeak(sig, idxs_peak, fqs, r_wd=100):
     )
 
 
+def get_processed_path():
+    """
+    Path where the processed records are stored
+    """
+    return os.path.join(PATH_BASE, DIR_DSET, config('datasets.my.dir_nm'))
+
+
 def get_my_rec_labels():
     d_my = config(f'{DIR_DSET}.my')
     recs_csv_fnm = os.path.join(PATH_BASE, DIR_DSET, d_my['dir_nm'], d_my['fnm_labels'])
@@ -177,24 +189,16 @@ def get_record_eg(dnm, n=0, ln=None):
     .. note:: Works only if a wfdb record file exists
     """
     rec_path = get_rec_paths(dnm)[n]
-    kwargs = dict(
-        sampto=ln
-    )
-    # for k, v in kwargs.items():
-    #     if k is None:
-    #         del kwargs[v]
+    kwargs = dict(sampto=ln)
     kwargs = {k: v for k, v in kwargs.items() if k is not None}
     return wfdb.rdrecord(rec_path[:rec_path.index('.')], **kwargs)
 
 
 def fnm2sigs(fnm, dnm, to_fp32: bool = True):
-    # if not hasattr(config, 'd_d_dset'):
-    #     fnm2sigs.d_d_dset = config(DIR_DSET)
-
     if dnm == 'CHAP-SHAO':
         arr = pd.read_csv(fnm).to_numpy().T
-    elif dnm == 'CODE-TEST':
-        assert isinstance(fnm, int)  # Single file with all recordings
+    elif dnm == 'CODE-TEST':  # one hdf5 file with all recordings
+        assert isinstance(fnm, int)
         if not hasattr(config, 'ct_tracings'):
             fnms = get_rec_paths(dnm)
             assert len(fnms) == 1
@@ -203,7 +207,6 @@ def fnm2sigs(fnm, dnm, to_fp32: bool = True):
         arr = fnm2sigs.ct_tracings['tracings'][fnm]
     else:
         arr = wfdb.rdsamp(fnm.removesuffix(config(f'datasets.{dnm}.rec_ext')))[0].T  # (signal, meta)
-        # return wfdb.rdrecord(fnm.removesuffix(fnm2sigs.d_d_dset[dnm]['rec_ext'])).p_signal.T
     if to_fp32:
         arr = arr.astype(np.float32)  # for faster processing, & for ML anyway
     return arr
@@ -223,13 +226,8 @@ def get_signal_eg(dnm=None, n=None):
         n = np.random.randint(config(f'{DIR_DSET}.{dnm}.n_rec'))
 
     if dnm == 'CHAP_SHAO':
-        # fnm = get_rec_paths(dnm)[n]
-        # df = pd.read_csv(fnm)
-        # return df.to_numpy()
         return fnm2sigs(get_rec_paths(dnm)[n], dnm)
     elif dnm == 'CODE_TEST':
-        # fnm = get_rec_paths(dnm)[0]  # 1 hdf5 file
-        # rec = h5py.File(fnm, 'r')
         return fnm2sigs(n, dnm)
     else:
         return get_record_eg(dnm, n=n).p_signal
