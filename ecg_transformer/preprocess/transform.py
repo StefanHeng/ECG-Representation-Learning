@@ -2,6 +2,7 @@
 Transformations on multichannel 1D signals similar to those for 2D images in torchvision
 """
 from scipy.stats import norm
+import torch
 
 from ecg_transformer.util import *
 
@@ -22,19 +23,17 @@ class Normalize:
         assert len(mean) == 12 and len(std) == 12
         self.mean, self.std = np.asarray(mean).astype(np.float32), np.asarray(std).astype(np.float32)
 
-    def __call__(self, arr: np.ndarray) -> np.ndarray:
-        assert arr.ndim in [2, 3]
-        if arr.ndim == 3:
+    def __call__(self, sig: np.ndarray) -> np.ndarray:
+        assert sig.ndim in [2, 3]
+        if sig.ndim == 3:
             mean, std = self.mean.reshape((1, -1, 1)), self.std.reshape((1, -1, 1))
         else:
             mean, std = self.mean.reshape((-1, 1)), self.std.reshape((-1, 1))
-        # from icecream import ic
-        # ic('in normalized')
-        return (arr - mean) / std
+        return (sig - mean) / std
 
 
 class _DynamicNormalize:
-    def __init__(self, arr, scheme: str = 'std', arg: Union[float, int] = None):
+    def __init__(self, sig, scheme: str = 'std', arg: Union[float, int] = None):
         """
         :param scheme: normalize scheme: one of [`global`, `std`, `norm`, `none`]
             Normalization is done per channel/lead
@@ -64,19 +63,19 @@ class _DynamicNormalize:
         # shapes are (1, 12, 1)
         if scheme == 'global':
             self.norm_meta = (
-                np.nanmin(arr, axis=(0, -1), keepdims=True),
-                np.nanmax(arr, axis=(0, -1), keepdims=True)
+                np.nanmin(sig, axis=(0, -1), keepdims=True),
+                np.nanmax(sig, axis=(0, -1), keepdims=True)
             )
         elif scheme == 'std':
             self.norm_meta = (
-                np.nanmean(arr, axis=(0, -1), keepdims=True),
-                np.nanstd(arr, axis=(0, -1), keepdims=True) * arg
+                np.nanmean(sig, axis=(0, -1), keepdims=True),
+                np.nanstd(sig, axis=(0, -1), keepdims=True) * arg
             )
         elif scheme == 'norm':
             p = norm().cdf(arg) * 100
             self.norm_meta = (
-                np.nanpercentile(arr, 100-p, axis=(0, -1), keepdims=True),
-                np.nanpercentile(arr, p, axis=(0, -1), keepdims=True)
+                np.nanpercentile(sig, 100 - p, axis=(0, -1), keepdims=True),
+                np.nanpercentile(sig, p, axis=(0, -1), keepdims=True)
             )
         if self.norm_meta is not None:
             a, b = self.norm_meta
@@ -108,9 +107,9 @@ class DynamicNormalize:
     """
     Dynamically normalize based on array to compute statistics, using potentially a sequence of schemes
     """
-    def __init__(self, arr: np.ndarray, normalize: NormArg = (('norm', 3), ('std', 1))):
+    def __init__(self, sig: np.ndarray, normalize: NormArg = (('norm', 3), ('std', 1))):
         """
-        :param arr: (n_samples, n_channels, n_leads) array for computing normalization statistics
+        :param sig: (n_samples, n_channels, n_leads) array for computing normalization statistics
         :param normalize: Normalization or a sequence of normalizations, as 2-tuples of (scheme, arg)
         """
         if isinstance(normalize, str) or isinstance(normalize, (tuple, list)) and not isinstance(normalize[0], tuple):
@@ -121,9 +120,9 @@ class DynamicNormalize:
         assert all((isinstance(pr, tuple) and len(pr) in [1, 2]) for pr in norm_args)
         self.normalizers = []
         for pr in norm_args:
-            normzer = _DynamicNormalize(arr, *pr)
+            normzer = _DynamicNormalize(sig, *pr)
             self.normalizers.append(normzer)
-            arr = normzer(arr)  # the normalizations are done sequentially
+            sig = normzer(sig)  # the normalizations are done sequentially
 
     def __call__(self, arr: np.array):
         assert arr.ndim in [2, 3]
@@ -143,10 +142,10 @@ class TimeEndPad:
         self.k = k
         self.pad_kwargs = pad_kwargs or dict()
 
-    def __call__(self, arr: np.ndarray):
-        l = arr.shape[-1]
+    def __call__(self, sig: np.ndarray):
+        l = sig.shape[-1]
         n_pad = self.k - (l % self.k)
-        return np.pad(arr, pad_width=[(0, 0)] * (arr.ndim-1) + [(0, n_pad)], **self.pad_kwargs)
+        return np.pad(sig, pad_width=[(0, 0)] * (sig.ndim - 1) + [(0, n_pad)], **self.pad_kwargs)
 
     def __repr__(self):
         return f'<{self.__class__.__qualname__} k={self.k}>'
@@ -171,8 +170,16 @@ class RandomResizedCrop:
 
 
 class TimeOut:
-    def __init__(self):
-        pass
+    def __init__(self, scale: Tuple[float, float] = (0, 0.5)):
+        lo, hi = self.scale = scale
+        self.sampler = torch.distributions.Uniform(low=lo, high=hi)
+
+    def __call__(self, sig: np.ndarray) -> np.ndarray:
+        r = self.sampler.sample().item()
+        l_crop = round(r * sig.shape[-1])
+        idx_strt = torch.randint(high=sig.shape[-1] - l_crop, size=(1,)).item()
+        sig[..., idx_strt:idx_strt+l_crop] = 0
+        return sig
 
 
 if __name__ == '__main__':
@@ -249,7 +256,7 @@ if __name__ == '__main__':
             )
             plt.title(f'Normalize sanity check for channel {i+1}')
             plt.show()
-    check_normalize_channel(n=32)
+    # check_normalize_channel(n=32)
 
     def check_pad(n: int = 128):
         patch_size = 64
@@ -302,3 +309,12 @@ if __name__ == '__main__':
             # exit(1)
         get_wicked_data()
     # check_no_nan()
+
+    def check_timeout():
+        dnm = 'PTB-XL'
+        ed = EcgDataset(dnm, transform=TimeOut())
+        for rec in ed[:4]:
+            ic(rec.shape)
+            ecg_util.plot_ecg(rec)
+            # exit(1)
+    check_timeout()

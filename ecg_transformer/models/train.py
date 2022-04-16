@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -9,7 +11,7 @@ from tqdm import tqdm
 
 from ecg_transformer.util import *
 import ecg_transformer.util.train as train_util
-from ecg_transformer.preprocess import EcgDataset, transform, PtbxlDataModule
+from ecg_transformer.preprocess import EcgDataset, transform, PtbxlDataModule, get_ptbxl_splits
 from ecg_transformer.models import EcgVitConfig, EcgVit
 
 
@@ -23,17 +25,18 @@ class EcgVitTrainModule(pl.LightningModule):
         return self.model(**kwargs)
 
     def configure_optimizers(self):
-        optim_cls = torch.optim.AdamW if self.args['optimizer'] == 'AdamW' else torch.optim.Adam
-        lr, dc = self.args['learning_rate'], self.args['weight_decay']
+        optim, sch = self.train_args['optimizer'], self.train_args['schedule']
+        optim_cls = torch.optim.AdamW if optim == 'AdamW' else torch.optim.Adam
+        lr, dc = self.train_args['learning_rate'], self.train_args['weight_decay']
         optimizer = optim_cls(self.parameters(), lr=lr, weight_decay=dc)
         warmup_ratio, n_step = self.train_args['warmup_ratio'], self.train_args['n_step']
-        sch, args = self.train_args['schedule'], dict(optimizer=optimizer, num_warmup_steps=round(n_step*warmup_ratio))
+        ch_args = dict(optimizer=optimizer, num_warmup_steps=round(n_step*warmup_ratio))
         if sch == 'constant':
             sch = get_constant_schedule_with_warmup
         else:
             sch = get_cosine_schedule_with_warmup
-            args.update(dict(num_training_steps=n_step))
-        scheduler = sch(**args)
+            ch_args.update(dict(num_training_steps=n_step))
+        scheduler = sch(**ch_args)
         return [optimizer], [dict(scheduler=scheduler, interval='step', frequency=1)]
 
     def training_step(self, batch, batch_idx):
@@ -113,24 +116,25 @@ class MyPlTrainer:
         tb_fnm = f'tb - {self.log_fnm}'
         os.makedirs(os.path.join(self.output_dir, tb_fnm), exist_ok=True)
         self.logger_tb = TensorBoardLogger(self.output_dir, name=tb_fnm)
-        callback = None
-        if self.train_args['save_while_training']:
-            callback = pl.callbacks.ModelCheckpoint(
+        callbacks = []
+        if self.train_args['save_every_n_epoch']:
+            callbacks.append(pl.callbacks.ModelCheckpoint(
                 dirpath=os.path.join(self.output_dir, 'checkpoints'),
                 monitor='loss',  # having `eval/loss` seems to break the filename
                 filename='checkpoint-{epoch:02d}, {loss:.2f}',
                 every_n_epochs=self.train_args['save_every_n_epoch'],
                 save_top_k=self.train_args['save_top_k'],
                 save_last=True
-            )
+            ))
+        if self.train_args['tqdm']:
+            callbacks.append(train_util.MyProgressBar())
         self.pl_trainer = pl.Trainer(
             logger=self.logger_tb,
             default_root_dir=self.output_dir,
-            enable_progress_bar=False,
-            callbacks=callback,
+            enable_progress_bar=self.train_args['tqdm'],
+            callbacks=callbacks,
             gradient_clip_val=1,
-            # check_val_every_n_epoch=1,
-            check_val_every_n_epoch=int(1e10),  # Disable evaluation, TODO: debugging
+            check_val_every_n_epoch=1 if self.train_args['do_eval'] else int(1e10),
             max_epochs=n_ep,
             log_every_n_steps=1,
             gpus=torch.cuda.device_count(),
@@ -141,7 +145,11 @@ class MyPlTrainer:
             detect_anomaly=True,
             move_metrics_to_cpu=True,
         )
+        t_strt = datetime.datetime.now()
         self.pl_trainer.fit(self.pl_module, self.data_module)
+        t = fmt_dt(datetime.datetime.now() - t_strt)
+        self.logger.info(f'Training completed in {logi(t)} ')
+        self.logger_fl.info(f'Training completed in {t} ')
 
     def get_curr_learning_rate(self):
         assert self.pl_trainer is not None
@@ -181,6 +189,7 @@ class MyPlTrainer:
 class MyTrainer:
     """
     My own training loop, fp16 not supported
+        But it's faster than PL, even for CUDA without fp16
     """
     tb_ignore_keys = ['step', 'epoch', 'per_class_auc']
 
@@ -242,11 +251,13 @@ class MyTrainer:
         self.t_strt = datetime.datetime.now()
         if self.args['do_eval']:
             self.evaluate(tqdm_desc='Before training')
+        # TODO: doesn't seem to gate refresh rate, but seems refreshing is fine on colab
+        tqdm_refresh_rate = 20 if is_on_colab() else 1
         for _ in range(self.args['num_train_epoch']):
             self.epoch += 1
             self.model.train()  # cos at the end of each eval, evaluate
             desc_epoch = self._get_epoch_desc()
-            for inputs in tqdm(dl, desc=f'Train {desc_epoch}'):
+            for inputs in tqdm(dl, desc=f'Train {desc_epoch}', miniters=tqdm_refresh_rate):
                 self.step += 1
                 self.optimizer.zero_grad()
 
@@ -260,9 +271,9 @@ class MyTrainer:
                 self.optimizer.step()
                 self.scheduler.step()
 
-                d_metric = train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
-                acc, auc = d_metric['binary_accuracy'], d_metric['macro_auc']
-                ic(acc, auc)
+                # d_metric = train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
+                # acc, auc = d_metric['binary_accuracy'], d_metric['macro_auc']
+                # ic(acc, auc)
                 d_log = dict(epoch=self.epoch, step=self.step)  # 1-indexed
                 lr = self._get_lr()
                 d_update = {  # colab compatibility
@@ -302,11 +313,14 @@ class MyTrainer:
         bsz = self.args['eval_batch_size']
         dl = DataLoader(self.eval_dataset, batch_size=bsz, shuffle=False)
 
-        tqdm_args = dict(unit='ba')
-        if tqdm_desc is not None:
-            tqdm_args.update(dict(desc=f'Eval {tqdm_desc}'))
+        # tqdm_args = dict(unit='ba')
+        # if tqdm_desc is not None:
+        #     tqdm_args.update(dict(desc=f'Eval {tqdm_desc}'))
         lst_loss, lst_logits, lst_labels = [], [], []
-        for inputs in tqdm(dl, **tqdm_args):  # Each "sample" in dataset is already grouped
+        # for inputs in tqdm(dl, **tqdm_args):
+        for inputs in dl:  # no tqdm for eval
+            if torch.cuda.is_available():
+                inputs = {k: v.cuda() for k, v in inputs.items()}
             with torch.no_grad():
                 output = self.model(**inputs)
             lst_loss.append(output.loss.detach().item())
@@ -316,7 +330,7 @@ class MyTrainer:
         loss = np.mean(lst_loss)
         logits, labels = torch.cat(lst_logits, dim=0), torch.cat(lst_labels, dim=0)
         preds_prob = torch.sigmoid(logits)
-        d_log = dict(epoch=self.epoch+1, step=self.step+1)
+        d_log = dict(epoch=self.epoch, step=self.step)
         d_update = {**dict(loss=loss), **train_util.get_accuracy(preds_prob, labels)}
         d_log.update({f'eval/{k}': v for k, v in d_update.items()})
         self.log(d_log)
@@ -355,22 +369,26 @@ def get_train_args(args: Dict = None, n_train: int = None) -> Dict:
         do_eval=True,
         optimizer='AdamW',  # 'Adam' as in ViT doesn't work well, only learns meaningful with real small decay
         learning_rate=3e-4,
-        weight_decay=1e-2,  # decay of 1e-1 as in ViT is too harsh for our case
+        weight_decay=1e-2,  # decay of 1e-1 as in ViT is too harsh for our case, maybe due to 4096 batch size in ViT?
         warmup_ratio=0.05,
+        schedule='cosine',
         n_sample=None,
         patience=8,
         precision=16 if torch.cuda.is_available() else 'bf16',
         log_per_epoch=False,  # only epoch-wise evaluation is logged
         log_to_console=True,
         save_every_n_epoch=False,  # only save in the end
-        save_top_k=-1  # save all models
+        save_top_k=-1,  # save all models
+        tqdm=False
     )
     args_ = default_args
     if args is not None:
         args_.update(args)
     # TODO: gradient accumulation not supported
-    args_['steps_per_epoch'] = steps_per_epoch = n_train or int(sys.maxsize)  # see `get_all_setup` for PL
+    # see `get_all_setup` for PL
+    args_['steps_per_epoch'] = steps_per_epoch = math.ceil((n_train or int(sys.maxsize)) // args_['train_batch_size'])
     args_['n_step'] = steps_per_epoch * args_['num_train_epoch']
+    ca(optimizer=args_['optimizer'], schedule=args_['schedule'])
     return args_
 
 
@@ -387,7 +405,6 @@ def get_all_setup(
     pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
     stats = config(f'datasets.{dnm}.train-stats.{ptbxl_type}')
     dset_args = dict(type=ptbxl_type, normalize=stats, transform=pad, return_type='pt')
-    # dset_args = dict(type=ptbxl_type, normalize=('norm', 3), transform=pad, return_type='pt')
 
     trainer_args = dict(model=model)
     if with_pl:
@@ -406,31 +423,31 @@ def get_all_setup(
 
 
 if __name__ == '__main__':
-    # from pytorch_lightning.utilities.seed import seed_everything
-    import transformers
+    from pytorch_lightning.utilities.seed import seed_everything
+    # import transformers
 
     from icecream import ic
-
-    from ecg_transformer.preprocess import get_ptbxl_splits
 
     lw = 1024
     ic.lineWrapWidth = lw
     np.set_printoptions(linewidth=lw)
     torch.set_printoptions(linewidth=lw)
 
-    # seed_everything(config('random-seed'))
-    transformers.set_seed(config('random-seed'))
+    seed_everything(config('random-seed'))
+    # transformers.set_seed(config('random-seed'))
 
     def train():
         model_size = 'debug'
         # model_size = 'tiny'
         t = 'original'
 
+        n_sample = 64
         # n_sample = 128
-        n_sample = 512
+        # n_sample = 512
         # bsz = 8
-        bsz = 32
-        num_train_epoch = 32
+        bsz = 4
+        num_train_epoch = 16
+        with_pl = False
 
         train_args = dict(
             num_train_epoch=num_train_epoch,
@@ -445,13 +462,14 @@ if __name__ == '__main__':
             schedule='constant',
             n_sample=n_sample,
             # precision=16 if torch.cuda.is_available() else 32,
-            do_eval=False,
-            # log_per_epoch=True,
-            log_to_console=False,
+            # do_eval=False,
+            log_per_epoch=True,
+            # log_to_console=False,
             save_every_n_epoch=8,
-            save_top_k=2
+            save_top_k=2,
+            tqdm=True
         )
-        model, trainer = get_all_setup(model_size=model_size, train_args=train_args, ptbxl_type=t)
+        model, trainer = get_all_setup(model_size=model_size, train_args=train_args, ptbxl_type=t, with_pl=with_pl)
         trainer.train()
     train()
     # profile_runtime(train)

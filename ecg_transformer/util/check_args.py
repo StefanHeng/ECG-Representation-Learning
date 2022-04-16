@@ -14,6 +14,8 @@ class CheckArg:
     ptbxl_types = ['original', 'denoised']  # my de-noised version using the **other** PTB-XL paper approach
 
     model_names = ['ecg-vit-debug', 'ecg-vit-tiny', 'ecg-vit-small', 'ecg-vit-base', 'ecg-vit-large']
+    optimizer = ['Adam', 'AdamW']
+    schedule = ['constant', 'cosine']
 
     @staticmethod
     def check_mismatch(arg_type: str, arg_value: str, expected_values: List[str]):
@@ -33,11 +35,21 @@ class CheckArg:
     def check_model_name(model_name: str):
         CheckArg.check_mismatch('Model Name', model_name, CheckArg.model_names)
 
+    @staticmethod
+    def check_optimizer(optimizer: str):
+        CheckArg.check_mismatch('Optimizer', optimizer, CheckArg.optimizer)
+
+    @staticmethod
+    def check_schedule(schedule: str):
+        CheckArg.check_mismatch('Schedule', schedule, CheckArg.schedule)
+
     def __init__(self):
         self.d_name2func = dict(
             type=CheckArg.check_ptbxl_type,
             dataset_name=CheckArg.check_dataset_name,
-            model_name=CheckArg.check_model_name
+            model_name=CheckArg.check_model_name,
+            optimizer=CheckArg.check_optimizer,
+            schedule=CheckArg.check_schedule
         )
 
     def __call__(self, **kwargs):

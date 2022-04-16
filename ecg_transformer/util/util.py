@@ -184,6 +184,10 @@ def profile_runtime(callback: Callable, sleep: Union[float, int] = None):
     stats.print_stats()
 
 
+def is_on_colab() -> bool:
+    return 'google.colab' in sys.modules
+
+
 def sig_d(flt: float, n: int = 1):
     """
     :return: first n-th significant digit of `sig_d`
