@@ -683,8 +683,8 @@
                         ],
                         "_AVB": [
                             "1AVB",
-                            "3AVB",
-                            "2AVB"
+                            "2AVB",
+                            "3AVB"
                         ],
                         "IVCD": [
                             "IVCD"
@@ -774,7 +774,7 @@
                         ]
                     }
                 },
-                "code.form-codes": [
+                "form-codes": [
                     "NDT",
                     "NST_",
                     "DIG",

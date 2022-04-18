@@ -264,7 +264,7 @@ def extract_ptb_codes():
     set_(config_dict, f'datasets.{dnm}.code', {
         'codes': codes, 'code2id': code2id, 'id2code': id2code,
         'diagnostic-class2sub-class2code': diag_cls2sub_cls2code,
-        'code.form-codes': form_codes,
+        'form-codes': form_codes,
         'rhythm-codes': rhythm_codes,
         'diagnostic-sub-class2description': diag_sub_cls2desc,
         'code2description': code2desc
