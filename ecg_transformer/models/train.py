@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from ecg_transformer.util import *
 import ecg_transformer.util.train as train_util
-from ecg_transformer.preprocess import EcgDataset, transform, PtbxlDataModule, get_ptbxl_splits
+from ecg_transformer.preprocess import EcgDataset, transform, PtbxlDataModule, get_ptbxl_splits, get_ptbxl_dataset
 from ecg_transformer.models.ecg_vit import EcgVitConfig, EcgVit
 
 
@@ -415,23 +415,22 @@ def get_all_setup(
 ) -> Tuple[nn.Module, MyPlTrainer]:
     assert model_name == 'ecg-vit'
     conf = EcgVitConfig.from_defined(f'{model_name}-{model_size}')
-    # conf.patch_size = 32  # TODO: debugging
     model = EcgVit(config=conf)
-
-    dnm = 'PTB-XL'
-    pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
-    stats = config(f'datasets.{dnm}.train-stats.{ptbxl_type}')
-    dset_args = dict(type=ptbxl_type, normalize=stats, transform=pad, return_type='pt')
 
     trainer_args = dict(model=model)
     if with_pl:
         dummy_train_args = get_train_args(train_args)  # kind of ugly
+        dnm = 'PTB-XL'
+        pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
+        stats = config(f'datasets.{dnm}.train-stats.{ptbxl_type}')
+        dset_args = dict(type=ptbxl_type, normalize=stats, transform=pad, return_type='pt')
         trainer_args['data_module'] = data_module = PtbxlDataModule(dataset_args=dset_args, train_args=dummy_train_args)
         n_train = len(data_module.train_dataloader())
         trainer_args['train_args'] = get_train_args(train_args, n_train=n_train)
         cls = MyPlTrainer
     else:
-        tr, vl, ts = get_ptbxl_splits(n_sample=train_args['n_sample'], dataset_args=dset_args)
+        tr, vl, ts = get_ptbxl_dataset(ptbxl_type, pad=conf.patch_size, std_norm=True, n_sample=train_args['n_sample'])
+        # tr, vl, ts = get_ptbxl_splits(n_sample=train_args['n_sample'], dataset_args=dset_args)
         n_train = len(tr)
         trainer_args['train_dataset'], trainer_args['eval_dataset'] = tr, vl
         trainer_args['args'] = get_train_args(train_args, n_train=n_train)

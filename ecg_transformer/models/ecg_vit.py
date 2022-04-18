@@ -3,15 +3,18 @@ Vision Transformer adapted to 1D ECG signals
 
 Intended fpr vanilla, supervised training
 """
+import os
 import re
 
 import torch
 from torch import nn
 from transformers import PretrainedConfig
 from vit_pytorch import ViT
+from vit_pytorch.recorder import Recorder
 
 from ecg_transformer.util import *
 from ecg_transformer.util.models import ModelOutput
+from ecg_transformer.preprocess import get_ptbxl_dataset
 
 
 class EcgVitConfig(PretrainedConfig):
@@ -127,7 +130,32 @@ class EcgVit(nn.Module):
         return ModelOutput(loss=loss, logits=logits)
 
 
+def load_trained(model_key: str = 'ecg-vit-base'):
+    model = EcgVit(config=EcgVitConfig.from_defined(model_key))
+
+    fnm = 'model - model={nm=EcgVit, in-sp=12x2560, #p=40, #l=12, #h=12}, ' \
+          'n=17441, a=0.0003, dc=0.01, bsz=256, n_ep=32, ep8.pt'
+    checkpoint_path = os.path.join(PATH_BASE, DIR_PROJ, DIR_MDL, '2022-04-15_23-48-47', fnm)
+    ckpt = torch.load(checkpoint_path, map_location='cpu')
+    model.load_state_dict(ckpt, strict=True)  # Need the pl wrapper cos that's how the model is saved
+    model.eval()
+    return model
+
+
+class EcgVitVisualizer:
+    def __init__(self, model: EcgVit):
+        self.model = model
+        self.model.eval()
+
+    def __call__(self, sample_values: torch.FloatTensor):
+        vit = Recorder(self.model.vit)  # can't use my forward pass cos return is different
+        logits, attns = vit(sample_values.unsqueeze(0).unsqueeze(-2))  # Add dummy batch & height dimension
+        vit.eject()
+        ic(attns.shape)
+
+
 if __name__ == '__main__':
+    from tqdm import tqdm
     from icecream import ic
 
     def check_forward_pass():
@@ -142,3 +170,24 @@ if __name__ == '__main__':
         loss_, logits_ = ev(sigs, labels_)
         ic(sigs.shape, loss_, logits_.shape)
     # check_forward_pass()
+
+    def check_visualize_attn():
+        model = load_trained()
+        evv = EcgVitVisualizer(model)
+
+        dsets = get_ptbxl_dataset(type='original', pad=model.config.patch_size, std_norm=True)
+        dnm = 'PTB-XL'
+        code_norm = 'NORM'  # normal heart beat
+        id2code = config(f'datasets.{dnm}.code.code2id')
+        id_norm = id2code[code_norm]
+
+        sig = None
+        # for inputs in tqdm(dsets.test):
+        for inputs in dsets.test:
+            if inputs['labels'][id_norm] == 1:  # found a sample with normal heart beat
+                sig = inputs['sample_values']
+                break
+        assert sig is not None
+
+        evv(sig)
+    check_visualize_attn()

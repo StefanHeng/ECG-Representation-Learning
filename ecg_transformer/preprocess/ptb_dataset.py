@@ -7,7 +7,7 @@ That is, ignore the likelihood for each `scp_codes`, as those are not accurate a
 """
 import os
 from ast import literal_eval
-from typing import List, Dict, Sequence
+from typing import List, Dict, Sequence, Union
 from collections import namedtuple
 
 import pandas as pd
@@ -17,10 +17,12 @@ import pytorch_lightning as pl
 
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
-from ecg_transformer.preprocess import EcgDataset
+from ecg_transformer.preprocess import transform, EcgDataset
 
 
 PtbxlSplitDatasets = namedtuple('PtbxlSplitDatasets', ['train', 'eval', 'test'])
+
+DNM = 'PTB-XL'
 
 
 def export_ptbxl_labels():
@@ -30,14 +32,11 @@ def export_ptbxl_labels():
     All keys in the `scp_code` are considered ground truth binary labels
         Downside: the likelihood are ignored, effectively treating each key as 100% confidence
     """
-    from icecream import ic
-
-    dnm = 'PTB-XL'
-    path = os.path.join(PATH_BASE, DIR_DSET, config(f'datasets.{dnm}.dir_nm'), 'ptbxl_database.csv')
+    path = os.path.join(PATH_BASE, DIR_DSET, config(f'datasets.{DNM}.dir_nm'), 'ptbxl_database.csv')
     df = pd.read_csv(path, usecols=['ecg_id', 'patient_id', 'scp_codes', 'strat_fold'], index_col=0)
     df.patient_id = df.patient_id.astype(int)
     df.scp_codes = df.scp_codes.apply(literal_eval)
-    _d_codes = config(f'datasets.{dnm}.code')
+    _d_codes = config(f'datasets.{DNM}.code')
     d_codes, code2id = _d_codes['codes'], _d_codes['code2id']
 
     def map_row(row: pd.Series):
@@ -99,14 +98,12 @@ class PtbxlDataModule(pl.LightningDataModule):
 
 
 def get_ptbxl_splits(
-        n_sample: int = None, dataset_args: Dict = None, type='denoised'
+        n_sample: int = None, dataset_args: Dict = None,
 ) -> PtbxlSplitDatasets:
-    ca(type=type)
     logger = get_logger('Get PTB-XL splits')
 
     # Use 0-indexed rows, not 1-indexed `ecg_id`s
     df = pd.read_csv(os.path.join(ecg_util.get_processed_path(), 'ptb-xl-labels.csv'), usecols=['strat_fold', 'labels'])
-    # df = df.iloc[idxs_processed]
     logger.info(f'Getting PTB-XL splits with n={logi(len(df))}... ')
     df.labels = df.labels.apply(literal_eval)
     # `strat_fold`s are in [1, 10]
@@ -124,6 +121,20 @@ def get_ptbxl_splits(
         # so that indexing into `labels` is 0-indexed
         return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels, **dataset_args)
     return PtbxlSplitDatasets(train=get_dset(df_tr), eval=get_dset(df_vl), test=get_dset(df_ts))
+
+
+def get_ptbxl_dataset(
+        type: str = 'denoised', pad: Union[bool, int] = True, std_norm: bool = True, n_sample: int = None
+):
+    """
+    Transforms wrapped, ready for training/inference
+    """
+    if pad:
+        assert isinstance(pad, int), f'If pad, an integer must be provided, got {pad}'
+        pad = transform.TimeEndPad(pad, pad_kwargs=dict(mode='constant', constant_values=0))
+    norm = config(f'datasets.{DNM}.train-stats.{type}') if std_norm else None
+    dset_args = dict(type=type, normalize=norm, transform=pad, return_type='pt')
+    return get_ptbxl_splits(n_sample=n_sample, dataset_args=dset_args)
 
 
 if __name__ == '__main__':
