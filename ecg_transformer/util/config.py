@@ -1,6 +1,9 @@
+import os
 import glob
 import math
+from typing import Dict
 
+import pandas as pd
 import wfdb
 
 from ecg_transformer.util import *
@@ -110,7 +113,7 @@ def extract_ptb_codes():
             diagnostic_class=row.diagnostic_class if not is_nan(row.diagnostic_class) else None,
             diagnostic_subclass=row.diagnostic_subclass if not is_nan(row.diagnostic_subclass) else None
         )
-    dnm = 'PTB-XL'
+    dnm, n_class = 'PTB-XL', 71
     path_ptb = os.path.join(PATH_BASE, DIR_DSET, get(config_dict, f'{DIR_DSET}.{dnm}.dir_nm'))
     df_ptb = pd.read_csv(
         os.path.join(path_ptb, 'scp_statements.csv'),
@@ -119,9 +122,153 @@ def extract_ptb_codes():
     )
     codes = {code: map_row(row) for code, row in df_ptb.iterrows()}
     id2code = list(df_ptb.index)  # Stick to the same ordering
-    assert len(id2code) == 71
+    assert len(id2code) == n_class
     code2id = {c: i for i, c in enumerate(id2code)}
-    set_(config_dict, f'datasets.{dnm}.code', dict(codes=codes, code2id=code2id, id2code=id2code))
+    # intended for plotting; Keep to the ordering in the PTB-XL paper, hopefully meaning is encoded in the ordering
+    diag_cls2sub_cls2code = dict(
+        CD={
+            'LAFB/LPFB': ['LAFB', 'LPFB'],
+            'IRBBB': ['IRBBB'],
+            # follow the code specified in csv file given discrepancy in the table in paper;
+            # modify the order as it doesn't make sense
+            '_AVB': ['1AVB', '2AVB', '3AVB'],
+            'IVCD': ['IVCD'],
+            'CRBBB': ['CRBBB'],
+            'CLBBB': ['CLBBB'],
+            'WPW': ['WPW'],
+            'ILBBB': ['ILBBB']
+        },
+        HYP={
+            'LVH': ['LVH'],
+            'LAO/LAE': ['LAO/LAE'],
+            'RVH': ['RVH'],
+            'RAO/RAE': ['RAO/RAE'],
+            'SEHYP': ['SEHYP']
+        },
+        MI=dict(
+            IMI=['IMI', 'ILMI', 'IPLMI', 'IPMI', 'INJIN', 'INJIL'],
+            AMI=['ASMI', 'AMI', 'ALMI', 'INJAS', 'INJAL', 'INJLA'],
+            LMI=['LMI'],
+            PMI=['PMI']
+        ),
+        NORM=dict(NORM=['NORM']),
+        STTC={
+            'STTC': ['NDT', 'DIG', 'LNGQT', 'ANEUR', 'EL'],
+            'NST_': ['NST_'],
+            'ISC_': ['ISC_'],
+            'ISCA': ['ISCAL', 'ISCAS', 'ISCLA', 'ISCAN'],
+            'ISCI': ['ISCIN', 'ISCIL']
+        }
+    )
+    form_codes = [
+        'NDT', 'NST_', 'DIG', 'LNGQT', 'ABQRS', 'PVC', 'STD_', 'VCLVH', 'QWAVE', 'LOWT',
+        'NT_', 'PAC', 'LPR', 'INVT', 'LVOLT', 'HVOLT', 'TAB_', 'STE_', 'PRC(S)'
+    ]
+    rhythm_codes = [
+         'SR', 'AFIB', 'STACH', 'SARRH', 'SBRAD', 'PACE', 'SVARR', 'BIGU', 'AFLT', 'SVTAC', 'PSVT', 'TRIGU'
+    ]
+    set_codes = set().union(*[set(sum(d.values(), start=[])) for d in diag_cls2sub_cls2code.values()])
+    set_codes |= set(form_codes) | set(rhythm_codes)
+    assert set_codes == set(codes.keys())
+
+    diag_sub_cls2desc = {
+        'NORM': 'Normal ECG',
+        'CD': 'Conduction Disturbance',
+        'MI': 'Myocardial Infarction',
+        'HYP': 'Hypertrophy',
+        'STTC': 'ST/T change',
+    }
+    assert len(diag_sub_cls2desc) == len(diag_cls2sub_cls2code)
+    code2desc = {
+        # Diagnostic
+        'LAFB': 'left anterior fascicular block',
+        'IRBBB': 'incomplete right bundle branch block',
+        '1AVB': 'first degree AV block',  # tho table in paper says `AVB`
+        'IVCD': 'non-specific intraventricular conduction disturbance (block)',
+        'CRBBB': 'complete right bundle branch block',
+        'CLBBB': 'complete left bundle branch block',
+        'LPFB': 'left posterior fascicular block',
+        'WPW': 'Wolff-Parkinson-White syndrome',
+        'ILBBB': 'incomplete left bundle branch block',
+        '3AVB': 'third degree AV block',
+        '2AVB': 'second degree AV block',
+        'LVH': 'left ventricular hypertrophy',
+        'LAO/LAE': 'left atrial overload/enlargement',
+        'RVH': 'right ventricular hypertrophy',
+        'RAO/RAE': 'right atrial overload/enlargement',
+        'SEHYP': 'septal hypertrophy',
+        'IMI': 'inferior myocardial infarction',
+        'ASMI': 'anteroseptal myocardial infarction',
+        'ILMI': 'inferolateral myocardial infarction',
+        'AMI': 'anterior myocardial infarction',
+        'ALMI': 'anterolateral myocardial infarction',
+        'INJAS': 'subendocardial injury in anteroseptal leads',
+        'LMI': 'lateral myocardial infarction',
+        'INJAL': 'subendocardial injury in anterolateral leads',
+        'IPLMI': 'inferoposterolateral myocardial infarction',
+        'IPMI': 'inferoposterior myocardial infarction',
+        'INJIN': 'subendocardial injury in inferior leads',
+        'PMI': 'posterior myocardial infarction',
+        'INJLA': 'subendocardial injury in lateral leads',
+        'INJIL': 'subendocardial injury in inferolateral leads',
+        'NORM': 'normal ECG',
+        'NDT': 'non-diagnostic T abnormalities',
+        'NST_': 'non-specific ST changes',
+        'DIG': 'digitalis-effect',
+        'LNGQT': 'long QT-interval',
+        'ISC_': 'non-specific ischemic',
+        'ISCAL': 'ischemic in anterolateral leads',
+        'ISCIN': 'ischemic in inferior leads',
+        'ISCIL': 'ischemic in inferolateral leads',
+        'ISCAS': 'ischemic in anteroseptal leads',
+        'ISCLA': 'ischemic in lateral leads',
+        'ANEUR': 'ST-T changes compatible with ventricular aneurysm',
+        'EL': 'electrolytic disturbance or drug (former EDIS)',
+        'ISCAN': 'ischemic in anterior leads',
+        # form, 4 overlaps with diagnostic
+        # 'NDT': 'non-diagnostic T abnormalities',
+        # 'NST_': 'non-specific ST changes',
+        # 'DIG': 'digitalis-effect',
+        # 'LNGQT': 'long QT-interval',
+        'ABQRS': 'abnormal QRS',
+        'PVC': 'ventricular premature complex',
+        'STD_': 'non-specific ST depression',
+        'VCLVH': 'voltage criteria (QRS) for left ventricular hypertrophy',
+        'QWAVE': 'Q waves present',
+        'LOWT': 'low amplitude T-waves',
+        'NT_': 'non-specific T-wave changes',
+        'PAC': 'atrial premature complex',
+        'LPR': 'prolonged PR interval',
+        'INVT': 'inverted T-waves',
+        'LVOLT': 'low QRS voltages in the frontal and horizontal leads',
+        'HVOLT': 'high QRS voltage',
+        'TAB_': "T-wave abnormality",
+        'STE_': 'non-specific ST elevation',
+        'PRC(S)': 'premature complex(es)',
+        # rhythm
+        'SR': 'sinus rhythm',
+        'AFIB': 'atrial fibrillation',
+        'STACH': 'sinus tachycardia',
+        'SARRH': 'sinus arrhythmia',
+        'SBRAD': 'sinus bradycardia',
+        'PACE': 'normal functioning artificial pacemaker',
+        'SVARR': 'supraventricular arrhythmia',
+        'BIGU': 'bigeminal pattern (unknown origin, SV or Ventricular)',
+        'AFLT': 'atrial flutter',
+        'SVTAC': 'supraventricular tachycardia',
+        'PSVT': 'paroxysmal supraventricular tachycardia',
+        'TRIGU': 'trigeminal pattern (unknown origin, SV or Ventricular)',
+    }
+    assert set(code2desc.keys()) == set(code2id.keys())
+
+    set_(config_dict, f'datasets.{dnm}.code', {
+        'codes': codes, 'code2id': code2id, 'id2code': id2code,
+        'diagnostic-class2sub-class2code': diag_cls2sub_cls2code,
+        'code.form-codes': form_codes,
+        'rhythm-codes': rhythm_codes,
+        'diagnostic-sub-class2description': diag_sub_cls2desc,
+        'code2description': code2desc
+    })
 
 
 def extract_datasets_meta():
@@ -152,23 +299,22 @@ def set_ptbxl_train_stats():
     """
     n_sample = None
 
-    def _get_single(type: str) -> Dict:
-        dset = get_ptbxl_splits(n_sample=n_sample, dataset_args=dict(normalize=('std', 1), type=type))[0]
+    def _get_single(type_: str) -> Dict:
+        dset = get_ptbxl_splits(n_sample=n_sample, dataset_args=dict(normalize=('std', 1), type=type_))[0]
         std1_normalizer = dset.transform.transforms[0].normalizers[0]
         mean, std = std1_normalizer.norm_meta
         mean, std = mean.flatten().tolist(), std.flatten().tolist()
         return dict(mean=mean, std=std)
-    # d_dset: Dict[str, Any] = config_dict['datasets']['PTB-XL']
-    # d_dset['train-stats'] = dict(
     set_(config_dict, 'datasets.PTB-XL.train-stats', {k: _get_single(k) for k in ['original', 'denoised']})
 
 
 def set_paths():
     # Accommodate other OS
-    for key in keys(config_dict):
-        val = get(config_dict, key)
-        if key[key.rfind('.')+1:] == 'dir_nm':
-            set_(config_dict, key, os.path.join(*val.split('/')))
+    for key in it_keys(config_dict):
+        if key.split('.')[-1] == 'dir_nm':
+            path = get(config_dict, key)
+            if '/' in path:
+                set_(config_dict, key, os.sep.join(*path.split('/')))
 
 
 def wrap_config():

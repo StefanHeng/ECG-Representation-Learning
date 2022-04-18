@@ -671,7 +671,224 @@
                     "SVTAC",
                     "PSVT",
                     "TRIGU"
-                ]
+                ],
+                "diagnostic-class2sub-class2code": {
+                    "CD": {
+                        "LAFB/LPFB": [
+                            "LAFB",
+                            "LPFB"
+                        ],
+                        "IRBBB": [
+                            "IRBBB"
+                        ],
+                        "_AVB": [
+                            "1AVB",
+                            "3AVB",
+                            "2AVB"
+                        ],
+                        "IVCD": [
+                            "IVCD"
+                        ],
+                        "CRBBB": [
+                            "CRBBB"
+                        ],
+                        "CLBBB": [
+                            "CLBBB"
+                        ],
+                        "WPW": [
+                            "WPW"
+                        ],
+                        "ILBBB": [
+                            "ILBBB"
+                        ]
+                    },
+                    "HYP": {
+                        "LVH": [
+                            "LVH"
+                        ],
+                        "LAO/LAE": [
+                            "LAO/LAE"
+                        ],
+                        "RVH": [
+                            "RVH"
+                        ],
+                        "RAO/RAE": [
+                            "RAO/RAE"
+                        ],
+                        "SEHYP": [
+                            "SEHYP"
+                        ]
+                    },
+                    "MI": {
+                        "IMI": [
+                            "IMI",
+                            "ILMI",
+                            "IPLMI",
+                            "IPMI",
+                            "INJIN",
+                            "INJIL"
+                        ],
+                        "AMI": [
+                            "ASMI",
+                            "AMI",
+                            "ALMI",
+                            "INJAS",
+                            "INJAL",
+                            "INJLA"
+                        ],
+                        "LMI": [
+                            "LMI"
+                        ],
+                        "PMI": [
+                            "PMI"
+                        ]
+                    },
+                    "NORM": {
+                        "NORM": [
+                            "NORM"
+                        ]
+                    },
+                    "STTC": {
+                        "STTC": [
+                            "NDT",
+                            "DIG",
+                            "LNGQT",
+                            "ANEUR",
+                            "EL"
+                        ],
+                        "NST_": [
+                            "NST_"
+                        ],
+                        "ISC_": [
+                            "ISC_"
+                        ],
+                        "ISCA": [
+                            "ISCAL",
+                            "ISCAS",
+                            "ISCLA",
+                            "ISCAN"
+                        ],
+                        "ISCI": [
+                            "ISCIN",
+                            "ISCIL"
+                        ]
+                    }
+                },
+                "code.form-codes": [
+                    "NDT",
+                    "NST_",
+                    "DIG",
+                    "LNGQT",
+                    "ABQRS",
+                    "PVC",
+                    "STD_",
+                    "VCLVH",
+                    "QWAVE",
+                    "LOWT",
+                    "NT_",
+                    "PAC",
+                    "LPR",
+                    "INVT",
+                    "LVOLT",
+                    "HVOLT",
+                    "TAB_",
+                    "STE_",
+                    "PRC(S)"
+                ],
+                "rhythm-codes": [
+                    "SR",
+                    "AFIB",
+                    "STACH",
+                    "SARRH",
+                    "SBRAD",
+                    "PACE",
+                    "SVARR",
+                    "BIGU",
+                    "AFLT",
+                    "SVTAC",
+                    "PSVT",
+                    "TRIGU"
+                ],
+                "diagnostic-sub-class2description": {
+                    "NORM": "Normal ECG",
+                    "CD": "Conduction Disturbance",
+                    "MI": "Myocardial Infarction",
+                    "HYP": "Hypertrophy",
+                    "STTC": "ST/T change"
+                },
+                "code2description": {
+                    "LAFB": "left anterior fascicular block",
+                    "IRBBB": "incomplete right bundle branch block",
+                    "1AVB": "first degree AV block",
+                    "IVCD": "non-specific intraventricular conduction disturbance (block)",
+                    "CRBBB": "complete right bundle branch block",
+                    "CLBBB": "complete left bundle branch block",
+                    "LPFB": "left posterior fascicular block",
+                    "WPW": "Wolff-Parkinson-White syndrome",
+                    "ILBBB": "incomplete left bundle branch block",
+                    "3AVB": "third degree AV block",
+                    "2AVB": "second degree AV block",
+                    "LVH": "left ventricular hypertrophy",
+                    "LAO/LAE": "left atrial overload/enlargement",
+                    "RVH": "right ventricular hypertrophy",
+                    "RAO/RAE": "right atrial overload/enlargement",
+                    "SEHYP": "septal hypertrophy",
+                    "IMI": "inferior myocardial infarction",
+                    "ASMI": "anteroseptal myocardial infarction",
+                    "ILMI": "inferolateral myocardial infarction",
+                    "AMI": "anterior myocardial infarction",
+                    "ALMI": "anterolateral myocardial infarction",
+                    "INJAS": "subendocardial injury in anteroseptal leads",
+                    "LMI": "lateral myocardial infarction",
+                    "INJAL": "subendocardial injury in anterolateral leads",
+                    "IPLMI": "inferoposterolateral myocardial infarction",
+                    "IPMI": "inferoposterior myocardial infarction",
+                    "INJIN": "subendocardial injury in inferior leads",
+                    "PMI": "posterior myocardial infarction",
+                    "INJLA": "subendocardial injury in lateral leads",
+                    "INJIL": "subendocardial injury in inferolateral leads",
+                    "NORM": "normal ECG",
+                    "NDT": "non-diagnostic T abnormalities",
+                    "NST_": "non-specific ST changes",
+                    "DIG": "digitalis-effect",
+                    "LNGQT": "long QT-interval",
+                    "ISC_": "non-specific ischemic",
+                    "ISCAL": "ischemic in anterolateral leads",
+                    "ISCIN": "ischemic in inferior leads",
+                    "ISCIL": "ischemic in inferolateral leads",
+                    "ISCAS": "ischemic in anteroseptal leads",
+                    "ISCLA": "ischemic in lateral leads",
+                    "ANEUR": "ST-T changes compatible with ventricular aneurysm",
+                    "EL": "electrolytic disturbance or drug (former EDIS)",
+                    "ISCAN": "ischemic in anterior leads",
+                    "ABQRS": "abnormal QRS",
+                    "PVC": "ventricular premature complex",
+                    "STD_": "non-specific ST depression",
+                    "VCLVH": "voltage criteria (QRS) for left ventricular hypertrophy",
+                    "QWAVE": "Q waves present",
+                    "LOWT": "low amplitude T-waves",
+                    "NT_": "non-specific T-wave changes",
+                    "PAC": "atrial premature complex",
+                    "LPR": "prolonged PR interval",
+                    "INVT": "inverted T-waves",
+                    "LVOLT": "low QRS voltages in the frontal and horizontal leads",
+                    "HVOLT": "high QRS voltage",
+                    "TAB_": "T-wave abnormality",
+                    "STE_": "non-specific ST elevation",
+                    "PRC(S)": "premature complex(es)",
+                    "SR": "sinus rhythm",
+                    "AFIB": "atrial fibrillation",
+                    "STACH": "sinus tachycardia",
+                    "SARRH": "sinus arrhythmia",
+                    "SBRAD": "sinus bradycardia",
+                    "PACE": "normal functioning artificial pacemaker",
+                    "SVARR": "supraventricular arrhythmia",
+                    "BIGU": "bigeminal pattern (unknown origin, SV or Ventricular)",
+                    "AFLT": "atrial flutter",
+                    "SVTAC": "supraventricular tachycardia",
+                    "PSVT": "paroxysmal supraventricular tachycardia",
+                    "TRIGU": "trigeminal pattern (unknown origin, SV or Ventricular)"
+                }
             },
             "n_rec": 21837,
             "n_pat": 18885,

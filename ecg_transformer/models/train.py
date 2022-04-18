@@ -3,7 +3,7 @@ import sys
 import math
 import logging
 import datetime
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Union, Any
 
 import numpy as np
 import torch
@@ -200,12 +200,12 @@ class MyTrainer:
     tb_ignore_keys = ['step', 'epoch', 'per_class_auc']
 
     def __init__(
-            self, name='EcgVit Train', model: EcgVit = None,
+            self, name='EcgVit', model: EcgVit = None,
             train_dataset: EcgDataset = None, eval_dataset: EcgDataset = None, args: Dict = None
     ):
         self.name = name
         self.save_time = now(for_path=True)
-        self.args = args
+        self.args = {**get_train_args(), **(args or dict())}
         self.output_dir = self.args['output_dir'] = os.path.join(PATH_BASE, DIR_PROJ, DIR_MDL, self.save_time)
         learning_rate, weight_decay, train_batch_size, num_train_epoch, n_step = (self.args[k] for k in (
             'learning_rate', 'weight_decay', 'train_batch_size', 'num_train_epoch', 'n_step'
@@ -214,19 +214,18 @@ class MyTrainer:
         self.model, self.train_dataset, self.eval_dataset = model, train_dataset, eval_dataset
         self.optimizer, self.scheduler = None, None
         self.epoch, self.step = None, None
-        self.t_strt = None
 
         self.train_meta = {'model': model.meta, '#epoch': num_train_epoch, '#step': n_step, 'bsz': train_batch_size}
         self.log_fnm = f'model={model.meta_str}, ' \
-                       f'n={len(train_dataset)}, a={learning_rate}, dc={weight_decay}, ' \
+                       f'n={(train_dataset and len(train_dataset)) or "NA"}, a={learning_rate}, dc={weight_decay}, ' \
                        f'bsz={train_batch_size}, n_ep={num_train_epoch}'
         self.logger, self.logger_fl, self.tb_writer = None, None, None
 
     def train(self):
-        self.logger = get_logger(self.name)
-        self.logger = get_logger(self.name)
+        name = f'{self.name} Train'
+        self.logger = get_logger(name)
         log_path = os.path.join(self.output_dir, f'{self.log_fnm}.log')
-        self.logger_fl = get_logger(name=self.name, typ='file-write', file_path=log_path)
+        self.logger_fl = get_logger(name=name, typ='file-write', file_path=log_path)
         self.logger.info(f'Launched training model {logi(self.model.config)} '
                          f'with args {log_dict_pg(self.args)} and {log_dict(self.train_meta)}... ')
         self.logger_fl.info(f'Launched training model {self.model.config} '
@@ -254,37 +253,43 @@ class MyTrainer:
 
         self.epoch, self.step = 0, 0
         best_eval_loss, n_bad_ep = float('inf'), 0
-        self.t_strt = datetime.datetime.now()
+        t_strt = datetime.datetime.now()
         if self.args['do_eval']:
             self.evaluate()
-        # TODO: doesn't seem to gate refresh rate, but seems refreshing is fine on colab
-        tqdm_refresh_rate = 20 if is_on_colab() else 1
         for _ in range(self.args['num_train_epoch']):
             self.epoch += 1
             self.model.train()  # cos at the end of each eval, evaluate
             desc_epoch = self._get_epoch_desc()
-            for inputs in tqdm(dl, desc=f'Train {desc_epoch}', miniters=tqdm_refresh_rate):
-                self.step += 1
-                self.optimizer.zero_grad()
+            # pbar = tqdm(total=len(dl), )
+            with tqdm(dl, desc=f'Train {desc_epoch}', unit='ba') as t_dl:
+                for inputs in t_dl:
+                    # TODO: set_postfix
+                    self.step += 1
+                    self.optimizer.zero_grad()
 
-                if torch.cuda.is_available():
-                    inputs = {k: v.cuda() for k, v in inputs.items()}
-                outputs = self.model(**inputs)
-                loss, logits = outputs.loss, outputs.logits.detach()
-                labels = inputs['labels'].detach()
-                loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0, error_if_nonfinite=True)
-                self.optimizer.step()
-                self.scheduler.step()
+                    if torch.cuda.is_available():
+                        inputs = {k: v.cuda() for k, v in inputs.items()}
+                    outputs = self.model(**inputs)
+                    loss, logits = outputs.loss, outputs.logits.detach()
+                    labels = inputs['labels'].detach()
+                    loss_scalar = loss.detach().item()
 
-                d_log = dict(epoch=self.epoch, step=self.step)  # 1-indexed
-                lr = self._get_lr()
-                d_update = {  # colab compatibility
-                    **dict(learning_rate=lr, loss=loss.detach().item()),
-                    **train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
-                }
-                d_log.update({f'train/{k}': v for k, v in d_update.items()})
-                self.log(d_log)
+                    loss.backward()
+                    nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0, error_if_nonfinite=True)
+                    self.optimizer.step()
+                    self.scheduler.step()
+
+                    d_log = dict(epoch=self.epoch, step=self.step)  # 1-indexed
+                    lr = self._get_lr()
+                    d_update = {  # colab compatibility
+                        **dict(learning_rate=lr, loss=loss_scalar),
+                        **train_util.get_accuracy(torch.sigmoid(logits), labels, return_auc=True)
+                    }
+                    pretty_loss = train_util.pretty_single('loss', loss_scalar)
+                    pretty_auc = train_util.pretty_single('auc', d_update['macro_auc'])
+                    t_dl.set_postfix(loss=pretty_loss, macro_auc=pretty_auc)
+                    d_log.update({f'train/{k}': v for k, v in d_update.items()})
+                    self.log(d_log)
 
             save_n_ep = self.args['save_every_n_epoch']
             if save_n_ep and self.epoch > 0 and self.epoch % save_n_ep == 0:
@@ -299,41 +304,52 @@ class MyTrainer:
                 else:
                     n_bad_ep += 1
                 if n_bad_ep >= self.args['patience']:
-                    t = fmt_time(datetime.datetime.now() - self.t_strt)
+                    t = fmt_time(datetime.datetime.now() - t_strt)
                     d_pat = dict(epoch=self.epoch, patience=self.args['patience'], best_eval_cls_acc=best_eval_loss)
                     self.logger.info(f'Training terminated early for {log_dict(d_pat)} in {logi(t)} ')
                     self.logger_fl.info(f'Training terminated early for {log_dict_nc(d_pat)} in {t}')
                     break
-        t = fmt_time(datetime.datetime.now() - self.t_strt)
+        t = fmt_time(datetime.datetime.now() - t_strt)
         self.logger.info(f'Training completed in {logi(t)} ')
         self.logger_fl.info(f'Training completed in {t} ')
         self.logger, self.logger_fl, self.tb_writer = None, None, None  # reset
         torch.save(self.model.state_dict(), os.path.join(self.output_dir, f'model - {self.log_fnm}.pt'))
 
-    def evaluate(self):
+    def evaluate(self, eval_dataset: EcgDataset = None, return_predictions: bool = False) -> Union[Dict[str, Any]]:
         self.model.eval()
 
         bsz = self.args['eval_batch_size']
-        dl = DataLoader(self.eval_dataset, batch_size=bsz, shuffle=False)
+        vl = eval_dataset or self.eval_dataset
+        dl = DataLoader(vl, batch_size=bsz, shuffle=False)
 
         lst_loss, lst_logits, lst_labels = [], [], []
-        for inputs in dl:  # no tqdm for eval
+        training = self.model.training
+        if not training:
+            dl = tqdm(dl, desc='Evaluating... ')
+            assert self.logger is None
+            self.logger = get_logger(f'{self.name} Eval')
+        # no tqdm for eval if during training
+        for inputs in dl:
             if torch.cuda.is_available():
                 inputs = {k: v.cuda() for k, v in inputs.items()}
             with torch.no_grad():
                 output = self.model(**inputs)
-            lst_loss.append(output.loss.detach().item())
+            loss = output.loss.detach().item()
+            lst_loss.append(loss)
             lst_logits.append(output.logits.detach().cpu())
             lst_labels.append(inputs['labels'].cpu())
+            dl.set_postfix(loss=loss)
 
         loss = np.mean(lst_loss)
         logits, labels = torch.cat(lst_logits, dim=0), torch.cat(lst_labels, dim=0)
         preds_prob = torch.sigmoid(logits)
-        d_log = dict(epoch=self.epoch, step=self.step)
+        d_log = dict(epoch=self.epoch, step=self.step) if training else dict()
         d_update = {**dict(loss=loss), **train_util.get_accuracy(preds_prob, labels)}
         d_log.update({f'eval/{k}': v for k, v in d_update.items()})
         self.log(d_log)
-        return d_log
+        if not training:
+            self.logger = None
+        return dict(metrics=d_log, predictions=dict(labels=labels, logits=logits)) if return_predictions else d_log
 
     def log(self, msg: Dict):
         msg_ = train_util.pretty_log_dict(msg, ref=self.train_meta)
@@ -343,10 +359,12 @@ class MyTrainer:
             should_log = False
         if self.args['log_to_console'] and should_log:
             self.logger.info(log_dict(msg_))
-        self.logger_fl.info(log_dict_nc(msg_))
+        if self.logger_fl:
+            self.logger_fl.info(log_dict_nc(msg_))
         msg = {k: v for k, v in msg.items() if MyTrainer._keep_in_tb_write(k, v)}
-        for k, v in msg.items():
-            self.tb_writer.add_scalar(tag=k, scalar_value=v, global_step=self.step)
+        if self.tb_writer:
+            for k, v in msg.items():
+                self.tb_writer.add_scalar(tag=k, scalar_value=v, global_step=self.step)
 
     @staticmethod
     def _keep_in_tb_write(k: str, v: Any) -> bool:

@@ -7,7 +7,8 @@ That is, ignore the likelihood for each `scp_codes`, as those are not accurate a
 """
 import os
 from ast import literal_eval
-from typing import List, Tuple, Dict, Sequence
+from typing import List, Dict, Sequence
+from collections import namedtuple
 
 import pandas as pd
 import torch
@@ -17,6 +18,9 @@ import pytorch_lightning as pl
 from ecg_transformer.util import *
 import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import EcgDataset
+
+
+PtbxlSplitDatasets = namedtuple('PtbxlSplitDatasets', ['train', 'eval', 'test'])
 
 
 def export_ptbxl_labels():
@@ -96,7 +100,7 @@ class PtbxlDataModule(pl.LightningDataModule):
 
 def get_ptbxl_splits(
         n_sample: int = None, dataset_args: Dict = None, type='denoised'
-) -> Tuple[PtbxlDataset, PtbxlDataset, PtbxlDataset]:
+) -> PtbxlSplitDatasets:
     ca(type=type)
     logger = get_logger('Get PTB-XL splits')
 
@@ -119,7 +123,7 @@ def get_ptbxl_splits(
     def get_dset(df_) -> PtbxlDataset:
         # so that indexing into `labels` is 0-indexed
         return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels, **dataset_args)
-    return get_dset(df_tr), get_dset(df_vl), get_dset(df_ts)
+    return PtbxlSplitDatasets(train=get_dset(df_tr), eval=get_dset(df_vl), test=get_dset(df_ts))
 
 
 if __name__ == '__main__':

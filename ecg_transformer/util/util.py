@@ -42,6 +42,7 @@ pd.set_option('display.precision', 2)
 pd.set_option('max_colwidth', 40)
 
 
+plt.rcParams['figure.figsize'] = (16, 9)
 plt.rcParams['figure.constrained_layout.use'] = True
 sns.set_style('darkgrid')
 sns.set_context(rc={'grid.linewidth': 0.5})
@@ -486,7 +487,7 @@ def remove_1st_occurrence(str_, str_sub):
 
 def save_fig(title, save=True):
     if save:
-        fnm = f'{title}.png'
+        fnm = f'{title}, {now(for_path=True)}.png'
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
 
 
