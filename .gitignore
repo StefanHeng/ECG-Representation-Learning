@@ -4,6 +4,7 @@ test-lang.py
 plot/
 models/
 !ecg_transformer/models/
+evaluations/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

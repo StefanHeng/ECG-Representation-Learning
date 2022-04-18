@@ -3,6 +3,7 @@ Vision Transformer adapted to 1D ECG signals
 
 Intended fpr vanilla, supervised training
 """
+import re
 
 import torch
 from torch import nn
@@ -14,6 +15,8 @@ from ecg_transformer.util.models import ModelOutput
 
 
 class EcgVitConfig(PretrainedConfig):
+    pattern_model_name = re.compile(rf'^(?P<name>\S+)-(?P<size>\S+)$')
+
     def __init__(
             self,
             max_signal_length: int = 2560,
@@ -39,6 +42,7 @@ class EcgVitConfig(PretrainedConfig):
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
         self.num_class = num_class
         super().__init__(**kwargs)
+        self.size = None
 
     @classmethod
     def from_defined(cls, model_name):
@@ -47,29 +51,31 @@ class EcgVitConfig(PretrainedConfig):
         """
         ca(model_name=model_name)
         conf = cls()
-        if model_name == 'ecg-vit-debug':
-            # conf = cls.from_defined('ecg-vit-tiny')
-            # conf.num_hidden_layers = 2
+        m = cls.pattern_model_name.match(model_name)
+        nm, size = m.group('name'), m.group('size')
+        conf.size = size
+        assert nm == 'ecg-vit'
+        if size == 'debug':
             conf.hidden_size = 64
             conf.num_hidden_layers = 4
             conf.num_attention_heads = 4
             conf.intermediate_size = 256
-        elif model_name == 'ecg-vit-tiny':
+        elif size == 'tiny':
             conf.hidden_size = 256
             conf.num_hidden_layers = 4
             conf.num_attention_heads = 4
             conf.intermediate_size = 1024
-        elif model_name == 'ecg-vit-small':
+        elif size == 'small':
             conf.hidden_size = 512
             conf.num_hidden_layers = 8
             conf.num_attention_heads = 8
             conf.intermediate_size = 2048
-        elif model_name == 'ecg-vit-base':
+        elif size == 'base':
             conf.hidden_size = 768
             conf.num_hidden_layers = 12
             conf.num_attention_heads = 12
             conf.intermediate_size = 3072
-        elif model_name == 'ecg-vit-large':
+        elif size == 'large':
             conf.hidden_size = 1024
             conf.num_hidden_layers = 24
             conf.num_attention_heads = 16
