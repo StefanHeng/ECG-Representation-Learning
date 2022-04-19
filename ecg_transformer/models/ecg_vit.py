@@ -92,7 +92,7 @@ class EcgVitConfig(PretrainedConfig):
 
 
 class EcgVit(nn.Module):
-    def __init__(self, num_class: int = 71, config=EcgVitConfig(),):
+    def __init__(self, num_class: int = 71, config=EcgVitConfig(), loss_reduction: str = 'mean'):
         super().__init__()
         hd_sz, n_head = config.hidden_size, config.num_attention_heads
         assert hd_sz % n_head == 0
@@ -113,7 +113,8 @@ class EcgVit(nn.Module):
             emb_dropout=self.config.attention_probs_dropout_prob
         )
         self.vit = ViT(**_md_args)
-        self.loss_fn = nn.BCEWithLogitsLoss()  # TODO: more complex loss, e.g. weighting?
+        self._loss_reduction = loss_reduction
+        self.loss_fn = nn.BCEWithLogitsLoss(reduction=loss_reduction)  # TODO: more complex loss, e.g. weighting?
         self.loss_weight = None
 
         C, L = self.config.num_channels, self.config.max_signal_length
@@ -124,13 +125,22 @@ class EcgVit(nn.Module):
         }
         self.meta_str = log_dict_p({'nm': cls_nm, 'in-sp': f'{C}x{L}', '#p': n_pch, '#l': n_l, '#h': n_h})
 
+    @property
+    def loss_reduction(self):
+        return self._loss_reduction
+
+    @loss_reduction.setter
+    def loss_reduction(self, r):
+        self.loss_fn.reduction = self._loss_reduction = r
+
     def forward(self, sample_values: torch.FloatTensor, labels: torch.LongTensor = None):
         logits = self.vit(sample_values.unsqueeze(-2))   # Add dummy height dimension
         loss = None
         if labels is not None:
             if self.loss_weight:  # modify the loss function each call
                 weight = torch.tensor(self.loss_weight, device=labels.device)
-                self.loss_fn = nn.BCEWithLogitsLoss(weight=weight[labels.long()])  # Map weights by each label
+                # Map weights by each label
+                self.loss_fn = nn.BCEWithLogitsLoss(weight=weight[labels.long()], reduction=self.loss_reduction)
             loss = self.loss_fn(input=logits, target=labels)
         return ModelOutput(loss=loss, logits=logits)
 
@@ -190,7 +200,7 @@ class EcgVitVisualizer:
         d_gs = dict(width_ratios=[3, 3, 32], height_ratios=[n_lb, n_pd, 2 * (n_lb+n_pd)])  # reserve empty spaces
         fig, axs = plt.subplots(nrows=3, ncols=3, gridspec_kw=d_gs)
         gs = axs[0, -1].get_gridspec()  # TODO: don't get this API, doesn't seem to matter???
-        # for ax in axs[:, -1]:  # combine the right column as a single axis
+        # combine the right column as a single axis
         for ax in join_its([axs[:, -1], axs[0, :2], axs[1, :2]]):
             ax.remove()
         ax_sig = fig.add_subplot(gs[:, -1])
@@ -198,10 +208,7 @@ class EcgVitVisualizer:
         ax_cb_c, ax_cb_i = axs[2, 0], axs[2, 1]
 
         cmap_correct = sns.color_palette(self.palette_correct, as_cmap=True)  # with integer 1 the color is weird
-        # cmap_correct = sns.color_palette('RdYlGn', as_cmap=True)
         cmap_incorrect = sns.color_palette(self.palette_incorrect, as_cmap=True)
-        # ax_lb, ax_pd = axs[0, 0], axs[1, 0]
-        # axs[-1, 0].set_visible(False)
         y, cs = [100] * len(str_lbs), [cmap_correct(1.)] * len(str_lbs)
         w = 0.125
         barplot(x=str_lbs, y=y, ax=ax_lb, palette=cs, orient='h', width=w, xlabel='Ground truths', with_value=False)

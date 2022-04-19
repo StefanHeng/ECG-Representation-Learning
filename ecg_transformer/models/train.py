@@ -315,40 +315,62 @@ class MyTrainer:
         self.logger, self.logger_fl, self.tb_writer = None, None, None  # reset
         torch.save(self.model.state_dict(), os.path.join(self.output_dir, f'model - {self.log_fnm}.pt'))
 
-    def evaluate(self, eval_dataset: EcgDataset = None, return_predictions: bool = False) -> Union[Dict[str, Any]]:
+    def evaluate(
+            self, eval_dataset: EcgDataset = None, return_predictions: bool = False, loss_reduction: str = 'mean',
+    ) -> Union[Dict[str, Any]]:
+        """
+        :param eval_dataset: Eval dataset
+        :param return_predictions: if True, return predictions & labels along with metrics
+        :param loss_reduction:
+            If 'mean', loss is averaged across all batches
+            If 'none', loss is averaged for each sample and a tensor of length len(eval_dataset) is returned
+        """
+        ca.check_mismatch('Eval Loss Reduction', loss_reduction, ['mean', 'none'])
         self.model.eval()
-
+        red_ori = self.model.loss_reduction
+        self.model.loss_reduction = loss_reduction
+        reduce = loss_reduction == 'mean'
         bsz = self.args['eval_batch_size']
         vl = eval_dataset or self.eval_dataset
         dl = DataLoader(vl, batch_size=bsz, shuffle=False)
 
         lst_loss, lst_logits, lst_labels = [], [], []
         training = self.model.training
-        if not training:
+        if not training:  # no tqdm for eval if during training
             dl = tqdm(dl, desc='Evaluating... ')
             assert self.logger is None
             self.logger = get_logger(f'{self.name} Eval')
-        # no tqdm for eval if during training
         for inputs in dl:
             if torch.cuda.is_available():
                 inputs = {k: v.cuda() for k, v in inputs.items()}
             with torch.no_grad():
                 output = self.model(**inputs)
-            loss = output.loss.detach().item()
+            loss = output.loss.detach().cpu()
+            if reduce:
+                loss_log = loss = loss.item()
+            else:
+                loss = loss.mean(dim=-1)
+                loss_log = loss.mean().item()
             lst_loss.append(loss)
             lst_logits.append(output.logits.detach().cpu())
             lst_labels.append(inputs['labels'].cpu())
-            dl.set_postfix(loss=loss)
+            dl.set_postfix(loss=loss_log)
 
-        loss = np.mean(lst_loss)
+        if reduce:
+            loss_log = loss_ret = np.mean(lst_loss)
+        else:
+            loss_ret = torch.cat(lst_loss).numpy()
+            loss_log = np.mean(loss_ret)
         logits, labels = torch.cat(lst_logits, dim=0), torch.cat(lst_labels, dim=0)
         preds_prob = torch.sigmoid(logits)
         d_log = dict(epoch=self.epoch, step=self.step) if training else dict()
-        d_update = {**dict(loss=loss), **train_util.get_accuracy(preds_prob, labels)}
+        d_update = {**dict(loss=loss_log), **train_util.get_accuracy(preds_prob, labels)}
         d_log.update({f'eval/{k}': v for k, v in d_update.items()})
         self.log(d_log)
+        d_log['eval/loss'] = loss_ret
         if not training:
             self.logger = None
+        self.model.loss_reduction = red_ori
         return dict(metrics=d_log, predictions=dict(labels=labels, logits=logits)) if return_predictions else d_log
 
     def log(self, msg: Dict):
