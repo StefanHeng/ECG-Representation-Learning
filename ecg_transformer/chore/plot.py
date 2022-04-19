@@ -12,17 +12,19 @@ import seaborn as sns
 from ecg_transformer.util import *
 
 
-def change_bar_width(ax, width: float = 0.5):
+def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
     """
     Modifies the bar width of a matplotlib bar plot
 
     Credit: https://stackoverflow.com/a/44542112/10732321
     """
+    ca(orient=orient)
+    is_vert = orient in ['v', 'vertical']
     for patch in ax.patches:
-        current_width = patch.get_width()
+        current_width = patch.get_width() if is_vert else patch.get_height()
         diff = current_width - width
-        patch.set_width(width)
-        patch.set_x(patch.get_x() + diff * .5)
+        patch.set_width(width) if is_vert else patch.set_height(width)
+        patch.set_x(patch.get_x() + diff * .5) if is_vert else patch.set_y(patch.get_y() + diff * .5)
 
 
 def vals2colors(vals: Iterable[float], color_palette: str = 'Spectral_r'):
@@ -42,6 +44,30 @@ def set_color_bar(vals, ax, color_palette: str = 'Spectral_r'):
     plt.grid(False)
     plt.colorbar(sm, cax=ax)
     plt.xlabel('colorbar')
+
+
+def my_barplot(
+        x: Iterable[str], y: Iterable[float], orient: str = 'v', with_value: bool = True, width: float = 0.5,
+        xlabel: str = None, ylabel: str = None,
+        ax=None, palette=None, **kwargs
+):
+    ca(orient=orient)
+    df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
+    cat = CategoricalDtype(categories=x, ordered=True)  # Enforce ordering in plot
+    df['x'] = df['x'].astype(cat, copy=False)
+    is_vert = orient in ['v', 'vertical']
+    x, y = ('x', 'y') if is_vert else ('y', 'x')
+    if ax:
+        kwargs['ax'] = ax
+    if palette is not None:
+        kwargs['palette'] = palette
+    ax = sns.barplot(data=df, x=x, y=y, **kwargs)
+    if with_value:
+        ax.bar_label(ax.containers[0])
+    if width:
+        change_bar_width(ax, width, orient=orient)
+    ax.set_xlabel(xlabel) if is_vert else ax.set_ylabel(xlabel)  # if None just clears the label
+    ax.set_ylabel(ylabel) if is_vert else ax.set_xlabel(ylabel)
 
 
 class PtbxlAucVisualizer:
@@ -107,21 +133,14 @@ class PtbxlAucVisualizer:
 
         for group, meta in group2plot_meta.items():
             ax, codes, codes_print, group_desc = meta['ax'], meta['codes'], meta['codes_print'], meta['group_desc']
-            df = pd.DataFrame([{'code': c_p, 'auc': self.code2auc[code]} for code, c_p in zip(codes, codes_print)])
-            cat = CategoricalDtype(categories=codes_print, ordered=True)  # Enforce ordering in plot
-            df.code = df.code.astype(cat, copy=False)
-
-            cs_ = cs[clr_count:clr_count+len(codes)]
+            cs_ = cs[clr_count:clr_count + len(codes)]
             clr_count += len(codes) + color_gap
-            sns.barplot(data=df, x='code', y='auc', palette=cs_, ax=ax)
-            ax.bar_label(ax.containers[0])
-            change_bar_width(ax, 0.375)
+            my_barplot(x=codes_print, y=[self.code2auc[c] for c in codes], ax=ax, palette=cs_, width=0.375, ylabel=None)
             ax.set_xlabel(group_desc, style='italic')
-            ax.set_ylabel(None)
 
         aucs_all = np.asarray(aucs_all)
         ma, mi = np.max(aucs_all), np.min(aucs_all)
-        ma, mi = min(round(ma, -1)+10+5, 100+5), max(round(mi, -1)-10, 0)  # for the values on each bar
+        ma, mi = min(round(ma, -1)+10+5, 100+5), max(round(mi, -1)-10, 0)  # reserve space for values on top of each bar
         for ax in axes_diag.values():
             ax.set_ylim([mi, ma])
 
@@ -146,14 +165,16 @@ class PtbxlAucVisualizer:
             return ', '.join(aspect2aspect_print(aspect) for aspect in code2meta[code]['aspects'])
         code2desc = config(f'datasets.{dnm}.code.code2description')
         codes_print = [f'{code2aspect(c)}: {code2desc[c].capitalize()}' for c in codes]
-        # df = pd.DataFrame([{'code': code, 'auc': self.code2auc[code]} for code in codes])
-        df = pd.DataFrame([{'code': c_p, 'auc': self.code2auc[code]} for code, c_p in zip(codes, codes_print)])
-        cat = CategoricalDtype(categories=codes_print, ordered=True)
-        df.code = df.code.astype(cat, copy=False)
+
+        # df = pd.DataFrame([dict(code=c_p, auc=self.code2auc[code]) for code, c_p in zip(codes, codes_print)])
+        # cat = CategoricalDtype(categories=codes_print, ordered=True)
+        # df.code = df.code.astype(cat, copy=False)
 
         plt.figure(figsize=(14, 14))
-        ax = sns.barplot(data=df, x='auc', y='code', palette='mako_r')
-        ax.bar_label(ax.containers[0])
+        y = [self.code2auc[c] for c in codes]
+        my_barplot(x=codes_print, y=y, palette='mako_r', orient='h', xlabel='SCP code', ylabel='AUROC (%)')
+        # ax = sns.barplot(data=df, x='auc', y='code', palette='mako_r')
+        # ax.bar_label(ax.containers[0])
 
         title = title or 'PTB-XL per-code AUROC sorted bar plot'
         plt.title(title)
@@ -202,18 +223,19 @@ if __name__ == '__main__':
             ]
             for c in cmaps:
                 pav.grouped_plot(title=c, save=True, color_by=color_by, color_palette=c)
-        pick_cmap()
+        # pick_cmap()
 
         title = f'PTB-XL per-code AUROC bar plot by group on {model_desc}'
         # cmap = 'Spectral_r'
         cmap = 'mako'
         # save = True
-        # save = False
-        # pav.grouped_plot(title=title, save=save, color_by=color_by, color_palette=cmap)
-    plot_grouped()
+        save = False
+        pav.grouped_plot(title=title, save=save, color_by=color_by, color_palette=cmap)
+    # plot_grouped()
 
     def plot_sorted():
         title = f'PTB-XL per-code AUROC sorted bar plot on {model_desc}'
-        save = True
+        save = False
+        # save = True
         pav.sorted_plot(title=title, save=save)
-    # plot_sorted()
+    plot_sorted()
