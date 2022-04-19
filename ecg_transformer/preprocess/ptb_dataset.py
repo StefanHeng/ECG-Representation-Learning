@@ -7,7 +7,7 @@ That is, ignore the likelihood for each `scp_codes`, as those are not accurate a
 """
 import os
 from ast import literal_eval
-from typing import List, Dict, Sequence, Union
+from typing import List, Tuple, Dict, Sequence, Union
 from collections import namedtuple
 
 import pandas as pd
@@ -98,7 +98,7 @@ class PtbxlDataModule(pl.LightningDataModule):
 
 
 def get_ptbxl_splits(
-        n_sample: int = None, dataset_args: Dict = None,
+        n_sample: int = None, dataset_args: Union[Dict, Tuple[str, Dict]] = None,
 ) -> PtbxlSplitDatasets:
     logger = get_logger('Get PTB-XL splits')
 
@@ -117,23 +117,35 @@ def get_ptbxl_splits(
 
     dataset_args = dataset_args or dict()
 
-    def get_dset(df_) -> PtbxlDataset:
+    def get_dset(df_, dset_args: Dict) -> PtbxlDataset:
         # so that indexing into `labels` is 0-indexed
-        return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels, **dataset_args)
-    return PtbxlSplitDatasets(train=get_dset(df_tr), eval=get_dset(df_vl), test=get_dset(df_ts))
+        return PtbxlDataset(df_.index.to_numpy(), df_.reset_index(drop=True).labels, **dset_args)
+    if isinstance(dataset_args, dict):
+        args_tr = args_vl = args_ts = dataset_args
+    else:
+        args_tr,  args_vl, args_ts = dataset_args
+    return PtbxlSplitDatasets(
+        train=get_dset(df_tr, args_tr), eval=get_dset(df_vl, args_vl), test=get_dset(df_ts, args_ts)
+    )
 
 
 def get_ptbxl_dataset(
-        type: str = 'denoised', pad: Union[bool, int] = True, std_norm: bool = True, n_sample: int = None
+        type: str = 'denoised', n_sample: int = None,
+        std_norm: bool = True, pad: Union[bool, int] = True, timeout: bool = False
 ):
     """
     Transforms wrapped, ready for training/inference
     """
     if pad:
         assert isinstance(pad, int), f'If pad, an integer must be provided, got {pad}'
-        pad = transform.TimeEndPad(pad, pad_kwargs=dict(mode='constant', constant_values=0))
+        tsf: List = [transform.TimeEndPad(pad, pad_kwargs=dict(mode='constant', constant_values=0))]
+    else:
+        tsf = []
     norm = config(f'datasets.{DNM}.train-stats.{type}') if std_norm else None
-    dset_args = dict(type=type, normalize=norm, transform=pad, return_type='pt')
+    dset_args = dict(type=type, normalize=norm, transform=tsf, return_type='pt')
+
+    if timeout:  # Add TimeOut to training set only
+        dset_args = ({**dset_args, **dict(transform=tsf + [transform.TimeOut()])}, dset_args, dset_args)
     return get_ptbxl_splits(n_sample=n_sample, dataset_args=dset_args)
 
 

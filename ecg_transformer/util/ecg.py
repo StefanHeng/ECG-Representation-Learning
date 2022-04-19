@@ -53,6 +53,7 @@ def plot_1d(arr, label=None, title=None, save=False, s=None, e=None, new_fig=Tru
 
 def plot_ecg(
         arr: np.ndarray, title: str = None, ax=None, legend: bool = True, gap_factor: float = 1.0,
+        save: bool = False, show: bool = True,
         xlabel: str = 'Timestep (potentially resampled)', ylabel: str = 'Amplitude, normalized (mV)'
 ):
     n_lead = arr.shape[0]
@@ -83,8 +84,9 @@ def plot_ecg(
         handles, labels = plt.gca().get_legend_handles_labels()  # Distinct labels
         by_label = dict(zip(labels, handles))
         plt.legend(by_label.values(), by_label.keys(), bbox_to_anchor=(1.05, 1))
-    if not ax:
+    if show:
         plt.show()
+    save_fig(title, save)
 
 
 def r2(y, y_fit):

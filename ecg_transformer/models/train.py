@@ -215,10 +215,13 @@ class MyTrainer:
         self.optimizer, self.scheduler = None, None
         self.epoch, self.step = None, None
 
-        self.train_meta = {'model': model.meta, '#epoch': num_train_epoch, '#step': n_step, 'bsz': train_batch_size}
+        to = self.args['augment_timeout']
+        self.train_meta = {
+            'model': model.meta, '#epoch': num_train_epoch, '#step': n_step, 'bsz': train_batch_size, 'timeout': to
+        }
         self.log_fnm = f'model={model.meta_str}, ' \
                        f'n={(train_dataset and len(train_dataset)) or "NA"}, a={learning_rate}, dc={weight_decay}, ' \
-                       f'bsz={train_batch_size}, n_ep={num_train_epoch}'
+                       f'bsz={train_batch_size}, n_ep={num_train_epoch}, to={to}'
         self.logger, self.logger_fl, self.tb_writer = None, None, None
 
     def train(self):
@@ -255,12 +258,12 @@ class MyTrainer:
         best_eval_loss, n_bad_ep = float('inf'), 0
         t_strt = datetime.datetime.now()
         if self.args['do_eval']:
+            self.model.train()  # to pass assertion, see below
             self.evaluate()
         for _ in range(self.args['num_train_epoch']):
             self.epoch += 1
             self.model.train()  # cos at the end of each eval, evaluate
             desc_epoch = self._get_epoch_desc()
-            # pbar = tqdm(total=len(dl), )
             with tqdm(dl, desc=f'Train {desc_epoch}', unit='ba') as t_dl:
                 for inputs in t_dl:
                     # TODO: set_postfix
@@ -305,7 +308,7 @@ class MyTrainer:
                     n_bad_ep += 1
                 if n_bad_ep >= self.args['patience']:
                     t = fmt_time(datetime.datetime.now() - t_strt)
-                    d_pat = dict(epoch=self.epoch, patience=self.args['patience'], best_eval_cls_acc=best_eval_loss)
+                    d_pat = dict(epoch=self.epoch, patience=self.args['patience'], best_eval_loss=best_eval_loss)
                     self.logger.info(f'Training terminated early for {log_dict(d_pat)} in {logi(t)} ')
                     self.logger_fl.info(f'Training terminated early for {log_dict_nc(d_pat)} in {t}')
                     break
@@ -326,7 +329,6 @@ class MyTrainer:
             If 'none', loss is averaged for each sample and a tensor of length len(eval_dataset) is returned
         """
         ca.check_mismatch('Eval Loss Reduction', loss_reduction, ['mean', 'none'])
-        self.model.eval()
         red_ori = self.model.loss_reduction
         self.model.loss_reduction = loss_reduction
         reduce = loss_reduction == 'mean'
@@ -340,6 +342,7 @@ class MyTrainer:
             dl = tqdm(dl, desc='Evaluating... ')
             assert self.logger is None
             self.logger = get_logger(f'{self.name} Eval')
+        self.model.eval()
         for inputs in dl:
             if torch.cuda.is_available():
                 inputs = {k: v.cuda() for k, v in inputs.items()}
@@ -354,7 +357,8 @@ class MyTrainer:
             lst_loss.append(loss)
             lst_logits.append(output.logits.detach().cpu())
             lst_labels.append(inputs['labels'].cpu())
-            dl.set_postfix(loss=loss_log)
+            if not training:
+                dl.set_postfix(loss=loss_log)
 
         if reduce:
             loss_log = loss_ret = np.mean(lst_loss)
@@ -412,6 +416,7 @@ def get_train_args(args: Dict = None, n_train: int = None) -> Dict:
         warmup_ratio=0.05,
         schedule='cosine',
         n_sample=None,
+        augment_timeout=False,
         patience=8,
         precision=16 if torch.cuda.is_available() else 'bf16',
         log_per_epoch=False,  # only epoch-wise evaluation is logged
@@ -441,6 +446,7 @@ def get_all_setup(
 
     trainer_args = dict(model=model)
     if with_pl:
+        raise NotImplementedError('PL not updated with TimeOut')
         dummy_train_args = get_train_args(train_args)  # kind of ugly
         dnm = 'PTB-XL'
         pad = transform.TimeEndPad(conf.patch_size, pad_kwargs=dict(mode='constant', constant_values=0))  # zero-padding
@@ -451,7 +457,9 @@ def get_all_setup(
         trainer_args['train_args'] = get_train_args(train_args, n_train=n_train)
         cls = MyPlTrainer
     else:
-        tr, vl, ts = get_ptbxl_dataset(ptbxl_type, pad=conf.patch_size, std_norm=True, n_sample=train_args['n_sample'])
+        timeout = train_args.get('augment_timeout', False)  # TODO: kinda ugly, defined again in `get_train_args`
+        args = dict(type=ptbxl_type, n_sample=train_args['n_sample'], std_norm=True, pad=conf.patch_size, timeout=timeout)
+        tr, vl, ts = get_ptbxl_dataset(**args)
         # tr, vl, ts = get_ptbxl_splits(n_sample=train_args['n_sample'], dataset_args=dset_args)
         n_train = len(tr)
         trainer_args['train_dataset'], trainer_args['eval_dataset'] = tr, vl
@@ -499,6 +507,7 @@ if __name__ == '__main__':
             warmup_ratio=0,
             schedule='constant',
             n_sample=n_sample,
+            augment_timeout=True,
             # precision=16 if torch.cuda.is_available() else 32,
             # do_eval=False,
             log_per_epoch=True,

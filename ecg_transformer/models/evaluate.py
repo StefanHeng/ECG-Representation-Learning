@@ -46,7 +46,7 @@ def pick_eval_eg(model: EcgVit, dataset: PtbxlSplitDatasets, n_sample: int = 3) 
         n_group = max(round(loss.size / 10), n_sample)  # pick 10% of the data, arbitrary
         idxs_lo, idxs_hi, idxs_me = sample(n_group), sample(n_group), sample(n_group*2)
         sz = loss.size
-        d_out[split] = dict(low=idxs[idxs_lo], med=idxs[sz-1 - idxs_me], high=idxs[sz//2 - n_group + idxs_hi])
+        d_out[split] = dict(low=idxs[idxs_lo], high=idxs[sz-1 - idxs_me], med=idxs[sz//2 - n_group + idxs_hi])
     path_out = os.path.join(get_eval_path(), 'samples', model.to_str())
     os.makedirs(path_out, exist_ok=True)
     fnm = f'eval_edge_example_samples, {now(for_path=True)}'
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     def check_saved_eval_eg():
         # fnm = 'eval_edge_example_samples, 2022-04-19_00-20-28.npy'
         fnm = 'eval_edge_example_samples, 2022-04-19_00-31-17.pkl'
-        path_out = os.path.join(get_eval_path(), 'samples', model.to_str())
+        path_out = os.path.join(get_eval_path(), 'samples', mdl.to_str())
         # samples = np.load(os.path.join(path_out, fnm), allow_pickle=True)
         with open(os.path.join(path_out, fnm), 'rb') as f:
             samples = pickle.load(f)

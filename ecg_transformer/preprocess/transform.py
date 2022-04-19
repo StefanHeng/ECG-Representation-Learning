@@ -322,6 +322,8 @@ if __name__ == '__main__':
         ed = EcgDataset(dnm, transform=TimeOut())
         for rec in ed[:4]:
             ic(rec.shape)
-            ecg_util.plot_ecg(rec)
+            ecg_util.plot_ecg(rec, title='ECG 12-lead plot with Time out', save=True)
+            # plt.show()
+            break
             # exit(1)
     check_timeout()

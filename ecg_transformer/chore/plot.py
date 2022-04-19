@@ -160,14 +160,15 @@ if __name__ == '__main__':
         title = f'PTB-XL per-code AUROC bar plot by group on {model_desc}'
         # cmap = 'Spectral_r'
         cmap = 'mako'
+        # cmap = 'viridis'
         # save = True
         save = False
         pav.grouped_plot(title=title, save=save, color_by=color_by, color_palette=cmap)
-    # plot_grouped()
+    plot_grouped()
 
     def plot_sorted():
         title = f'PTB-XL per-code AUROC sorted bar plot on {model_desc}'
         save = False
         # save = True
         pav.sorted_plot(title=title, save=save)
-    plot_sorted()
+    # plot_sorted()

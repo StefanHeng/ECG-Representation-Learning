@@ -15,6 +15,7 @@ from torchvision.transforms import Compose  # just a nice wrapper, and not 2D im
 from torch.utils.data import Dataset
 
 from ecg_transformer.util import *
+import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess.transform import NormArg, Normalize, DynamicNormalize, Transform
 
 
@@ -100,8 +101,6 @@ class EcgDataset(Dataset):
 
 if __name__ == '__main__':
     from icecream import ic
-
-    import ecg_transformer.util.ecg as ecg_util
 
     def sanity_check():
         dnm = 'CHAP-SHAO'
