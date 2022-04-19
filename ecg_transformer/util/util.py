@@ -282,7 +282,7 @@ def is_float(x: Any, no_int=False, no_sci=False) -> bool:
         return False
 
 
-def log_dict(d: Dict, with_color=True, pad_float: int = 5, sep=': ') -> str:
+def log_dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', **kwargs) -> str:
     """
     Syntactic sugar for logging dict with coloring for console output
     """
@@ -299,8 +299,7 @@ def log_dict(d: Dict, with_color=True, pad_float: int = 5, sep=': ') -> str:
                     return logi(v) if with_color else v
             else:
                 return logi(v) if with_color else v
-    if d is None:
-        d = dict()
+    d = d or kwargs or dict()
     pairs = (f'{k}{sep}{_log_val(v)}' for k, v in d.items())
     pref = log_s('{', c='m') if with_color else '{'
     post = log_s('}', c='m') if with_color else '}'

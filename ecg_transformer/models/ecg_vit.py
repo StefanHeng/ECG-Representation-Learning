@@ -6,14 +6,19 @@ Intended fpr vanilla, supervised training
 import os
 import re
 
+import numpy as np
 import torch
 from torch import nn
 from transformers import PretrainedConfig
 from vit_pytorch import ViT
 from vit_pytorch.recorder import Recorder
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import seaborn as sns
 
 from ecg_transformer.util import *
 from ecg_transformer.util.models import ModelOutput
+import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import get_ptbxl_dataset
 
 
@@ -147,11 +152,63 @@ class EcgVitVisualizer:
         self.model = model
         self.model.eval()
 
-    def __call__(self, sample_values: torch.FloatTensor):
+    def __call__(self, sample_values: torch.FloatTensor, labels: torch.LongTensor):
+        L, patch_size = sample_values.size(-1), self.model.config.patch_size
+        assert L % patch_size == 0, f'Signal sample length must be divisible by model patch size, ' \
+                                    f'but got {log_dict(L=L, patch_size=patch_size)}'
         vit = Recorder(self.model.vit)  # can't use my forward pass cos return is different
-        logits, attns = vit(sample_values.unsqueeze(0).unsqueeze(-2))  # Add dummy batch & height dimension
+        with torch.no_grad():
+            logits, attn = vit(sample_values.unsqueeze(0).unsqueeze(-2))  # Add dummy batch & height dimension
         vit.eject()
-        ic(attns.shape)
+
+        # inspired by https://epfml.github.io/attention-cnn/;
+        # following the logic from https://github.com/jeonsworld/ViT-pytorch/blob/main/visualize_attention_map.ipynb
+        attn = attn.squeeze(0).mean(dim=0)  # average over all heads; B x H x L x P x P => L x P x P
+        attn += torch.eye(attn.size(1))  # reverse residual connections; TODO: why diagonals??
+        # ic(attn)
+        attn /= attn.sum(dim=-1, keepdim=True)  # normalize all keys for each query
+        # ic(attn.shape)
+
+        attn_res = torch.empty_like(attn)
+        attn_res[0] = attn[0]
+        for i in range(1, attn.size(0)):  # start from the bottom, multiply out the attentions on higher layers
+            attn_res[i] = attn[i] @ attn[i - 1]
+        attn_res = attn_res[:, 0, 1:]  # attention scores from each `cls` query to every other patch token on each layer
+        attn_res /= attn_res.max()  # normalize all scores, ready for visualization
+        assert torch.all((0 <= attn_res) & (attn_res <= 1))  # sanity check
+        sig, attn_res = sample_values.numpy(), attn_res.numpy()
+        # ic(attn_res.shape, attn_res)
+
+        # ic(logits.shape)
+        probs = torch.sigmoid(logits.squeeze())
+        top_n = max((probs > 0.8).sum(), 5)  # number of predictions to show
+        idxs_top = torch.argsort(probs, descending=True)[:top_n]
+        # ic(probs.shape)
+        fig, (ax_lb, ax_sig) = plt.subplots(1, 2, gridspec_kw=dict(width_ratios=[3, 10]))
+        ecg_util.plot_ecg(
+            sig, xlabel='timestep', ylabel='V', title='Input signal', legend=False, ax=ax_sig, gap_factor=1.5
+        )
+
+        # ys = np.concatenate([l.get_ydata() for l in ax_sig.lines])
+        # ma, mi = np.max(ys), np.min(ys)
+        mi, ma = ax_sig.get_ylim()
+        h = ma - mi
+        cmap = sns.color_palette('Blues_r', as_cmap=True)  # higher is more saturated
+        c_edge = cmap(1)
+        ic(ma, mi)
+
+        i_layer = -1
+        # ic(attn_res[i_layer].shape, cmap(attn_res[i_layer]).shape)
+        for i_pch, score in zip(range(L // patch_size), attn_res[i_layer]):
+            strt = i_pch * patch_size
+            # score = attn_res[i_layer, i_pch]
+            # ic(cmap(attn_res[i_layer, i_pch]))
+            rect = patches.Rectangle(xy=(strt, mi), width=patch_size, height=h, facecolor=cmap(score), alpha=score)
+            ax_sig.add_patch(rect)
+            if strt != 0:
+                ax_sig.axvline(x=strt, lw=0.2, c=c_edge)
+        plt.suptitle('Patch => [CLS] token Attention Map')
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -181,13 +238,12 @@ if __name__ == '__main__':
         id2code = config(f'datasets.{dnm}.code.code2id')
         id_norm = id2code[code_norm]
 
-        sig = None
+        inputs = None
         # for inputs in tqdm(dsets.test):
         for inputs in dsets.test:
             if inputs['labels'][id_norm] == 1:  # found a sample with normal heart beat
-                sig = inputs['sample_values']
                 break
-        assert sig is not None
+        assert inputs is not None
 
-        evv(sig)
+        evv(**inputs)
     check_visualize_attn()
