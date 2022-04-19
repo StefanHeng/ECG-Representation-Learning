@@ -3,9 +3,11 @@ Taken from [ECGDenoisingTool](https://github.com/zheng120/ECGDenoisingTool),
 used in paper *Optimal Multi-Stage Arrhythmia Classification Approach*
 """
 
+import sys
 import math
-from scipy import signal, stats
 
+import numpy as np
+from scipy import signal, stats
 
 from ecg_transformer.util.util import *
 

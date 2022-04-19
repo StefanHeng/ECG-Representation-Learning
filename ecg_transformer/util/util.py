@@ -516,15 +516,15 @@ def vals2colors(vals: Iterable[float], color_palette: str = 'Spectral_r'):
     return cmap(norm)
 
 
-def set_color_bar(vals, ax, color_palette: str = 'Spectral_r'):
+def set_color_bar(vals, ax, color_palette: str = 'Spectral_r', orientation: str = 'vertical'):
     vals = np.asarray(vals)
     norm = plt.Normalize(vmin=np.min(vals), vmax=np.max(vals))
     sm = plt.cm.ScalarMappable(cmap=color_palette, norm=norm)
     sm.set_array([])
     plt.sca(ax)
     plt.grid(False)
-    plt.colorbar(sm, cax=ax)
-    plt.xlabel('colorbar')  # doesn't seem to work
+    plt.colorbar(sm, cax=ax, orientation=orientation)
+    # plt.xlabel('colorbar')  # doesn't seem to work
 
 
 def barplot(

@@ -13,6 +13,7 @@ from vit_pytorch import ViT
 from vit_pytorch.recorder import Recorder
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.gridspec import GridSpec
 import seaborn as sns
 
 from ecg_transformer.util import *
@@ -125,6 +126,9 @@ class EcgVit(nn.Module):
         }
         self.meta_str = log_dict_p({'nm': cls_nm, 'in-sp': f'{C}x{L}', '#p': n_pch, '#l': n_l, '#h': n_h})
 
+    def to_str(self):
+        return f'{self.__class__.__qualname__}, {self.config.size}'
+
     @property
     def loss_reduction(self):
         return self._loss_reduction
@@ -158,18 +162,21 @@ def load_trained(model_key: str = 'ecg-vit-base'):
 
 
 class EcgVitVisualizer:
-    def __init__(self, model: EcgVit, palette_correct: str = 'YlGn', palette_incorrect: str = 'OrRd_r'):
+    def __init__(self, model: EcgVit, palette_correct: str = 'YlGn', palette_incorrect: str = 'OrRd'):
         self.model = model
         self.model.eval()
         self.palette_correct, self.palette_incorrect = palette_correct, palette_incorrect
 
     def __call__(self, sample_values: torch.FloatTensor, labels: torch.LongTensor):
+        assert sample_values.ndim ==2 and sample_values.size(0) == 12, \
+            f'Expect a single 12-lead signal but got {logi(sample_values.shape)}'
         L, patch_size = sample_values.size(-1), self.model.config.patch_size
         assert L % patch_size == 0, f'Signal sample length must be divisible by model patch size, ' \
                                     f'but got {log_dict(L=L, patch_size=patch_size)}'
         vit = Recorder(self.model.vit)  # can't use my forward pass cos return is different
         with torch.no_grad():
             logits, attn = vit(sample_values.unsqueeze(0).unsqueeze(-2))  # Add dummy batch & height dimension
+            loss = nn.BCEWithLogitsLoss()(input=logits.squeeze(), target=labels).item()
         vit.eject()
 
         # inspired by https://epfml.github.io/attention-cnn/;
@@ -193,19 +200,44 @@ class EcgVitVisualizer:
         idxs_top = torch.argsort(probs, descending=True)[:top_n]
         dnm = 'PTB-XL'
         id2code = config(f'datasets.{dnm}.code.id2code')
+        code2id = config(f'datasets.{dnm}.code.code2id')
         str_lbs = [id2code[idx] for idx in torch.nonzero(labels).squeeze().tolist()]
         str_preds, confs = [id2code[idx] for idx in idxs_top], probs[idxs_top].tolist()
+        pred_correct = [p in str_lbs for p in str_preds]
+        for lb in str_lbs:  # Also ensure predictions for each correct label is shown
+            if lb not in str_preds:
+                str_preds.append(lb)
+                confs.append(probs[code2id[lb]].item())
+                pred_correct.append(False)
 
         n_lb, n_pd = len(str_lbs), len(str_preds)
-        d_gs = dict(width_ratios=[3, 3, 32], height_ratios=[n_lb, n_pd, 2 * (n_lb+n_pd)])  # reserve empty spaces
-        fig, axs = plt.subplots(nrows=3, ncols=3, gridspec_kw=d_gs)
-        gs = axs[0, -1].get_gridspec()  # TODO: don't get this API, doesn't seem to matter???
-        # combine the right column as a single axis
-        for ax in join_its([axs[:, -1], axs[0, :2], axs[1, :2]]):
-            ax.remove()
-        ax_sig = fig.add_subplot(gs[:, -1])
-        ax_lb, ax_pd = fig.add_subplot(gs[0, :2]), fig.add_subplot(gs[1, :2])
-        ax_cb_c, ax_cb_i = axs[2, 0], axs[2, 1]
+        # d_gs = dict(width_ratios=[3, 3, 32], height_ratios=[n_lb, n_pd, 2 * (n_lb+n_pd)])  # reserve empty spaces
+        # fig, axs = plt.subplots(nrows=3, ncols=3, gridspec_kw=d_gs)
+        # gs = axs[0, -1].get_gridspec()  # TODO: don't get this API, doesn't seem to matter???
+        # # combine the right column as a single axis
+        # for ax in join_its([axs[:, -1], axs[0, :2], axs[1, :2]]):
+        #     ax.remove()
+        # ax_sig = fig.add_subplot(gs[:, -1])
+        # ax_lb, ax_pd = fig.add_subplot(gs[0, :2]), fig.add_subplot(gs[1, :2])
+        # ax_cb_c, ax_cb_i = axs[2, 0], axs[2, 1]
+
+        # fig = plt.figure(figsize=(20, 12), constrained_layout=True)
+        fig = plt.figure()
+        n_col_lb, n_col_sig, row_sep, col_sep = 6, 32, 1, 1
+        n_row, n_col = 2 * (n_lb+n_pd) + row_sep * 3, n_col_lb + n_col_sig + col_sep * 1
+        gs = GridSpec(n_row, n_col, figure=fig)
+        ax_lb = fig.add_subplot(gs[:n_lb, :n_col_lb])
+        ax_pd = fig.add_subplot(gs[n_lb+row_sep:n_lb+row_sep+n_pd, :n_col_lb])
+        # ax_cb_c = fig.add_subplot(gs[n_lb+row_sep+n_pd+row_sep:, 0:2])
+        # ax_cb_i = fig.add_subplot(gs[n_lb+row_sep+n_pd+row_sep:, n_col_lb-5:n_col_lb-5+2])
+        idx_strt_bar = n_lb+row_sep+n_pd+row_sep
+        h_bar = 1
+        ax_cb_c = fig.add_subplot(gs[idx_strt_bar:idx_strt_bar+h_bar, :n_col_lb])
+        ax_cb_i = fig.add_subplot(gs[idx_strt_bar+h_bar+row_sep:idx_strt_bar+h_bar+row_sep+h_bar, :n_col_lb])
+        ax_sig = fig.add_subplot(gs[:, n_col_lb+col_sep:])
+
+        loss = f'{loss:.3f}'
+        plt.figtext(0.1, 0.96, rf'$loss = {loss}$')
 
         cmap_correct = sns.color_palette(self.palette_correct, as_cmap=True)  # with integer 1 the color is weird
         cmap_incorrect = sns.color_palette(self.palette_incorrect, as_cmap=True)
@@ -214,17 +246,18 @@ class EcgVitVisualizer:
         barplot(x=str_lbs, y=y, ax=ax_lb, palette=cs, orient='h', width=w, xlabel='Ground truths', with_value=False)
         y = [round(c*100, 1) for c in confs]
         vals = y + [100]
-        cs = [(cmap_correct(c) if p in str_lbs else cmap_incorrect(c)) for p, c in zip(str_preds, confs)]
+        cs = [(cmap_correct(conf) if c else cmap_incorrect(conf)) for p, conf, c in zip(str_preds, confs, pred_correct)]
         barplot(
             x=str_preds, y=y, ax=ax_pd, palette=cs, orient='h', width=w, xlabel='Predictions', ylabel='Confidence'
         )
-        ma, mi = min(round(max(confs)*100, -1)+10, 100+5), max(round(min(confs)*100, -1)-10, 0)
+        ma, mi = 105, max(round(min(confs)*100, -1)-10, 0)  # for there's always 100-confidence ground truth
+        ic(ma, mi)
         for ax in [ax_lb, ax_pd]:
             ax.set_xlim([mi, ma])
         ax_lb.axes.xaxis.set_ticks([])
         ax_pd.axes.xaxis.set_ticks([])
-        set_color_bar(vals, ax=ax_cb_c, color_palette=self.palette_correct)
-        set_color_bar(vals, ax=ax_cb_i, color_palette=self.palette_incorrect)
+        set_color_bar(vals, ax=ax_cb_c, color_palette=self.palette_correct, orientation='horizontal')
+        set_color_bar(vals, ax=ax_cb_i, color_palette=self.palette_incorrect, orientation='horizontal')
 
         ecg_util.plot_ecg(
             sig, xlabel='timestep', ylabel='V', title='Input signal', legend=False, ax=ax_sig, gap_factor=1.5
@@ -241,12 +274,14 @@ class EcgVitVisualizer:
             ax_sig.add_patch(rect)
             if strt != 0:
                 ax_sig.axvline(x=strt, lw=0.2, c=c_edge)
-
-        plt.suptitle('Patch => [CLS] token Attention Map')
+        plt.suptitle(f'[CLS] <= Patch token Attention Map at layer {i_layer+1}')
+        # fig.tight_layout()
         plt.show()
 
 
 if __name__ == '__main__':
+    import pickle
+
     from icecream import ic
 
     def check_forward_pass():
@@ -262,11 +297,11 @@ if __name__ == '__main__':
         ic(sigs.shape, loss_, logits_.shape)
     # check_forward_pass()
 
-    def check_visualize_attn():
-        model = load_trained()
-        evv = EcgVitVisualizer(model)
+    mdl = load_trained()
+    evv = EcgVitVisualizer(mdl)
+    dsets = get_ptbxl_dataset(type='original', pad=mdl.config.patch_size, std_norm=True)
 
-        dsets = get_ptbxl_dataset(type='original', pad=model.config.patch_size, std_norm=True)
+    def check_visualize_attn():
         dnm = 'PTB-XL'
         code_norm = 'NORM'  # normal heart beat
         code2id = config(f'datasets.{dnm}.code.code2id')
@@ -280,4 +315,17 @@ if __name__ == '__main__':
         assert inputs is not None
 
         evv(**inputs)
-    check_visualize_attn()
+    # check_visualize_attn()
+
+    def visualize_a_few():
+        from ecg_transformer.models.evaluate import get_eval_path
+
+        fnm = 'eval_edge_example_samples, 2022-04-19_00-41-46'
+        path_out = os.path.join(get_eval_path(), 'samples', mdl.to_str())
+        with open(os.path.join(path_out, f'{fnm}.pkl'), 'rb') as f:
+            samples = pickle.load(f)
+        ic(samples)
+        idx_high_loss = get(samples, 'test.high')[1]  # pick the 1st one arbitrarily
+        sample = dsets.test[idx_high_loss]
+        evv(**sample)
+    visualize_a_few()
