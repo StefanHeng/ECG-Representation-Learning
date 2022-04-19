@@ -1,73 +1,13 @@
 import math
-from typing import Dict, Iterable
+from typing import Dict
 from collections import OrderedDict
 
 import numpy as np
-import pandas as pd
-from pandas.api.types import CategoricalDtype
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import seaborn as sns
 
 from ecg_transformer.util import *
-
-
-def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
-    """
-    Modifies the bar width of a matplotlib bar plot
-
-    Credit: https://stackoverflow.com/a/44542112/10732321
-    """
-    ca(orient=orient)
-    is_vert = orient in ['v', 'vertical']
-    for patch in ax.patches:
-        current_width = patch.get_width() if is_vert else patch.get_height()
-        diff = current_width - width
-        patch.set_width(width) if is_vert else patch.set_height(width)
-        patch.set_x(patch.get_x() + diff * .5) if is_vert else patch.set_y(patch.get_y() + diff * .5)
-
-
-def vals2colors(vals: Iterable[float], color_palette: str = 'Spectral_r'):
-    vals = np.asarray(vals)
-    cmap = sns.color_palette(color_palette, as_cmap=True)
-    mi, ma = np.min(vals), np.max(vals)
-    norm = (vals - mi) / (ma - mi)
-    return cmap(norm)
-
-
-def set_color_bar(vals, ax, color_palette: str = 'Spectral_r'):
-    vals = np.asarray(vals)
-    norm = plt.Normalize(vmin=np.min(vals), vmax=np.max(vals))
-    sm = plt.cm.ScalarMappable(cmap=color_palette, norm=norm)
-    sm.set_array([])
-    plt.sca(ax)
-    plt.grid(False)
-    plt.colorbar(sm, cax=ax)
-    plt.xlabel('colorbar')
-
-
-def my_barplot(
-        x: Iterable[str], y: Iterable[float], orient: str = 'v', with_value: bool = True, width: float = 0.5,
-        xlabel: str = None, ylabel: str = None,
-        ax=None, palette=None, **kwargs
-):
-    ca(orient=orient)
-    df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
-    cat = CategoricalDtype(categories=x, ordered=True)  # Enforce ordering in plot
-    df['x'] = df['x'].astype(cat, copy=False)
-    is_vert = orient in ['v', 'vertical']
-    x, y = ('x', 'y') if is_vert else ('y', 'x')
-    if ax:
-        kwargs['ax'] = ax
-    if palette is not None:
-        kwargs['palette'] = palette
-    ax = sns.barplot(data=df, x=x, y=y, **kwargs)
-    if with_value:
-        ax.bar_label(ax.containers[0])
-    if width:
-        change_bar_width(ax, width, orient=orient)
-    ax.set_xlabel(xlabel) if is_vert else ax.set_ylabel(xlabel)  # if None just clears the label
-    ax.set_ylabel(ylabel) if is_vert else ax.set_xlabel(ylabel)
 
 
 class PtbxlAucVisualizer:
@@ -135,7 +75,7 @@ class PtbxlAucVisualizer:
             ax, codes, codes_print, group_desc = meta['ax'], meta['codes'], meta['codes_print'], meta['group_desc']
             cs_ = cs[clr_count:clr_count + len(codes)]
             clr_count += len(codes) + color_gap
-            my_barplot(x=codes_print, y=[self.code2auc[c] for c in codes], ax=ax, palette=cs_, width=0.375, ylabel=None)
+            barplot(x=codes_print, y=[self.code2auc[c] for c in codes], ax=ax, palette=cs_, width=0.375, ylabel=None)
             ax.set_xlabel(group_desc, style='italic')
 
         aucs_all = np.asarray(aucs_all)
@@ -155,26 +95,18 @@ class PtbxlAucVisualizer:
         codes = sorted(self.code2auc, key=self.code2auc.get, reverse=True)
         dnm = 'PTB-XL'
         code2meta = config(f'datasets.{dnm}.code.codes')
-        # ic(code2meta)
 
         def aspect2aspect_print(aspect):
             return rf'$\it{{{aspect.capitalize()}}}$'
 
         def code2aspect(code):
-            # return ', '.join(aspect.capitalize() for aspect in code2meta[code]['aspects'])
             return ', '.join(aspect2aspect_print(aspect) for aspect in code2meta[code]['aspects'])
         code2desc = config(f'datasets.{dnm}.code.code2description')
         codes_print = [f'{code2aspect(c)}: {code2desc[c].capitalize()}' for c in codes]
 
-        # df = pd.DataFrame([dict(code=c_p, auc=self.code2auc[code]) for code, c_p in zip(codes, codes_print)])
-        # cat = CategoricalDtype(categories=codes_print, ordered=True)
-        # df.code = df.code.astype(cat, copy=False)
-
         plt.figure(figsize=(14, 14))
         y = [self.code2auc[c] for c in codes]
-        my_barplot(x=codes_print, y=y, palette='mako_r', orient='h', xlabel='SCP code', ylabel='AUROC (%)')
-        # ax = sns.barplot(data=df, x='auc', y='code', palette='mako_r')
-        # ax.bar_label(ax.containers[0])
+        barplot(x=codes_print, y=y, palette='mako_r', orient='h', xlabel='SCP code', ylabel='AUROC (%)')
 
         title = title or 'PTB-XL per-code AUROC sorted bar plot'
         plt.title(title)

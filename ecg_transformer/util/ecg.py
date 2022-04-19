@@ -58,7 +58,9 @@ def plot_ecg(
     n_lead = arr.shape[0]
     height = (abs(np.max(arr)) + abs(np.min(arr))) / 4 * gap_factor  # Empirical
 
-    if not ax:
+    if ax:
+        plt.sca(ax)
+    else:
         plt.figure(figsize=(16, 13))
         ax = plt.gca()
 

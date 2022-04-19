@@ -17,11 +17,13 @@ import sty
 import colorama
 import numpy as np
 import pandas as pd
+from pandas.api.types import CategoricalDtype
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .data_path import PATH_BASE, DIR_PROJ, PKG_NM
+from ecg_transformer.util.data_path import PATH_BASE, DIR_PROJ, PKG_NM
+from ecg_transformer.util.check_args import ca
 
 
 __all__ = [
@@ -33,7 +35,7 @@ __all__ = [
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'remove_1st_occurrence', 'stem', 'np_index', 'clipper',
     'is_on_colab', 'get_model_num_trainable_parameter',
-    'save_fig'
+    'save_fig', 'change_bar_width', 'vals2colors', 'set_color_bar', 'barplot'
 ]
 
 
@@ -489,6 +491,64 @@ def save_fig(title, save=True):
     if save:
         fnm = f'{title}, {now(for_path=True)}.png'
         plt.savefig(os.path.join(PATH_BASE, DIR_PROJ, 'plot', fnm), dpi=300)
+
+
+def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
+    """
+    Modifies the bar width of a matplotlib bar plot
+
+    Credit: https://stackoverflow.com/a/44542112/10732321
+    """
+    ca(orient=orient)
+    is_vert = orient in ['v', 'vertical']
+    for patch in ax.patches:
+        current_width = patch.get_width() if is_vert else patch.get_height()
+        diff = current_width - width
+        patch.set_width(width) if is_vert else patch.set_height(width)
+        patch.set_x(patch.get_x() + diff * .5) if is_vert else patch.set_y(patch.get_y() + diff * .5)
+
+
+def vals2colors(vals: Iterable[float], color_palette: str = 'Spectral_r'):
+    vals = np.asarray(vals)
+    cmap = sns.color_palette(color_palette, as_cmap=True)
+    mi, ma = np.min(vals), np.max(vals)
+    norm = (vals - mi) / (ma - mi)
+    return cmap(norm)
+
+
+def set_color_bar(vals, ax, color_palette: str = 'Spectral_r'):
+    vals = np.asarray(vals)
+    norm = plt.Normalize(vmin=np.min(vals), vmax=np.max(vals))
+    sm = plt.cm.ScalarMappable(cmap=color_palette, norm=norm)
+    sm.set_array([])
+    plt.sca(ax)
+    plt.grid(False)
+    plt.colorbar(sm, cax=ax)
+    plt.xlabel('colorbar')  # doesn't seem to work
+
+
+def barplot(
+        x: Iterable[str], y: Iterable[float], orient: str = 'v', with_value: bool = True, width: float = 0.5,
+        xlabel: str = None, ylabel: str = None,
+        ax=None, palette=None, **kwargs
+):
+    ca(orient=orient)
+    df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
+    cat = CategoricalDtype(categories=x, ordered=True)  # Enforce ordering in plot
+    df['x'] = df['x'].astype(cat, copy=False)
+    is_vert = orient in ['v', 'vertical']
+    x, y = ('x', 'y') if is_vert else ('y', 'x')
+    if ax:
+        kwargs['ax'] = ax
+    if palette is not None:
+        kwargs['palette'] = palette
+    ax = sns.barplot(data=df, x=x, y=y, **kwargs)
+    if with_value:
+        ax.bar_label(ax.containers[0])
+    if width:
+        change_bar_width(ax, width, orient=orient)
+    ax.set_xlabel(xlabel) if is_vert else ax.set_ylabel(xlabel)  # if None just clears the label
+    ax.set_ylabel(ylabel) if is_vert else ax.set_xlabel(ylabel)
 
 
 if __name__ == '__main__':

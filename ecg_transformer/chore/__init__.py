@@ -1,1 +1,1 @@
-from .plot import my_barplot
+from .plot import barplot

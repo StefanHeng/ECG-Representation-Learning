@@ -6,7 +6,6 @@ Intended fpr vanilla, supervised training
 import os
 import re
 
-import pandas as pd
 import torch
 from torch import nn
 from transformers import PretrainedConfig
@@ -20,7 +19,7 @@ from ecg_transformer.util import *
 from ecg_transformer.util.models import ModelOutput
 import ecg_transformer.util.ecg as ecg_util
 from ecg_transformer.preprocess import get_ptbxl_dataset
-from ecg_transformer.chore import my_barplot
+from ecg_transformer.chore import barplot
 
 
 class EcgVitConfig(PretrainedConfig):
@@ -149,9 +148,10 @@ def load_trained(model_key: str = 'ecg-vit-base'):
 
 
 class EcgVitVisualizer:
-    def __init__(self, model: EcgVit):
+    def __init__(self, model: EcgVit, palette_correct: str = 'YlGn', palette_incorrect: str = 'OrRd_r'):
         self.model = model
         self.model.eval()
+        self.palette_correct, self.palette_incorrect = palette_correct, palette_incorrect
 
     def __call__(self, sample_values: torch.FloatTensor, labels: torch.LongTensor):
         L, patch_size = sample_values.size(-1), self.model.config.patch_size
@@ -183,51 +183,41 @@ class EcgVitVisualizer:
         idxs_top = torch.argsort(probs, descending=True)[:top_n]
         dnm = 'PTB-XL'
         id2code = config(f'datasets.{dnm}.code.id2code')
-        for i in torch.nonzero(labels).squeeze().tolist():
-            ic(i, type(i))
         str_lbs = [id2code[idx] for idx in torch.nonzero(labels).squeeze().tolist()]
         str_preds, confs = [id2code[idx] for idx in idxs_top], probs[idxs_top].tolist()
-        ic(str_lbs)
 
-        # fig, (ax_lb, ax_sig) = plt.subplots(nrows=1, ncols=2, gridspec_kw=dict(width_ratios=[3, 10]))
         n_lb, n_pd = len(str_lbs), len(str_preds)
-        d_gs = dict(width_ratios=[3, 16], height_ratios=[n_lb, n_pd, 2* (n_lb+n_pd)])  # reserve empty spaces
-        fig, axs = plt.subplots(nrows=3, ncols=2, gridspec_kw=d_gs)
-        gs = axs[0, -1].get_gridspec()  # combine the right column as a single axis
-        for ax in axs[:, -1]:
+        d_gs = dict(width_ratios=[3, 3, 32], height_ratios=[n_lb, n_pd, 2 * (n_lb+n_pd)])  # reserve empty spaces
+        fig, axs = plt.subplots(nrows=3, ncols=3, gridspec_kw=d_gs)
+        gs = axs[0, -1].get_gridspec()  # TODO: don't get this API, doesn't seem to matter???
+        # for ax in axs[:, -1]:  # combine the right column as a single axis
+        for ax in join_its([axs[:, -1], axs[0, :2], axs[1, :2]]):
             ax.remove()
-        ic(gs[:, -1])
         ax_sig = fig.add_subplot(gs[:, -1])
-        # od_red = hex2rgb('#C65374', normalize=True)  # my one-dark theme colors
-        # od_green = hex2rgb('#98C379', normalize=True)
-        cmap_correct = sns.color_palette('Greens', as_cmap=True)  # with integer 1 the color is weird
-        ic(cmap_correct(1.), cmap_correct(0.99), cmap_correct(0.9))
-        for i in range(11):
-            ic(i/10, cmap_correct(i/10))
-        cmap_incorrect = sns.color_palette('OrRd_r', as_cmap=True)
-        # cs = sum([[c_correct] * len(str_lbs), list(cmap_incorrect(confs))], start=[])
-        ic(str_lbs, str_preds)
-        # my_barplot(x=str_lbs + str_preds, y=[1] * len(str_lbs) + confs, ax=ax_lb, palette=cs, orient='h')
-        ax_lb, ax_pd = axs[0, 0], axs[1, 0]
-        axs[-1, 0].set_visible(False)
+        ax_lb, ax_pd = fig.add_subplot(gs[0, :2]), fig.add_subplot(gs[1, :2])
+        ax_cb_c, ax_cb_i = axs[2, 0], axs[2, 1]
+
+        cmap_correct = sns.color_palette(self.palette_correct, as_cmap=True)  # with integer 1 the color is weird
+        # cmap_correct = sns.color_palette('RdYlGn', as_cmap=True)
+        cmap_incorrect = sns.color_palette(self.palette_incorrect, as_cmap=True)
+        # ax_lb, ax_pd = axs[0, 0], axs[1, 0]
+        # axs[-1, 0].set_visible(False)
         y, cs = [100] * len(str_lbs), [cmap_correct(1.)] * len(str_lbs)
-        ic(cs)
-        my_barplot(
-            x=str_lbs, y=y, ax=ax_lb, palette=cs, orient='h', width=0.25, xlabel='Ground truths', with_value=False
-        )
+        w = 0.125
+        barplot(x=str_lbs, y=y, ax=ax_lb, palette=cs, orient='h', width=w, xlabel='Ground truths', with_value=False)
         y = [round(c*100, 1) for c in confs]
+        vals = y + [100]
         cs = [(cmap_correct(c) if p in str_lbs else cmap_incorrect(c)) for p, c in zip(str_preds, confs)]
-        ic(confs, cs)
-        my_barplot(
-            x=str_preds, y=y, ax=ax_pd, palette=cs, orient='h', width=0.25, xlabel='Predictions', ylabel='Confidence'
+        barplot(
+            x=str_preds, y=y, ax=ax_pd, palette=cs, orient='h', width=w, xlabel='Predictions', ylabel='Confidence'
         )
         ma, mi = min(round(max(confs)*100, -1)+10, 100+5), max(round(min(confs)*100, -1)-10, 0)
-        ic(ma, mi)
         for ax in [ax_lb, ax_pd]:
             ax.set_xlim([mi, ma])
         ax_lb.axes.xaxis.set_ticks([])
         ax_pd.axes.xaxis.set_ticks([])
-        # ax.axes.yaxis.set_ticks([])
+        set_color_bar(vals, ax=ax_cb_c, color_palette=self.palette_correct)
+        set_color_bar(vals, ax=ax_cb_i, color_palette=self.palette_incorrect)
 
         ecg_util.plot_ecg(
             sig, xlabel='timestep', ylabel='V', title='Input signal', legend=False, ax=ax_sig, gap_factor=1.5
@@ -236,7 +226,6 @@ class EcgVitVisualizer:
         h = ma - mi
         cmap = sns.color_palette('Blues_r', as_cmap=True)  # higher is more saturated
         c_edge = cmap(1)
-        ic(ma, mi)
         i_layer = -1
         for i_pch, attn_score in zip(range(L // patch_size), attn_res[i_layer]):
             strt = i_pch * patch_size
@@ -251,7 +240,6 @@ class EcgVitVisualizer:
 
 
 if __name__ == '__main__':
-    from tqdm import tqdm
     from icecream import ic
 
     def check_forward_pass():
