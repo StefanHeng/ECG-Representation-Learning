@@ -16,8 +16,11 @@ in transformers in Natural Language Processing and Computer Vision.
 | Georgia 12-lead ECG Challenge (G12EC) Database                                                                                                           | 10,344    |
 | [A 12-lead electrocardiogram database for arrhythmia research covering more than 10,000 patients](https://figshare.com/collections/ChapmanECG/4560497/2) | 10,646    |
 | [Test set](https://zenodo.org/record/3765780#.YX39IC-B1qs) from paper *Automatic diagnosis of the 12-lead ECG using a deep neural network*               | 827       |
+| [MIT-BIH Arrhythmia Database](https://physionet.org/content/mitdb/1.0.0/)                                                                                |   48      |
+| [MIMIC-IV-ECG: Diagnostic Electrocardiogram Matched Subset](https://physionet.org/content/mimic-iv-ecg/1.0/)                                             | 800,000   |
+| [Abdominal and Direct Fetal ECG Database](https://physionet.org/content/adfecgdb/1.0.0/)                                                                 |       5   |
 
-Note that all entires apart from the last one are part of the *PhysioNet - Computing in Cardiology Challenge 2021* (CinC21). We collect the dataset from the original publishing source if available since the versions from CinC21 had records removed. 
+Note that all entires apart from *_Test set from paper Automatic diagnosis of the 12-lead ECG using a deep neural network_* are part of the *PhysioNet - Computing in Cardiology Challenge 2021* (CinC21). We collect the dataset from the original publishing source if available since the versions from CinC21 had records removed. 
 
 
 
